@@ -1,0 +1,397 @@
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
+
+const connectionString = process.env["DATABASE_URL"];
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required to seed the ROPES demo database.");
+}
+
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
+
+async function main() {
+  await prisma.auditLog.deleteMany();
+  await prisma.fulcrumRecord.deleteMany();
+  await prisma.fulcrumApp.deleteMany();
+  await prisma.fulcrumConnection.deleteMany();
+  await prisma.vehicleBooking.deleteMany();
+  await prisma.trip.deleteMany();
+  await prisma.vehicle.deleteMany();
+  await prisma.rangerProgram.deleteMany();
+  await prisma.project.deleteMany();
+  await prisma.membership.deleteMany();
+  await prisma.role.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.organisation.deleteMany();
+
+  const roles = await createRoles();
+
+  const enarah = await prisma.organisation.create({
+    data: {
+      name: "Demo Enarah Services",
+      slug: "demo-enarah-services",
+      type: "ENARAH",
+      isDemo: true,
+    },
+  });
+
+  const partner = await prisma.organisation.create({
+    data: {
+      name: "ROPES Demo Aboriginal Corporation",
+      slug: "ropes-demo-aboriginal-corporation",
+      type: "DEMO",
+      isDemo: true,
+    },
+  });
+
+  const users = await createDemoUsers();
+
+  await prisma.membership.createMany({
+    data: [
+      {
+        organisationId: enarah.id,
+        userId: users.daryl.id,
+        roleId: roles.platformOwner.id,
+      },
+      {
+        organisationId: partner.id,
+        userId: users.daryl.id,
+        roleId: roles.enarahAdmin.id,
+      },
+      {
+        organisationId: partner.id,
+        userId: users.operationsManager.id,
+        roleId: roles.operationsManager.id,
+      },
+      {
+        organisationId: partner.id,
+        userId: users.headRanger.id,
+        roleId: roles.headRanger.id,
+      },
+      {
+        organisationId: partner.id,
+        userId: users.ranger.id,
+        roleId: roles.fieldStaff.id,
+      },
+      {
+        organisationId: partner.id,
+        userId: users.funderViewer.id,
+        roleId: roles.readOnlyPartner.id,
+      },
+    ],
+  });
+
+  const project = await prisma.project.create({
+    data: {
+      organisationId: partner.id,
+      name: "Demo Country and Waterways Project",
+      code: "DEMO-CW-001",
+      description:
+        "Fake project for testing ROPES project, trip and Fulcrum relationships.",
+      fundingStream: "Demo Ranger Support Grant",
+      startsOn: new Date("2026-07-01T00:00:00.000Z"),
+      endsOn: new Date("2027-06-30T00:00:00.000Z"),
+      isDemo: true,
+    },
+  });
+
+  const rangerProgram = await prisma.rangerProgram.create({
+    data: {
+      organisationId: partner.id,
+      projectId: project.id,
+      name: "Demo North Country Rangers",
+      description:
+        "Fake ranger program for validating organisation-scoped operations data.",
+      region: "Demo North Region",
+      isDemo: true,
+    },
+  });
+
+  const trip = await prisma.trip.create({
+    data: {
+      organisationId: partner.id,
+      projectId: project.id,
+      rangerProgramId: rangerProgram.id,
+      leadUserId: users.headRanger.id,
+      title: "Demo Water Point Inspection Trip",
+      purpose:
+        "Fake trip used to test journey management, vehicle booking and Fulcrum links.",
+      status: "PLANNED",
+      destination: "Demo Water Point 7",
+      startsAt: new Date("2026-08-10T22:30:00.000Z"),
+      endsAt: new Date("2026-08-12T07:30:00.000Z"),
+      isDemo: true,
+    },
+  });
+
+  const vehicles = await prisma.vehicle.createManyAndReturn({
+    data: [
+      {
+        organisationId: partner.id,
+        name: "Demo LandCruiser 1",
+        registration: "DEMO-001",
+        make: "Toyota",
+        model: "LandCruiser",
+        year: 2022,
+        status: "BOOKED",
+        odometerKm: 48210,
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        name: "Demo Ranger Ute",
+        registration: "DEMO-002",
+        make: "Ford",
+        model: "Ranger",
+        year: 2021,
+        status: "AVAILABLE",
+        odometerKm: 61540,
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        name: "Demo Troopy",
+        registration: "DEMO-003",
+        make: "Toyota",
+        model: "Troopcarrier",
+        year: 2020,
+        status: "MAINTENANCE",
+        odometerKm: 73400,
+        isDemo: true,
+      },
+    ],
+  });
+
+  await prisma.vehicleBooking.create({
+    data: {
+      organisationId: partner.id,
+      vehicleId: vehicles[0].id,
+      tripId: trip.id,
+      bookedByUserId: users.operationsManager.id,
+      status: "APPROVED",
+      startsAt: trip.startsAt,
+      endsAt: trip.endsAt,
+      notes: "Fake booking linked to the demo inspection trip.",
+      isDemo: true,
+    },
+  });
+
+  const fulcrumConnection = await prisma.fulcrumConnection.create({
+    data: {
+      organisationId: partner.id,
+      name: "Demo Fulcrum Connection",
+      status: "READY_FOR_SETUP",
+      accountLabel: "Fake Fulcrum account - no token stored",
+      isDemo: true,
+    },
+  });
+
+  const fulcrumApp = await prisma.fulcrumApp.create({
+    data: {
+      organisationId: partner.id,
+      fulcrumConnectionId: fulcrumConnection.id,
+      projectId: project.id,
+      name: "Demo Water Point Inspection Form",
+      description:
+        "Fake Fulcrum app metadata for testing the module shell and data model.",
+      externalAppId: "demo-fulcrum-app-water-points",
+      recordCount: 2,
+      isDemo: true,
+    },
+  });
+
+  await prisma.fulcrumRecord.createMany({
+    data: [
+      {
+        organisationId: partner.id,
+        fulcrumConnectionId: fulcrumConnection.id,
+        fulcrumAppId: fulcrumApp.id,
+        projectId: project.id,
+        tripId: trip.id,
+        externalRecordId: "demo-record-water-point-001",
+        status: "complete",
+        latitude: -23.7012,
+        longitude: 133.8823,
+        capturedAt: new Date("2026-08-11T01:45:00.000Z"),
+        rawJson: {
+          demo: true,
+          siteName: "Demo Water Point 7",
+          condition: "Good",
+          photoStatus: "Fake photo placeholder only",
+        },
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        fulcrumConnectionId: fulcrumConnection.id,
+        fulcrumAppId: fulcrumApp.id,
+        projectId: project.id,
+        tripId: trip.id,
+        externalRecordId: "demo-record-water-point-002",
+        status: "needs-review",
+        latitude: -23.7144,
+        longitude: 133.9011,
+        capturedAt: new Date("2026-08-11T03:10:00.000Z"),
+        rawJson: {
+          demo: true,
+          siteName: "Demo Water Point 8",
+          condition: "Follow-up required",
+          issue: "Fake broken trough note",
+        },
+        isDemo: true,
+      },
+    ],
+  });
+
+  await prisma.auditLog.createMany({
+    data: [
+      {
+        organisationId: partner.id,
+        actorUserId: users.daryl.id,
+        action: "CREATED",
+        entityType: "Organisation",
+        entityId: partner.id,
+        summary: "Created fake demo organisation seed data.",
+        metadata: { demo: true },
+      },
+      {
+        organisationId: partner.id,
+        actorUserId: users.operationsManager.id,
+        action: "APPROVED",
+        entityType: "VehicleBooking",
+        summary: "Approved fake vehicle booking for demo trip.",
+        metadata: { demo: true },
+      },
+      {
+        organisationId: partner.id,
+        actorUserId: users.daryl.id,
+        action: "SYNC_STARTED",
+        entityType: "FulcrumConnection",
+        entityId: fulcrumConnection.id,
+        summary: "Recorded fake Fulcrum sync placeholder with no API call.",
+        metadata: { demo: true, externalConnection: false },
+      },
+    ],
+  });
+
+  console.log("Seeded fake ROPES demo data.");
+}
+
+async function createRoles() {
+  const [
+    platformOwner,
+    enarahAdmin,
+    organisationAdmin,
+    operationsManager,
+    headRanger,
+    fieldStaff,
+    readOnlyPartner,
+  ] = await Promise.all([
+    prisma.role.create({
+      data: {
+        name: "Platform Owner",
+        description: "Full control across the whole platform.",
+      },
+    }),
+    prisma.role.create({
+      data: {
+        name: "Enarah Admin",
+        description: "Can support Enarah and partner organisation setup.",
+      },
+    }),
+    prisma.role.create({
+      data: {
+        name: "Organisation Admin",
+        description: "Can manage one partner organisation.",
+      },
+    }),
+    prisma.role.create({
+      data: {
+        name: "Operations Manager",
+        description: "Can manage trips, vehicles, staff allocation and reports.",
+      },
+    }),
+    prisma.role.create({
+      data: {
+        name: "Ranger Coordinator / Head Ranger",
+        description: "Can coordinate trips, ranger activity and field records.",
+      },
+    }),
+    prisma.role.create({
+      data: {
+        name: "Field Staff / Ranger",
+        description: "Can view assigned trips and submit field updates.",
+      },
+    }),
+    prisma.role.create({
+      data: {
+        name: "Read-only Partner / Funder",
+        description: "Can view approved dashboards and reports.",
+      },
+    }),
+  ]);
+
+  return {
+    platformOwner,
+    enarahAdmin,
+    organisationAdmin,
+    operationsManager,
+    headRanger,
+    fieldStaff,
+    readOnlyPartner,
+  };
+}
+
+async function createDemoUsers() {
+  const [daryl, operationsManager, headRanger, ranger, funderViewer] =
+    await Promise.all([
+      prisma.user.create({
+        data: {
+          name: "Daryl Clarke - Demo",
+          email: "daryl.demo@example.test",
+          isDemo: true,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          name: "Demo Operations Manager",
+          email: "operations.manager@example.test",
+          isDemo: true,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          name: "Demo Head Ranger",
+          email: "head.ranger@example.test",
+          isDemo: true,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          name: "Demo Ranger",
+          email: "ranger@example.test",
+          isDemo: true,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          name: "Demo Funder Viewer",
+          email: "funder.viewer@example.test",
+          isDemo: true,
+        },
+      }),
+    ]);
+
+  return { daryl, operationsManager, headRanger, ranger, funderViewer };
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
