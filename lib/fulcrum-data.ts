@@ -1,4 +1,7 @@
 import type { OrganisationSlug } from "@/lib/dashboard-data";
+import { canReadOrganisation } from "@/lib/auth-session";
+import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
+import { isFulcrumTokenEncryptionConfigured } from "@/lib/fulcrum-token-encryption";
 
 export const fulcrumSections = [
   {
@@ -11,7 +14,7 @@ export const fulcrumSections = [
     label: "Connections",
     slug: "connections",
     href: "/fulcrum/connections",
-    description: "Fake connection status without tokens or API calls.",
+    description: "Encrypted Fulcrum token setup and connection status.",
   },
   {
     label: "Apps & Forms",
@@ -61,12 +64,14 @@ export type FulcrumSectionSlug = (typeof fulcrumSections)[number]["slug"];
 
 export type DemoFulcrumConnection = {
   id: string;
+  organisationId?: string;
   organisationSlug: OrganisationSlug;
   name: string;
   accountLabel: string;
-  status: "Not connected" | "Ready for setup" | "Demo offline";
+  status: "Connected" | "Not connected" | "Ready for setup" | "Demo offline";
   lastChecked: string;
   note: string;
+  tokenHint?: string;
 };
 
 export type DemoFulcrumApp = {
@@ -110,6 +115,14 @@ export type DemoSyncSetting = {
   note: string;
 };
 
+export type FulcrumConnectionState = {
+  connections: DemoFulcrumConnection[];
+  encryptionConfigured: boolean;
+  isDatabaseAvailable: boolean;
+  isDatabaseConfigured: boolean;
+  organisationId?: string;
+};
+
 export function isFulcrumSectionSlug(
   sectionSlug: string,
 ): sectionSlug is FulcrumSectionSlug {
@@ -130,6 +143,89 @@ export function getFulcrumConnectionsForOrganisation(
   return demoFulcrumConnections.filter(
     (connection) => connection.organisationSlug === organisationSlug,
   );
+}
+
+export async function getFulcrumConnectionState(
+  organisationSlug: OrganisationSlug,
+): Promise<FulcrumConnectionState> {
+  const encryptionConfigured = isFulcrumTokenEncryptionConfigured();
+
+  if (!isDatabaseConfigured()) {
+    return {
+      connections: getFulcrumConnectionsForOrganisation(organisationSlug),
+      encryptionConfigured,
+      isDatabaseAvailable: false,
+      isDatabaseConfigured: false,
+    };
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        fulcrumConnections: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+      },
+      where: {
+        slug: organisationSlug,
+      },
+    });
+
+    if (!organisation) {
+      return {
+        connections: getFulcrumConnectionsForOrganisation(organisationSlug),
+        encryptionConfigured,
+        isDatabaseAvailable: false,
+        isDatabaseConfigured: true,
+      };
+    }
+
+    if (!(await canReadOrganisation(prisma, organisation.id))) {
+      return {
+        connections: [],
+        encryptionConfigured,
+        isDatabaseAvailable: true,
+        isDatabaseConfigured: true,
+        organisationId: organisation.id,
+      };
+    }
+
+    const connections = organisation.fulcrumConnections.length
+      ? organisation.fulcrumConnections.map((connection) => ({
+          accountLabel: connection.accountLabel ?? "Fulcrum account",
+          id: connection.id,
+          lastChecked: connection.lastCheckedAt
+            ? formatDateTime(connection.lastCheckedAt)
+            : "Not checked",
+          name: connection.name,
+          note: connection.encryptedApiToken
+            ? "Encrypted token is stored. Raw tokens are never displayed after save."
+            : "No token is stored for this organisation.",
+          organisationId: connection.organisationId,
+          organisationSlug,
+          status: mapConnectionStatus(connection.status),
+          tokenHint: connection.tokenHint ?? undefined,
+        }))
+      : [createReadyConnectionPlaceholder(organisationSlug, organisation.id)];
+
+    return {
+      connections,
+      encryptionConfigured,
+      isDatabaseAvailable: true,
+      isDatabaseConfigured: true,
+      organisationId: organisation.id,
+    };
+  } catch {
+    return {
+      connections: getFulcrumConnectionsForOrganisation(organisationSlug),
+      encryptionConfigured,
+      isDatabaseAvailable: false,
+      isDatabaseConfigured: true,
+    };
+  }
 }
 
 export function getFulcrumAppsForOrganisation(
@@ -186,9 +282,44 @@ export function getFulcrumSummary(organisationSlug: OrganisationSlug) {
     {
       label: "API tokens",
       value: "0",
-      caption: "No Fulcrum credentials are stored.",
+      caption: "Raw Fulcrum tokens are never shown in the UI.",
     },
   ];
+}
+
+function createReadyConnectionPlaceholder(
+  organisationSlug: OrganisationSlug,
+  organisationId: string,
+): DemoFulcrumConnection {
+  return {
+    accountLabel: "No Fulcrum token saved",
+    id: "new-fulcrum-connection",
+    lastChecked: "Not checked",
+    name: "Fulcrum API connection",
+    note: "Save an API token to create an encrypted organisation-scoped connection.",
+    organisationId,
+    organisationSlug,
+    status: "Ready for setup",
+  };
+}
+
+function mapConnectionStatus(status: string): DemoFulcrumConnection["status"] {
+  if (status === "CONNECTED") {
+    return "Connected";
+  }
+
+  if (status === "READY_FOR_SETUP") {
+    return "Ready for setup";
+  }
+
+  return "Not connected";
+}
+
+function formatDateTime(value: Date) {
+  return new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(value);
 }
 
 export const assistantPrompts = [
@@ -233,7 +364,7 @@ const demoFulcrumConnections: DemoFulcrumConnection[] = [
     accountLabel: "Fake Fulcrum account - no token stored",
     status: "Demo offline",
     lastChecked: "Not checked",
-    note: "Connection status is a placeholder. No Fulcrum API request has been made.",
+    note: "Demo fallback only. Configure a database and encryption key to save an encrypted token.",
   },
   {
     id: "demo-enarah-connection",
@@ -242,7 +373,7 @@ const demoFulcrumConnections: DemoFulcrumConnection[] = [
     accountLabel: "Fake internal support account - no token stored",
     status: "Ready for setup",
     lastChecked: "Not checked",
-    note: "Setup is visual only until encrypted credential storage is added.",
+    note: "Demo fallback only. No Fulcrum API request has been made.",
   },
 ];
 

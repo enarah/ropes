@@ -231,18 +231,22 @@ model VehicleBooking {
 }
 
 model FulcrumConnection {
-  id             String                  @id @default(cuid())
-  organisationId String
-  name           String
-  status         FulcrumConnectionStatus @default(NOT_CONNECTED)
-  accountLabel   String?
-  lastSyncedAt   DateTime?
-  isDemo         Boolean                 @default(false)
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
-  organisation   Organisation            @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  fulcrumApps    FulcrumApp[]
-  fulcrumRecords FulcrumRecord[]
+  id                String                  @id @default(cuid())
+  organisationId    String
+  name              String
+  status            FulcrumConnectionStatus @default(NOT_CONNECTED)
+  accountLabel      String?
+  encryptedApiToken String?
+  tokenHint         String?
+  lastCheckedAt     DateTime?
+  lastSyncedAt      DateTime?
+  disabledAt        DateTime?
+  isDemo            Boolean                 @default(false)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  organisation      Organisation            @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  fulcrumApps       FulcrumApp[]
+  fulcrumRecords    FulcrumRecord[]
 
   @@index([organisationId])
 }

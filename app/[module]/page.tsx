@@ -10,7 +10,9 @@ type ModulePageProps = {
     module: string;
   }>;
   searchParams?: Promise<{
+    error?: string;
     org?: string;
+    saved?: string;
   }>;
 };
 
@@ -25,7 +27,8 @@ export default async function ModulePage({
   searchParams,
 }: ModulePageProps) {
   const { module } = await params;
-  const selectedOrganisationSlug = (await searchParams)?.org;
+  const resolvedSearchParams = await searchParams;
+  const selectedOrganisationSlug = resolvedSearchParams?.org;
 
   if (!isModuleSlug(module)) {
     notFound();
@@ -42,7 +45,13 @@ export default async function ModulePage({
   }
 
   if (module === "fulcrum") {
-    return <FulcrumShell selectedOrganisationSlug={selectedOrganisationSlug} />;
+    return (
+      <FulcrumShell
+        connectionError={resolvedSearchParams?.error}
+        connectionSaved={resolvedSearchParams?.saved}
+        selectedOrganisationSlug={selectedOrganisationSlug}
+      />
+    );
   }
 
   return (

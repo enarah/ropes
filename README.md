@@ -124,6 +124,27 @@ Only active memberships for that user are exposed to the organisation switcher
 and tenant guards. If auth providers are not configured, the local prototype
 keeps the clearly labelled fake/demo session fallback for development.
 
+## Fulcrum token encryption setup
+
+ROPES can store a per-organisation Fulcrum API token encrypted at rest for the
+connection setup flow. This does not run sync jobs or import Fulcrum records.
+
+Add a local encryption key to `.env` before saving tokens:
+
+```bash
+FULCRUM_TOKEN_ENCRYPTION_KEY="base64-encoded-32-byte-key"
+```
+
+Generate a local key with:
+
+```bash
+openssl rand -base64 32
+```
+
+The raw token is encrypted before database storage and is never returned to the
+client after save. The UI only shows connection status, account label, last
+checked time and a masked token hint.
+
 ## App foundation
 
 The current app includes:
@@ -149,17 +170,17 @@ The current app includes:
   status placeholders
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
-  pages
+  pages, plus encrypted per-organisation token storage for connection setup
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include user invitation/provisioning,
 route-level access blocking for every demo page, persisted structured trip
 participants/itineraries, vehicle record create/edit forms, full server-side
 booking calendar/scheduling features, real pre-start checklists, Fulcrum API
-calls, stored Fulcrum tokens, encrypted credential storage, AI provider calls,
-API keys or external service credentials. Persisted writes use Auth.js sessions
-when configured, or the clearly labelled fake/demo session fallback when auth is
-not configured for local development.
+sync jobs, Fulcrum record imports, Fulcrum app writes, AI provider calls, API
+keys or external service credentials. Persisted writes use Auth.js sessions when
+configured, or the clearly labelled fake/demo session fallback when auth is not
+configured for local development.
 
 ## Build principles
 

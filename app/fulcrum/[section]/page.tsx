@@ -7,7 +7,9 @@ type FulcrumSectionPageProps = {
     section: string;
   }>;
   searchParams?: Promise<{
+    error?: string;
     org?: string;
+    saved?: string;
   }>;
 };
 
@@ -22,7 +24,8 @@ export default async function FulcrumSectionPage({
   searchParams,
 }: FulcrumSectionPageProps) {
   const { section } = await params;
-  const selectedOrganisationSlug = (await searchParams)?.org;
+  const resolvedSearchParams = await searchParams;
+  const selectedOrganisationSlug = resolvedSearchParams?.org;
 
   if (section === "overview" || !isFulcrumSectionSlug(section)) {
     notFound();
@@ -30,6 +33,8 @@ export default async function FulcrumSectionPage({
 
   return (
     <FulcrumShell
+      connectionError={resolvedSearchParams?.error}
+      connectionSaved={resolvedSearchParams?.saved}
       sectionSlug={section}
       selectedOrganisationSlug={selectedOrganisationSlug}
     />
