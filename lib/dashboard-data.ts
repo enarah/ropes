@@ -367,7 +367,7 @@ function getMetricsForModule(
       {
         label: "Bookings",
         value: "Demo",
-        caption: "Booking workflows will be added in a later module.",
+        caption: "Demo booking views and overlap warnings only.",
       },
     ],
     projects: [

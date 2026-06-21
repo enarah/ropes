@@ -1,0 +1,159 @@
+import Link from "next/link";
+import { CalendarPlus, ClipboardCheck, Gauge, Wrench } from "lucide-react";
+import type { DemoVehicle, DemoVehicleBooking } from "@/lib/vehicles-data";
+import { organisationHref } from "@/lib/vehicles-data";
+import {
+  BookingCalendar,
+  formatDateTime,
+} from "@/components/vehicles/booking-calendar";
+
+type VehicleDetailProps = {
+  bookings: DemoVehicleBooking[];
+  organisationName: string;
+  organisationSlug: string;
+  vehicle: DemoVehicle;
+};
+
+export function VehicleDetail({
+  bookings,
+  organisationName,
+  organisationSlug,
+  vehicle,
+}: VehicleDetailProps) {
+  return (
+    <div className="space-y-6">
+      <section className="flex flex-col gap-4 border-b border-earth-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-ochre-700">
+            Vehicles / {organisationName}
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold text-charcoal-950">
+            {vehicle.name}
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
+            {vehicle.notes}
+          </p>
+        </div>
+        <Link
+          className="inline-flex w-fit items-center gap-2 rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white"
+          href={`${organisationHref("/vehicles/bookings/new", organisationSlug)}&vehicle=${vehicle.id}`}
+        >
+          <CalendarPlus aria-hidden="true" size={16} />
+          New booking
+        </Link>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <SummaryCard label="Status" value={vehicle.status} />
+        <SummaryCard label="Registration" value={vehicle.registration} />
+        <SummaryCard
+          label="Odometer"
+          value={`${vehicle.odometerKm.toLocaleString("en-AU")} km`}
+        />
+        <SummaryCard label="Base" value={vehicle.homeBase} />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Panel icon={<Gauge aria-hidden="true" size={18} />} title="Vehicle">
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <Fact label="Make" value={vehicle.make} />
+            <Fact label="Model" value={vehicle.model} />
+            <Fact label="Year" value={String(vehicle.year)} />
+            <Fact label="Equipment" value={vehicle.equipmentStatus} />
+          </dl>
+        </Panel>
+
+        <Panel
+          icon={<ClipboardCheck aria-hidden="true" size={18} />}
+          title="Pre-start status"
+        >
+          <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+            <p className="text-lg font-semibold text-charcoal-950">
+              {vehicle.preStartStatus}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-charcoal-600">
+              Pre-start capture is a placeholder in this MVP. Real checklists,
+              defects and sign-off workflow will be added later.
+            </p>
+          </div>
+        </Panel>
+      </section>
+
+      <Panel icon={<Wrench aria-hidden="true" size={18} />} title="Bookings">
+        {bookings.length ? (
+          <div className="divide-y divide-earth-100">
+            {bookings.map((booking) => (
+              <div
+                className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between"
+                key={booking.id}
+              >
+                <div>
+                  <p className="font-medium text-charcoal-950">
+                    {booking.tripTitle}
+                  </p>
+                  <p className="text-sm text-charcoal-600">
+                    {formatDateTime(booking.startsAt)} -{" "}
+                    {formatDateTime(booking.endsAt)}
+                  </p>
+                  <p className="mt-1 text-sm text-charcoal-600">
+                    {booking.purpose}
+                  </p>
+                </div>
+                <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                  {booking.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-charcoal-600">
+            No fake bookings exist for this vehicle in the selected
+            organisation.
+          </p>
+        )}
+      </Panel>
+
+      <BookingCalendar bookings={bookings} vehicles={[vehicle]} />
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-md border border-earth-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-medium text-charcoal-600">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-charcoal-950">{value}</p>
+    </article>
+  );
+}
+
+function Panel({
+  children,
+  icon,
+  title,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="rounded-md border border-earth-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center gap-2 text-charcoal-950">
+        {icon}
+        <h2 className="text-xl font-semibold">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-sand-100 p-3">
+      <dt className="text-xs font-semibold uppercase text-charcoal-600">
+        {label}
+      </dt>
+      <dd className="mt-1 font-semibold text-charcoal-950">{value}</dd>
+    </div>
+  );
+}
