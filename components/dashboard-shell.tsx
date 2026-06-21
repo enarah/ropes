@@ -18,11 +18,11 @@ import {
 } from "lucide-react";
 import {
   demoOrganisations,
-  fakeCurrentSession,
   getSelectedOrganisation,
   navigationItems,
   type ModuleSlug,
 } from "@/lib/dashboard-data";
+import type { DashboardAuthContext } from "@/lib/auth-session";
 
 const navIcons = {
   overview: Home,
@@ -39,15 +39,29 @@ const navIcons = {
 } satisfies Record<ModuleSlug, typeof Home>;
 
 type DashboardShellProps = {
+  authContext: DashboardAuthContext;
   children: React.ReactNode;
 };
 
-export function DashboardShell({ children }: DashboardShellProps) {
+type ShellOrganisation = DashboardAuthContext["availableOrganisations"][number];
+
+export function DashboardShell({
+  authContext,
+  children,
+}: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeSlug = getActiveSlug(pathname);
-  const selectedOrganisation = getSelectedOrganisation(searchParams.get("org"));
+  const organisations = authContext.availableOrganisations.length
+    ? authContext.availableOrganisations
+    : authContext.source === "demo-fallback"
+      ? demoOrganisations
+      : [];
+  const selectedOrganisation =
+    organisations.find(
+      (organisation) => organisation.slug === searchParams.get("org"),
+    ) ?? organisations[0] ?? getSelectedOrganisation(searchParams.get("org"));
 
   function handleOrganisationChange(organisationSlug: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -62,8 +76,12 @@ export function DashboardShell({ children }: DashboardShellProps) {
           <div className="sticky top-0 flex h-screen flex-col">
             <BrandBlock />
             <OrganisationSwitcher
+              authContext={authContext}
               onChange={handleOrganisationChange}
-              selectedOrganisationSlug={selectedOrganisation.slug}
+              organisations={organisations}
+              selectedOrganisationSlug={
+                organisations.length ? selectedOrganisation.slug : ""
+              }
               tone="dark"
             />
             <nav aria-label="Primary" className="flex-1 space-y-1 px-4 py-3">
@@ -79,12 +97,26 @@ export function DashboardShell({ children }: DashboardShellProps) {
             </nav>
             <div className="border-t border-white/10 p-5">
               <p className="text-sm font-semibold text-sand-50">
-                Foundation milestone
+                {getSessionLabel(authContext)}
               </p>
               <p className="mt-1 text-sm leading-6 text-sand-200">
-                Fake session for {fakeCurrentSession.user.name}. Auth comes
-                later.
+                {authContext.name}
+                {authContext.email ? ` / ${authContext.email}` : ""}
               </p>
+              {authContext.isAuthConfigured ? (
+                <Link
+                  className="mt-3 inline-flex rounded-md border border-white/15 px-3 py-2 text-sm font-semibold text-sand-50 hover:bg-white/10"
+                  href={
+                    authContext.source === "authenticated"
+                      ? "/api/auth/signout"
+                      : "/api/auth/signin"
+                  }
+                >
+                  {authContext.source === "authenticated"
+                    ? "Sign out"
+                    : "Sign in"}
+                </Link>
+              ) : null}
             </div>
           </div>
         </aside>
@@ -98,8 +130,12 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
             </div>
             <OrganisationSwitcher
+              authContext={authContext}
               onChange={handleOrganisationChange}
-              selectedOrganisationSlug={selectedOrganisation.slug}
+              organisations={organisations}
+              selectedOrganisationSlug={
+                organisations.length ? selectedOrganisation.slug : ""
+              }
               tone="light"
             />
             <nav
@@ -138,15 +174,20 @@ export function DashboardShell({ children }: DashboardShellProps) {
 }
 
 function OrganisationSwitcher({
+  authContext,
   onChange,
+  organisations,
   selectedOrganisationSlug,
   tone,
 }: {
+  authContext: DashboardAuthContext;
   onChange: (organisationSlug: string) => void;
+  organisations: readonly ShellOrganisation[];
   selectedOrganisationSlug: string;
   tone: "dark" | "light";
 }) {
   const isDark = tone === "dark";
+  const hasOrganisations = organisations.length > 0;
 
   return (
     <div
@@ -162,7 +203,7 @@ function OrganisationSwitcher({
         }`}
         htmlFor={`organisation-switcher-${tone}`}
       >
-        Demo organisation
+        Organisation
       </label>
       <select
         className={`mt-2 w-full rounded-md border px-3 py-2 text-sm font-medium outline-none ${
@@ -170,11 +211,15 @@ function OrganisationSwitcher({
             ? "border-white/10 bg-charcoal-900 text-sand-50"
             : "border-earth-200 bg-sand-50 text-charcoal-900"
         }`}
+        disabled={!hasOrganisations}
         id={`organisation-switcher-${tone}`}
         onChange={(event) => onChange(event.target.value)}
         value={selectedOrganisationSlug}
       >
-        {demoOrganisations.map((organisation) => (
+        {hasOrganisations ? null : (
+          <option value="">No active organisations</option>
+        )}
+        {organisations.map((organisation) => (
           <option key={organisation.slug} value={organisation.slug}>
             {organisation.name}
           </option>
@@ -185,7 +230,7 @@ function OrganisationSwitcher({
           isDark ? "text-sand-200" : "text-charcoal-600"
         }`}
       >
-        Uses fake current-user memberships only.
+        {getOrganisationSwitcherNote(authContext)}
       </p>
     </div>
   );
@@ -255,4 +300,30 @@ function getActiveSlug(pathname: string): ModuleSlug {
   const match = navigationItems.find((item) => item.slug === slug);
 
   return match?.slug ?? "overview";
+}
+
+function getSessionLabel(authContext: DashboardAuthContext) {
+  if (authContext.source === "authenticated") {
+    return "Signed in";
+  }
+
+  if (authContext.source === "unauthenticated") {
+    return "Authentication required";
+  }
+
+  return "Local demo fallback";
+}
+
+function getOrganisationSwitcherNote(authContext: DashboardAuthContext) {
+  if (authContext.source === "authenticated") {
+    return "Only active memberships for the signed-in user are listed.";
+  }
+
+  if (authContext.source === "unauthenticated") {
+    return "Sign in to load active organisation memberships.";
+  }
+
+  return authContext.isAuthConfigured
+    ? "Using demo fallback because the app database is not available."
+    : "Using local demo memberships until auth providers are configured.";
 }

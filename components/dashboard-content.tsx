@@ -13,7 +13,6 @@ import {
   Users,
 } from "lucide-react";
 import {
-  fakeCurrentSession,
   getDashboardStats,
   getModuleBySlug,
   getModuleRecords,
@@ -23,6 +22,8 @@ import {
   modulePanels,
   type ModuleSlug,
 } from "@/lib/dashboard-data";
+import { getDashboardAuthContext } from "@/lib/auth-session";
+import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
 const statIcons = [MapPinned, Truck, CalendarCheck, AlertTriangle];
 const moduleIconMap = {
@@ -44,10 +45,13 @@ type DashboardContentProps = {
   selectedOrganisationSlug?: string;
 };
 
-export function DashboardContent({
+export async function DashboardContent({
   moduleSlug,
   selectedOrganisationSlug,
 }: DashboardContentProps) {
+  const authContext = await getDashboardAuthContext(
+    isDatabaseConfigured() ? getPrismaClient() : undefined,
+  );
   const selectedOrganisation = getSelectedOrganisation(selectedOrganisationSlug);
   const activeModule = getModuleBySlug(moduleSlug, selectedOrganisation.slug);
   const ActiveIcon = moduleIconMap[moduleSlug];
@@ -78,8 +82,10 @@ export function DashboardContent({
             <p className="text-charcoal-600">{selectedOrganisation.type}</p>
           </div>
           <div className="rounded-md border border-earth-200 bg-white px-4 py-3">
-            <p className="font-semibold text-charcoal-950">Fake session</p>
-            <p className="text-charcoal-600">{fakeCurrentSession.user.name}</p>
+            <p className="font-semibold text-charcoal-950">Session</p>
+            <p className="text-charcoal-600">
+              {getSessionLabel(authContext.source)}
+            </p>
           </div>
         </div>
       </section>
@@ -212,6 +218,18 @@ export function DashboardContent({
       </section>
     </div>
   );
+}
+
+function getSessionLabel(source: "authenticated" | "demo-fallback" | "unauthenticated") {
+  if (source === "authenticated") {
+    return "Authenticated";
+  }
+
+  if (source === "unauthenticated") {
+    return "Not signed in";
+  }
+
+  return "Demo fallback";
 }
 
 function OverviewStats({

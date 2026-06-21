@@ -2,6 +2,7 @@ import {
   getSelectedOrganisation,
   type OrganisationSlug,
 } from "@/lib/dashboard-data";
+import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
 export type VehicleStatus = "Available" | "Booked" | "Maintenance";
@@ -235,6 +236,10 @@ async function getPersistedVehiclesForOrganisation(
       return null;
     }
 
+    if (!(await canReadOrganisation(prisma, organisation.id))) {
+      return [];
+    }
+
     return organisation.vehicles.map((vehicle) =>
       mapPersistedVehicleToDemoVehicle(organisationSlug, vehicle),
     );
@@ -269,6 +274,10 @@ async function getPersistedVehicleBookingsForOrganisation(
 
     if (!organisation) {
       return null;
+    }
+
+    if (!(await canReadOrganisation(prisma, organisation.id))) {
+      return [];
     }
 
     return organisation.vehicleBookings.map((booking) =>

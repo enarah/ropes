@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getFakeTenantGuardSession } from "@/lib/demo-session";
+import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
   createOrganisationWriteContext,
@@ -45,7 +45,7 @@ export async function createVehicleBookingAction(formData: FormData) {
       throw new Error("Booking start must be before booking end.");
     }
 
-    const session = await getFakeTenantGuardSession(prisma);
+    const session = await getTenantGuardSessionForRequest(prisma);
     const context = createOrganisationWriteContext({
       organisationId: organisation.id,
       relatedRecords: [{ label: "Vehicle", record: vehicle }],

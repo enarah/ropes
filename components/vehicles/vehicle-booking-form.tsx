@@ -70,7 +70,8 @@ export function VehicleBookingForm({
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
           This booking request is for {organisationName}. It checks overlaps
-          only within this organisation context and{" "}
+          only within this organisation context, uses the resolved auth/session
+          context and{" "}
           {persistenceEnabled
             ? "persists a tenant-guarded booking request."
             : "does not persist because a local database is not available."}

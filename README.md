@@ -10,7 +10,8 @@ This repository now contains the first ROPES application foundation: a
 Next.js, TypeScript and Tailwind dashboard shell, placeholder module
 navigation, demo dashboard content, an initial Prisma data model and
 tenant-guarded persistence for core trip and vehicle booking workflows when a
-local database is configured.
+local database is configured, and an Auth.js/NextAuth foundation for resolving
+signed-in users to organisation memberships.
 
 The first implementation stream will establish:
 
@@ -94,6 +95,35 @@ For deployment-style environments, use:
 npm run db:deploy
 ```
 
+## Authentication setup
+
+ROPES uses Auth.js/NextAuth with JWT sessions for the initial authentication
+foundation. Authentication is enabled only when a session secret and at least
+one OAuth provider are configured.
+
+Add local values to `.env`:
+
+```bash
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="generate-a-local-secret"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+MICROSOFT_ENTRA_ID_CLIENT_ID=""
+MICROSOFT_ENTRA_ID_CLIENT_SECRET=""
+MICROSOFT_ENTRA_ID_TENANT_ID=""
+```
+
+Generate a local secret with a command such as:
+
+```bash
+openssl rand -base64 32
+```
+
+The signed-in OAuth email must match a `User.email` in the ROPES database.
+Only active memberships for that user are exposed to the organisation switcher
+and tenant guards. If auth providers are not configured, the local prototype
+keeps the clearly labelled fake/demo session fallback for development.
+
 ## App foundation
 
 The current app includes:
@@ -104,6 +134,10 @@ The current app includes:
 - Mobile-friendly dashboard layout
 - Navigation for all core ROPES modules
 - Demo organisation switcher with organisation-scoped mock data views
+- Auth.js/NextAuth foundation with Google and Microsoft Entra ID provider
+  configuration through environment variables only
+- Signed-in user resolution from OAuth email to the app `User` record and
+  active organisation memberships
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
@@ -117,13 +151,14 @@ The current app includes:
   pages
 - Placeholder summary cards and module panels using clearly fake demo content
 
-This milestone intentionally does not include authentication, real
-organisation switching, persisted structured trip participants/itineraries,
-vehicle record create/edit forms, full server-side booking overlap enforcement,
-real pre-start checklists, Fulcrum API calls, stored Fulcrum tokens, encrypted
-credential storage, AI provider calls, API keys or external service
-credentials. The current persisted writes use fake/demo session data and the
-tenant guard foundation only.
+This milestone intentionally does not include user invitation/provisioning,
+route-level access blocking for every demo page, persisted structured trip
+participants/itineraries, vehicle record create/edit forms, full server-side
+booking overlap enforcement, real pre-start checklists, Fulcrum API calls,
+stored Fulcrum tokens, encrypted credential storage, AI provider calls, API keys
+or external service credentials. Persisted writes use Auth.js sessions when
+configured, or the clearly labelled fake/demo session fallback when auth is not
+configured for local development.
 
 ## Build principles
 

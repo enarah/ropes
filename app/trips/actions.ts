@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getFakeTenantGuardSession } from "@/lib/demo-session";
+import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
   createOrganisationWriteContext,
@@ -43,7 +43,7 @@ export async function saveTripAction(formData: FormData) {
       throw new Error("Trip was not found.");
     }
 
-    const session = await getFakeTenantGuardSession(prisma);
+    const session = await getTenantGuardSessionForRequest(prisma);
     const context = createOrganisationWriteContext({
       organisationId: organisation.id,
       relatedRecords: tripId
