@@ -48,6 +48,14 @@ enum FulcrumConnectionStatus {
   ERROR
 }
 
+enum FulcrumSyncJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
 enum AuditAction {
   CREATED
   UPDATED
@@ -75,6 +83,7 @@ model Organisation {
   vehicles           Vehicle[]
   vehicleBookings    VehicleBooking[]
   fulcrumConnections FulcrumConnection[]
+  fulcrumSyncJobs     FulcrumSyncJob[]
   fulcrumApps        FulcrumApp[]
   fulcrumRecords     FulcrumRecord[]
   auditLogs          AuditLog[]
@@ -91,6 +100,7 @@ model User {
   auditLogs       AuditLog[]
   tripsLed        Trip[]       @relation("TripLead")
   vehicleBookings VehicleBooking[]
+  fulcrumSyncJobs FulcrumSyncJob[]
 }
 
 model Role {
@@ -249,8 +259,33 @@ model FulcrumConnection {
   organisation      Organisation            @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   fulcrumApps       FulcrumApp[]
   fulcrumRecords    FulcrumRecord[]
+  fulcrumSyncJobs    FulcrumSyncJob[]
 
   @@index([organisationId])
+}
+
+model FulcrumSyncJob {
+  id                  String               @id @default(cuid())
+  organisationId      String
+  fulcrumConnectionId String
+  requestedByUserId   String?
+  status              FulcrumSyncJobStatus @default(QUEUED)
+  safeErrorCategory   String?
+  summary             String
+  metadata            Json?
+  requestedAt         DateTime             @default(now())
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  organisation        Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  fulcrumConnection   FulcrumConnection    @relation(fields: [fulcrumConnectionId], references: [id], onDelete: Cascade)
+  requestedBy         User?                @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([fulcrumConnectionId])
+  @@index([requestedByUserId])
+  @@index([status])
 }
 
 model FulcrumApp {

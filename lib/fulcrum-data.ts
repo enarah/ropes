@@ -1,3 +1,4 @@
+import type { FulcrumSyncJobStatus } from "@prisma/client";
 import type { OrganisationSlug } from "@/lib/dashboard-data";
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
@@ -117,12 +118,24 @@ export type DemoSyncSetting = {
   note: string;
 };
 
+export type DemoFulcrumSyncJob = {
+  id: string;
+  connectionId: string;
+  connectionName: string;
+  requestedAt: string;
+  requestedBy: string;
+  safeErrorCategory?: string;
+  status: "Queued" | "Running" | "Succeeded" | "Failed" | "Cancelled";
+  summary: string;
+};
+
 export type FulcrumConnectionState = {
   connections: DemoFulcrumConnection[];
   encryptionConfigured: boolean;
   isDatabaseAvailable: boolean;
   isDatabaseConfigured: boolean;
   organisationId?: string;
+  syncJobs: DemoFulcrumSyncJob[];
 };
 
 export function isFulcrumSectionSlug(
@@ -158,6 +171,7 @@ export async function getFulcrumConnectionState(
       encryptionConfigured,
       isDatabaseAvailable: false,
       isDatabaseConfigured: false,
+      syncJobs: [],
     };
   }
 
@@ -169,6 +183,24 @@ export async function getFulcrumConnectionState(
           orderBy: {
             createdAt: "asc",
           },
+        },
+        fulcrumSyncJobs: {
+          include: {
+            fulcrumConnection: {
+              select: {
+                name: true,
+              },
+            },
+            requestedBy: {
+              select: {
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            requestedAt: "desc",
+          },
+          take: 5,
         },
       },
       where: {
@@ -184,6 +216,7 @@ export async function getFulcrumConnectionState(
         encryptionConfigured,
         isDatabaseAvailable: false,
         isDatabaseConfigured: true,
+        syncJobs: [],
       };
     }
 
@@ -194,6 +227,7 @@ export async function getFulcrumConnectionState(
         isDatabaseAvailable: true,
         isDatabaseConfigured: true,
         organisationId: organisation.id,
+        syncJobs: [],
       };
     }
 
@@ -222,6 +256,7 @@ export async function getFulcrumConnectionState(
       isDatabaseAvailable: true,
       isDatabaseConfigured: true,
       organisationId: organisation.id,
+      syncJobs: organisation.fulcrumSyncJobs.map(mapPersistedSyncJob),
     };
   } catch {
     return {
@@ -231,6 +266,7 @@ export async function getFulcrumConnectionState(
       encryptionConfigured,
       isDatabaseAvailable: false,
       isDatabaseConfigured: true,
+      syncJobs: [],
     };
   }
 }
@@ -324,6 +360,54 @@ function mapConnectionStatus(status: string): DemoFulcrumConnection["status"] {
   }
 
   return "Not connected";
+}
+
+function mapPersistedSyncJob({
+  fulcrumConnection,
+  requestedBy,
+  ...syncJob
+}: {
+  id: string;
+  fulcrumConnectionId: string;
+  fulcrumConnection: { name: string };
+  requestedAt: Date;
+  requestedBy: { name: string } | null;
+  safeErrorCategory: string | null;
+  status: FulcrumSyncJobStatus;
+  summary: string;
+}): DemoFulcrumSyncJob {
+  return {
+    connectionId: syncJob.fulcrumConnectionId,
+    connectionName: fulcrumConnection.name,
+    id: syncJob.id,
+    requestedAt: formatDateTime(syncJob.requestedAt),
+    requestedBy: requestedBy?.name ?? "Unknown user",
+    safeErrorCategory: syncJob.safeErrorCategory ?? undefined,
+    status: mapSyncJobStatus(syncJob.status),
+    summary: syncJob.summary,
+  };
+}
+
+function mapSyncJobStatus(
+  status: FulcrumSyncJobStatus,
+): DemoFulcrumSyncJob["status"] {
+  if (status === "RUNNING") {
+    return "Running";
+  }
+
+  if (status === "SUCCEEDED") {
+    return "Succeeded";
+  }
+
+  if (status === "FAILED") {
+    return "Failed";
+  }
+
+  if (status === "CANCELLED") {
+    return "Cancelled";
+  }
+
+  return "Queued";
 }
 
 function formatDateTime(value: Date) {

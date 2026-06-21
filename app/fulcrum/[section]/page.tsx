@@ -12,6 +12,7 @@ type FulcrumSectionPageProps = {
     error?: string;
     org?: string;
     saved?: string;
+    sync?: string;
     tested?: string;
   }>;
 };
@@ -48,6 +49,7 @@ export default async function FulcrumSectionPage({
       organisation={access.organisation}
       sectionSlug={section}
       selectedOrganisationSlug={selectedOrganisationSlug}
+      syncStatus={resolvedSearchParams?.sync}
     />
   );
 }

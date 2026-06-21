@@ -15,6 +15,7 @@ type ModulePageProps = {
     error?: string;
     org?: string;
     saved?: string;
+    sync?: string;
     tested?: string;
   }>;
 };
@@ -69,6 +70,7 @@ export default async function ModulePage({
         connectionTested={resolvedSearchParams?.tested}
         organisation={access.organisation}
         selectedOrganisationSlug={selectedOrganisationSlug}
+        syncStatus={resolvedSearchParams?.sync}
       />
     );
   }

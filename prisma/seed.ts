@@ -15,6 +15,7 @@ async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.fulcrumRecord.deleteMany();
   await prisma.fulcrumApp.deleteMany();
+  await prisma.fulcrumSyncJob.deleteMany();
   await prisma.fulcrumConnection.deleteMany();
   await prisma.vehicleBooking.deleteMany();
   await prisma.trip.deleteMany();
