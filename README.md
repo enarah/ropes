@@ -151,6 +151,20 @@ The raw token is encrypted before database storage and is never returned to the
 client after save. The UI only shows connection status, account label, last
 checked time and a masked token hint.
 
+## Audit logging
+
+Persisted trip create/update, vehicle booking create, server-side vehicle
+booking overlap rejection, and Fulcrum connection save/update/disable actions
+write organisation-scoped audit entries after tenant access has been confirmed.
+Audit entries record the organisation, actor user when available, action,
+target record type, target record ID when available, timestamp and safe
+metadata.
+
+Audit metadata deliberately avoids raw Fulcrum API tokens, encrypted token
+values, auth/provider tokens, API keys, environment variables and full request
+payloads. Audit writes are best-effort for this prototype: if an audit insert
+fails after the primary operational write succeeds, the user workflow continues.
+
 ## App foundation
 
 The current app includes:
@@ -179,10 +193,12 @@ The current app includes:
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages, plus encrypted per-organisation token storage for connection setup
+- Organisation-scoped audit logging for the first persisted trip, vehicle
+  booking and Fulcrum connection writes
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include user invitation/provisioning,
-role-specific permission rules beyond active memberships, audit logging,
+role-specific permission rules beyond active memberships, an audit log viewer,
 persisted structured trip participants/itineraries, vehicle record create/edit
 forms, full server-side booking calendar/scheduling features, real pre-start
 checklists, Fulcrum API sync jobs, Fulcrum record imports, Fulcrum app writes,
