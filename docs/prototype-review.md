@@ -15,8 +15,9 @@ milestones.
 - Initial Prisma schema and clearly fake seed data for organisations, users,
   memberships, roles, projects, ranger programs, trips, vehicles, bookings,
   Fulcrum placeholders and audit logs.
-- Trips MVP with demo list, detail pages, create/edit forms, participants,
-  vehicles, itinerary, approval status and placeholder export actions.
+- Trips MVP with demo list, detail pages, create/edit forms, structured
+  participant/vehicle/itinerary demo rows, approval status and placeholder
+  export actions.
 - Vehicles MVP with demo register, vehicle detail pages, booking calendar-style
   view, booking form, overlap warning and pre-start status placeholders.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
