@@ -601,7 +601,7 @@ const scopedRecords: ScopedRecord[] = [
   {
     moduleSlug: "people",
     organisationSlug: "demo-enarah-services",
-    title: "Daryl Clarke - Demo",
+    title: "Demo Enarah Admin",
     status: "Active",
     detail: "Fake Enarah admin profile for demo context switching.",
     meta: "Enarah Admin",

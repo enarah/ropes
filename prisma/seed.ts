@@ -52,12 +52,12 @@ async function main() {
     data: [
       {
         organisationId: enarah.id,
-        userId: users.daryl.id,
+        userId: users.enarahAdmin.id,
         roleId: roles.platformOwner.id,
       },
       {
         organisationId: partner.id,
-        userId: users.daryl.id,
+        userId: users.enarahAdmin.id,
         roleId: roles.enarahAdmin.id,
       },
       {
@@ -249,7 +249,7 @@ async function main() {
     data: [
       {
         organisationId: partner.id,
-        actorUserId: users.daryl.id,
+        actorUserId: users.enarahAdmin.id,
         action: "CREATED",
         entityType: "Organisation",
         entityId: partner.id,
@@ -266,7 +266,7 @@ async function main() {
       },
       {
         organisationId: partner.id,
-        actorUserId: users.daryl.id,
+        actorUserId: users.enarahAdmin.id,
         action: "SYNC_STARTED",
         entityType: "FulcrumConnection",
         entityId: fulcrumConnection.id,
@@ -345,12 +345,12 @@ async function createRoles() {
 }
 
 async function createDemoUsers() {
-  const [daryl, operationsManager, headRanger, ranger, funderViewer] =
+  const [enarahAdmin, operationsManager, headRanger, ranger, funderViewer] =
     await Promise.all([
       prisma.user.create({
         data: {
-          name: "Daryl Clarke - Demo",
-          email: "daryl.demo@example.test",
+          name: "Demo Enarah Admin",
+          email: "enarah.admin@example.test",
           isDemo: true,
         },
       }),
@@ -384,7 +384,7 @@ async function createDemoUsers() {
       }),
     ]);
 
-  return { daryl, operationsManager, headRanger, ranger, funderViewer };
+  return { enarahAdmin, operationsManager, headRanger, ranger, funderViewer };
 }
 
 main()
