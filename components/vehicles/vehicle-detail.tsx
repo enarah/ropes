@@ -131,9 +131,29 @@ export function VehicleDetail({
                     {booking.purpose}
                   </p>
                 </div>
-                <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
-                  {booking.status}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                    {booking.status}
+                  </span>
+                  <Link
+                    className="w-fit rounded-md border border-earth-300 bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+                    href={organisationHref(
+                      `/vehicles/bookings/${booking.id}`,
+                      organisationSlug,
+                    )}
+                  >
+                    View
+                  </Link>
+                  <Link
+                    className="w-fit rounded-md bg-charcoal-900 px-2.5 py-1 text-xs font-semibold text-white"
+                    href={organisationHref(
+                      `/vehicles/bookings/${booking.id}/edit`,
+                      organisationSlug,
+                    )}
+                  >
+                    Edit
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -145,7 +165,11 @@ export function VehicleDetail({
         )}
       </Panel>
 
-      <BookingCalendar bookings={bookings} vehicles={[vehicle]} />
+      <BookingCalendar
+        bookings={bookings}
+        organisationSlug={organisationSlug}
+        vehicles={[vehicle]}
+      />
     </div>
   );
 }

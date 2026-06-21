@@ -125,7 +125,11 @@ export async function VehiclesRegister({
         )}
       </section>
 
-      <BookingCalendar bookings={bookings} vehicles={vehicles} />
+      <BookingCalendar
+        bookings={bookings}
+        organisationSlug={organisation.slug}
+        vehicles={vehicles}
+      />
     </div>
   );
 }

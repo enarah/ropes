@@ -1,26 +1,32 @@
-import { createVehicleBookingAction } from "@/app/vehicles/bookings/actions";
+import { notFound } from "next/navigation";
+import { updateVehicleBookingAction } from "@/app/vehicles/bookings/actions";
 import { VehicleBookingForm } from "@/components/vehicles/vehicle-booking-form";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   getBookingFormDefaults,
+  getVehicleBookingForOrganisationWithPersistence,
   getVehicleBookingsForOrganisationWithPersistence,
   getVehiclePersistenceState,
   getVehiclesForOrganisationWithPersistence,
 } from "@/lib/vehicles-data";
 
-type NewVehicleBookingPageProps = {
+type EditVehicleBookingPageProps = {
+  params: Promise<{
+    bookingId: string;
+  }>;
   searchParams?: Promise<{
     error?: string;
     org?: string;
     saved?: string;
-    vehicle?: string;
   }>;
 };
 
-export default async function NewVehicleBookingPage({
+export default async function EditVehicleBookingPage({
+  params,
   searchParams,
-}: NewVehicleBookingPageProps) {
+}: EditVehicleBookingPageProps) {
+  const { bookingId } = await params;
   const resolvedSearchParams = await searchParams;
   const access = await getOrganisationPageAccess(resolvedSearchParams?.org);
 
@@ -29,40 +35,33 @@ export default async function NewVehicleBookingPage({
   }
 
   const selectedOrganisation = access.organisation;
-  const [vehicles, bookings, persistence] = await Promise.all([
+  const [booking, vehicles, bookings, persistence] = await Promise.all([
+    getVehicleBookingForOrganisationWithPersistence(
+      selectedOrganisation.slug,
+      bookingId,
+    ),
     getVehiclesForOrganisationWithPersistence(selectedOrganisation.slug),
     getVehicleBookingsForOrganisationWithPersistence(selectedOrganisation.slug),
     getVehiclePersistenceState(selectedOrganisation.slug),
   ]);
-  const selectedVehicleId = vehicles.some(
-    (vehicle) => vehicle.id === resolvedSearchParams?.vehicle,
-  )
-    ? resolvedSearchParams?.vehicle
-    : vehicles[0]?.id;
-  const demoDefaults = getBookingFormDefaults(
-    selectedOrganisation.slug,
-    selectedVehicleId,
-  );
-  const defaults = {
-    ...demoDefaults,
-    vehicleId:
-      selectedVehicleId ?? demoDefaults.vehicleId,
-  };
+
+  if (!booking) {
+    notFound();
+  }
 
   return (
     <div className="space-y-6">
       <section className="border-b border-earth-200 pb-6">
         <p className="text-sm font-semibold text-ochre-700">
-          Vehicles / {selectedOrganisation.name}
+          Vehicle bookings / {selectedOrganisation.name}
         </p>
         <h1 className="mt-1 text-3xl font-semibold text-charcoal-950">
-          New vehicle booking
+          Edit vehicle booking
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
-          Create an organisation-scoped vehicle booking request. This form keeps
-          the client-side overlap warning, then enforces the same vehicle
-          booking overlap rule on the server before a persisted booking is
-          created.
+          Update an organisation-scoped booking. The server validates tenant
+          access, vehicle ownership, booking dates and overlap safety before
+          saving.
         </p>
       </section>
       {resolvedSearchParams?.error ? (
@@ -72,10 +71,15 @@ export default async function NewVehicleBookingPage({
       ) : null}
       <VehicleBookingForm
         action={
-          persistence.organisationId ? createVehicleBookingAction : undefined
+          persistence.organisationId ? updateVehicleBookingAction : undefined
         }
         bookings={bookings}
-        defaults={defaults}
+        defaults={getBookingFormDefaults(
+          selectedOrganisation.slug,
+          booking.vehicleId,
+          booking,
+        )}
+        mode="edit"
         organisationId={persistence.organisationId}
         organisationName={selectedOrganisation.name}
         organisationSlug={selectedOrganisation.slug}
@@ -93,29 +97,51 @@ function StatusMessage({
   error?: string;
   tone: "demo" | "error";
 }) {
-  const isOverlap = error === "overlap";
-  const isValidation = error === "validation";
+  const message = getStatusMessage(error, tone);
 
   return (
     <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
       <p className="text-sm font-semibold text-charcoal-950">
-        {tone === "demo"
-          ? "Demo fallback"
-          : isOverlap
-            ? "Booking overlaps an existing booking"
-            : isValidation
-              ? "Booking details need review"
-              : "Booking was not saved"}
+        {message.title}
       </p>
       <p className="text-sm leading-6 text-charcoal-600">
-        {tone === "demo"
-          ? "No local database is configured, so the form kept the demo-only behaviour."
-          : isOverlap
-            ? "The server rejected this booking because the selected vehicle already has a non-cancelled booking in that time window."
-            : isValidation
-              ? "Check the vehicle, title, requester, dates and purpose before saving again."
-              : "The tenant guard, database lookup or server-side overlap check rejected the write before anything was saved."}
+        {message.body}
       </p>
     </div>
   );
+}
+
+function getStatusMessage(error: string | undefined, tone: "demo" | "error") {
+  if (tone === "demo") {
+    return {
+      body: "No local database is configured, so the form kept the demo-only behaviour.",
+      title: "Demo fallback",
+    };
+  }
+
+  if (error === "overlap") {
+    return {
+      body: "The server rejected this booking because the selected vehicle already has a non-cancelled booking in that time window.",
+      title: "Booking overlaps an existing booking",
+    };
+  }
+
+  if (error === "tenant") {
+    return {
+      body: "The tenant guard rejected this booking update for the selected organisation.",
+      title: "Organisation access required",
+    };
+  }
+
+  if (error === "validation") {
+    return {
+      body: "Check the vehicle, title, requester, dates, status and notes before saving again.",
+      title: "Booking details need review",
+    };
+  }
+
+  return {
+    body: "The database lookup or persistence step rejected the update before anything was saved.",
+    title: "Booking was not saved",
+  };
 }

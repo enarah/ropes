@@ -275,10 +275,11 @@ The current app includes:
 - Lightweight Trips summary cards for organisation-scoped operational counts
   with links into the existing filtered Trips list
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
-  vehicle create/update forms, booking creation, server-side overlap
-  enforcement for persisted booking writes, vehicle register status filters,
-  compact fleet summary counts, booking count visibility, booking list/calendar
-  view, client-side overlap warning and pre-start status placeholders
+  vehicle create/update forms, booking creation/update, server-side overlap
+  enforcement for persisted booking writes, vehicle booking detail/edit pages,
+  vehicle register status filters, compact fleet summary counts, booking count
+  visibility, booking list/calendar view, client-side overlap warning and
+  pre-start status placeholders
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages, plus encrypted per-organisation token storage and server-side
@@ -293,11 +294,11 @@ The current app includes:
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
 user-linked trip participants, approval notifications, vehicle
-maintenance records, decommission workflows, trip dashboards, reporting, full
-server-side booking calendar/scheduling features, real pre-start checklists,
-broad Fulcrum sync, media/photo import, Fulcrum app writes, background workers,
-scheduled sync, AI provider calls, API keys or external service credentials
-beyond local environment configuration.
+maintenance records, decommission workflows, vehicle booking approval workflow,
+trip dashboards, reporting, full server-side booking calendar/scheduling
+features, real pre-start checklists, broad Fulcrum sync, media/photo import,
+Fulcrum app writes, background workers, scheduled sync, AI provider calls, API
+keys or external service credentials beyond local environment configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
 configured, or the clearly labelled fake/demo session fallback when auth is not
 configured for local development.
