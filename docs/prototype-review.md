@@ -38,10 +38,11 @@ Vehicles records, and the initial authentication foundation.
 - Trips summary cards show lightweight organisation-scoped operational counts
   and link into the filtered Trips list without adding full reporting.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
-  vehicle create/update forms, booking creation, server-side overlap
-  enforcement for persisted bookings, vehicle register status filters, compact
-  fleet summary counts, booking count visibility, booking calendar-style view,
-  client-side overlap warning and pre-start status placeholders.
+  vehicle create/update forms, booking creation/update, server-side overlap
+  enforcement for persisted bookings, vehicle booking detail/edit pages, vehicle
+  register status filters, compact fleet summary counts, booking count
+  visibility, booking calendar-style view, client-side overlap warning and
+  pre-start status placeholders.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
   Records, Maps, Data Health, AI Assistant, App Builder and Sync Settings pages.
 - Fulcrum connection setup can save an organisation-scoped API token encrypted
@@ -63,9 +64,9 @@ Vehicles records, and the initial authentication foundation.
   records updated, records skipped, missing GPS and filtered sensitive field
   previews.
 - Organisation-scoped audit entries for persisted trip create/update, vehicle
-  booking create/overlap rejection, trip approval workflow transitions, Fulcrum
-  connection save/update/disable, Fulcrum connection test success/failure, sync
-  job placeholder events and safe Fulcrum import events.
+  booking create/update/overlap rejection, trip approval workflow transitions,
+  Fulcrum connection save/update/disable, Fulcrum connection test
+  success/failure, sync job placeholder events and safe Fulcrum import events.
 
 ## Still demo-only
 
@@ -83,6 +84,8 @@ Vehicles records, and the initial authentication foundation.
 - Trip approval workflow notifications and role-specific approval permissions
   are still future work.
 - Vehicle maintenance records and decommission workflows are not implemented
+  yet.
+- Vehicle booking approval workflows and advanced scheduling are not implemented
   yet.
 - Broader calendar/scheduling features remain future work.
 - Fulcrum connection testing validates credentials only; record import requires

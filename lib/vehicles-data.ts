@@ -18,6 +18,12 @@ export type VehicleBookingStatus =
   | "Active"
   | "Completed"
   | "Cancelled";
+export type VehicleBookingStatusValue =
+  | "REQUESTED"
+  | "APPROVED"
+  | "ACTIVE"
+  | "COMPLETED"
+  | "CANCELLED";
 export type VehicleStatusFilter =
   | "all"
   | "available"
@@ -83,6 +89,16 @@ export type VehicleFormDefaults = {
   registration: string;
   status: "AVAILABLE" | "BOOKED" | "MAINTENANCE" | "RETIRED";
   year: string;
+};
+export type VehicleBookingFormDefaults = {
+  endsAt: string;
+  id?: string;
+  purpose: string;
+  requestedBy: string;
+  startsAt: string;
+  status: VehicleBookingStatusValue;
+  tripTitle: string;
+  vehicleId: string;
 };
 
 type PersistedVehicle = {
@@ -271,27 +287,42 @@ export async function getBookingsForVehicleWithPersistence(
   return bookings.filter((booking) => booking.vehicleId === vehicleId);
 }
 
+export async function getVehicleBookingForOrganisationWithPersistence(
+  organisationSlug: OrganisationSlug,
+  bookingId: string,
+) {
+  const bookings = await getVehicleBookingsForOrganisationWithPersistence(
+    organisationSlug,
+  );
+
+  return bookings.find((booking) => booking.id === bookingId);
+}
+
 export function getBookingFormDefaults(
   organisationSlug: OrganisationSlug,
   vehicleId?: string,
-) {
+  booking?: DemoVehicleBooking,
+): VehicleBookingFormDefaults {
   const organisation = getSelectedOrganisation(organisationSlug);
   const organisationVehicles = getVehiclesForOrganisation(organisationSlug);
   const selectedVehicle = organisationVehicles.find(
-    (vehicle) => vehicle.id === vehicleId,
+    (vehicle) => vehicle.id === (booking?.vehicleId ?? vehicleId),
   );
   const defaultVehicleId =
-    selectedVehicle?.id ?? organisationVehicles[0]?.id ?? "";
+    booking?.vehicleId ?? selectedVehicle?.id ?? organisationVehicles[0]?.id ?? "";
 
   return {
-    organisationSlug,
+    endsAt: booking?.endsAt ?? "",
+    id: booking?.id,
+    purpose:
+      booking?.purpose ?? `Demo booking request for ${organisation.name}.`,
+    requestedBy: booking?.requestedBy ?? "Demo Operations Manager",
+    startsAt: booking?.startsAt ?? "",
+    status: booking
+      ? mapBookingStatusToEnum(booking.status)
+      : ("REQUESTED" as VehicleBookingStatusValue),
+    tripTitle: booking?.tripTitle ?? "",
     vehicleId: defaultVehicleId,
-    tripTitle: "",
-    requestedBy: "Demo Operations Manager",
-    startsAt: "",
-    endsAt: "",
-    status: "Requested" as VehicleBookingStatus,
-    purpose: `Demo booking request for ${organisation.name}.`,
   };
 }
 
@@ -450,18 +481,21 @@ function mapPersistedBookingToDemoBooking(
   organisationSlug: OrganisationSlug,
   booking: PersistedVehicleBooking,
 ): DemoVehicleBooking {
+  const parsedNotes = parseBookingNotes(booking.notes);
+
   return {
     id: booking.id,
     organisationId: booking.organisationId,
     organisationSlug,
     vehicleId: booking.vehicleId,
-    tripTitle: booking.trip?.title ?? "Persisted booking request",
+    tripTitle:
+      booking.trip?.title ?? parsedNotes.tripTitle ?? "Persisted booking request",
     requestedBy: booking.bookedBy?.name ?? "Demo Operations Manager",
     startsAt: booking.startsAt.toISOString(),
     endsAt: booking.endsAt.toISOString(),
     status: mapBookingStatus(booking.status),
     purpose:
-      booking.notes ??
+      parsedNotes.purpose ??
       "Persisted booking without linked trip details. Full booking workflow remains future work.",
   };
 }
@@ -537,6 +571,52 @@ function mapBookingStatus(status: string): VehicleBookingStatus {
   }
 
   return "Requested";
+}
+
+function mapBookingStatusToEnum(
+  status: VehicleBookingStatus,
+): VehicleBookingStatusValue {
+  if (status === "Approved") {
+    return "APPROVED";
+  }
+
+  if (status === "Active") {
+    return "ACTIVE";
+  }
+
+  if (status === "Completed") {
+    return "COMPLETED";
+  }
+
+  if (status === "Cancelled") {
+    return "CANCELLED";
+  }
+
+  return "REQUESTED";
+}
+
+function parseBookingNotes(notes: string | null) {
+  if (!notes) {
+    return {
+      purpose: null,
+      tripTitle: null,
+    };
+  }
+
+  const [tripTitle, ...purposeParts] = notes.split(": ");
+  const purpose = purposeParts.join(": ").trim();
+
+  if (!tripTitle || !purpose) {
+    return {
+      purpose: notes,
+      tripTitle: null,
+    };
+  }
+
+  return {
+    purpose,
+    tripTitle,
+  };
 }
 
 export const demoVehicles: DemoVehicle[] = [

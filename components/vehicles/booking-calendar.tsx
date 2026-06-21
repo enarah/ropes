@@ -1,12 +1,22 @@
+import Link from "next/link";
 import { CalendarDays } from "lucide-react";
-import type { DemoVehicle, DemoVehicleBooking } from "@/lib/vehicles-data";
+import {
+  organisationHref,
+  type DemoVehicle,
+  type DemoVehicleBooking,
+} from "@/lib/vehicles-data";
 
 type BookingCalendarProps = {
   bookings: DemoVehicleBooking[];
+  organisationSlug?: string;
   vehicles: DemoVehicle[];
 };
 
-export function BookingCalendar({ bookings, vehicles }: BookingCalendarProps) {
+export function BookingCalendar({
+  bookings,
+  organisationSlug,
+  vehicles,
+}: BookingCalendarProps) {
   const sortedBookings = [...bookings].sort(
     (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
   );
@@ -45,9 +55,22 @@ export function BookingCalendar({ bookings, vehicles }: BookingCalendarProps) {
                   {booking.requestedBy}
                 </p>
               </div>
-              <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
-                {booking.status}
-              </span>
+              <div className="flex flex-wrap gap-2">
+                <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                  {booking.status}
+                </span>
+                {organisationSlug ? (
+                  <Link
+                    className="w-fit rounded-md border border-earth-300 bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+                    href={organisationHref(
+                      `/vehicles/bookings/${booking.id}`,
+                      organisationSlug,
+                    )}
+                  >
+                    View
+                  </Link>
+                ) : null}
+              </div>
             </article>
           );
         })}

@@ -2,21 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import type { DemoVehicle, DemoVehicleBooking } from "@/lib/vehicles-data";
-
-type BookingDefaults = {
-  vehicleId: string;
-  tripTitle: string;
-  requestedBy: string;
-  startsAt: string;
-  endsAt: string;
-  purpose: string;
-};
+import type {
+  DemoVehicle,
+  DemoVehicleBooking,
+  VehicleBookingFormDefaults,
+} from "@/lib/vehicles-data";
 
 type VehicleBookingFormProps = {
   action?: (formData: FormData) => void | Promise<void>;
   bookings: DemoVehicleBooking[];
-  defaults: BookingDefaults;
+  defaults: VehicleBookingFormDefaults;
+  mode?: "create" | "edit";
   organisationName: string;
   organisationId?: string;
   organisationSlug: string;
@@ -28,6 +24,7 @@ export function VehicleBookingForm({
   action,
   bookings,
   defaults,
+  mode = "create",
   organisationName,
   organisationId,
   organisationSlug,
@@ -40,8 +37,8 @@ export function VehicleBookingForm({
   const [message, setMessage] = useState("");
 
   const overlaps = useMemo(
-    () => findOverlaps(bookings, vehicleId, startsAt, endsAt),
-    [bookings, vehicleId, startsAt, endsAt],
+    () => findOverlaps(bookings, vehicleId, startsAt, endsAt, defaults.id),
+    [bookings, defaults.id, vehicleId, startsAt, endsAt],
   );
 
   return (
@@ -63,6 +60,7 @@ export function VehicleBookingForm({
     >
       <input name="organisationSlug" type="hidden" value={organisationSlug} />
       <input name="organisationId" type="hidden" value={organisationId ?? ""} />
+      <input name="bookingId" type="hidden" value={defaults.id ?? ""} />
 
       <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
         <p className="text-sm font-semibold text-charcoal-950">
@@ -73,7 +71,9 @@ export function VehicleBookingForm({
           only within this organisation context, uses the resolved auth/session
           context and{" "}
           {persistenceEnabled
-            ? "persists a tenant-guarded booking request."
+            ? mode === "edit"
+              ? "persists tenant-guarded booking updates without changing broader scheduling workflows."
+              : "persists a tenant-guarded booking request."
             : "does not persist because a local database is not available."}
         </p>
       </div>
@@ -121,6 +121,25 @@ export function VehicleBookingForm({
           onChange={setEndsAt}
           type="datetime-local"
         />
+        {mode === "edit" ? (
+          <label className="block md:col-span-2">
+            <span className="text-sm font-semibold text-charcoal-800">
+              Status
+            </span>
+            <select
+              className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
+              defaultValue={defaults.status}
+              name="status"
+              required
+            >
+              <option value="REQUESTED">Requested</option>
+              <option value="APPROVED">Approved</option>
+              <option value="ACTIVE">Active</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </label>
+        ) : null}
       </div>
 
       <label className="block">
@@ -167,7 +186,11 @@ export function VehicleBookingForm({
           className="rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
           type="submit"
         >
-          {persistenceEnabled ? "Save booking" : "Save demo booking"}
+          {persistenceEnabled
+            ? mode === "edit"
+              ? "Save booking changes"
+              : "Save booking"
+            : "Save demo booking"}
         </button>
         {message ? (
           <p className="text-sm font-medium text-ochre-800">{message}</p>
@@ -210,6 +233,7 @@ function findOverlaps(
   vehicleId: string,
   startsAt: string,
   endsAt: string,
+  ignoredBookingId?: string,
 ) {
   if (!vehicleId || !startsAt || !endsAt) {
     return [];
@@ -223,7 +247,11 @@ function findOverlaps(
   }
 
   return bookings.filter((booking) => {
-    if (booking.vehicleId !== vehicleId || booking.status === "Cancelled") {
+    if (
+      booking.id === ignoredBookingId ||
+      booking.vehicleId !== vehicleId ||
+      booking.status === "Cancelled"
+    ) {
       return false;
     }
 

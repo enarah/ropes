@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 
 export type VehicleBookingOverlapInput = {
   endsAt: Date;
+  ignoreBookingId?: string;
   organisationId: string;
   startsAt: Date;
   vehicleId: string;
@@ -51,6 +52,7 @@ export async function requireNoVehicleBookingOverlap(
       endsAt: {
         gt: input.startsAt,
       },
+      ...(input.ignoreBookingId ? { id: { not: input.ignoreBookingId } } : {}),
       organisationId: input.organisationId,
       startsAt: {
         lt: input.endsAt,
