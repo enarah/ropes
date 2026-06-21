@@ -151,14 +151,29 @@ The raw token is encrypted before database storage and is never returned to the
 client after save. The UI only shows connection status, account label, last
 checked time and a masked token hint.
 
+Saved Fulcrum connections can be tested from the server after tenant access is
+confirmed. The test decrypts the token server-side only, calls a low-risk
+credential-check endpoint, then stores safe metadata such as `lastCheckedAt`,
+connection status, a safe result category and an account label/name when
+returned safely. The default endpoint can be overridden for local testing:
+
+```bash
+FULCRUM_CONNECTION_TEST_URL="https://api.fulcrumapp.com/api/v2/users.json"
+```
+
+Connection tests do not sync Fulcrum records, import apps/forms or expose raw
+tokens. Failed tests store safe categories such as missing token, missing
+encryption key, token rejected, rate limited, network error or upstream
+unavailable. Audit entries record safe success/failure categories only.
+
 ## Audit logging
 
 Persisted trip create/update, vehicle booking create, server-side vehicle
-booking overlap rejection, and Fulcrum connection save/update/disable actions
-write organisation-scoped audit entries after tenant access has been confirmed.
-Audit entries record the organisation, actor user when available, action,
-target record type, target record ID when available, timestamp and safe
-metadata.
+booking overlap rejection, Fulcrum connection save/update/disable, and Fulcrum
+connection test success/failure actions write organisation-scoped audit entries
+after tenant access has been confirmed. Audit entries record the organisation,
+actor user when available, action, target record type, target record ID when
+available, timestamp and safe metadata.
 
 Audit metadata deliberately avoids raw Fulcrum API tokens, encrypted token
 values, auth/provider tokens, API keys, environment variables and full request
@@ -192,7 +207,8 @@ The current app includes:
   status placeholders
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
-  pages, plus encrypted per-organisation token storage for connection setup
+  pages, plus encrypted per-organisation token storage and server-side
+  credential testing for connection setup
 - Organisation-scoped audit logging for the first persisted trip, vehicle
   booking and Fulcrum connection writes
 - Placeholder summary cards and module panels using clearly fake demo content
@@ -202,9 +218,10 @@ role-specific permission rules beyond active memberships, an audit log viewer,
 persisted structured trip participants/itineraries, vehicle record create/edit
 forms, full server-side booking calendar/scheduling features, real pre-start
 checklists, Fulcrum API sync jobs, Fulcrum record imports, Fulcrum app writes,
-AI provider calls, API keys or external service credentials. Persisted writes
-use Auth.js sessions when configured, or the clearly labelled fake/demo session
-fallback when auth is not configured for local development.
+AI provider calls, API keys or external service credentials beyond local
+environment configuration. Persisted writes use Auth.js sessions when
+configured, or the clearly labelled fake/demo session fallback when auth is not
+configured for local development.
 
 ## Build principles
 

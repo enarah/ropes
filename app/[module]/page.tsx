@@ -15,6 +15,7 @@ type ModulePageProps = {
     error?: string;
     org?: string;
     saved?: string;
+    tested?: string;
   }>;
 };
 
@@ -65,6 +66,7 @@ export default async function ModulePage({
       <FulcrumShell
         connectionError={resolvedSearchParams?.error}
         connectionSaved={resolvedSearchParams?.saved}
+        connectionTested={resolvedSearchParams?.tested}
         organisation={access.organisation}
         selectedOrganisationSlug={selectedOrganisationSlug}
       />
