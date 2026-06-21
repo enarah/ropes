@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
+import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
   createFulcrumTokenHint,
@@ -78,21 +79,35 @@ export async function saveFulcrumConnectionAction(formData: FormData) {
       tokenHint,
     };
 
-    if (existingConnection) {
-      await prisma.fulcrumConnection.update({
-        data: connectionData,
-        where: {
-          id: existingConnection.id,
-        },
-      });
-    } else {
-      await prisma.fulcrumConnection.create({
-        data: {
-          ...connectionData,
-          organisationId: context.organisationId,
-        },
-      });
-    }
+    const savedConnection = existingConnection
+      ? await prisma.fulcrumConnection.update({
+          data: connectionData,
+          where: {
+            id: existingConnection.id,
+          },
+        })
+      : await prisma.fulcrumConnection.create({
+          data: {
+            ...connectionData,
+            organisationId: context.organisationId,
+          },
+        });
+    await recordAuditLog(prisma, {
+      action: existingConnection ? "UPDATED" : "CREATED",
+      actorUserId: context.actorUserId,
+      entityId: savedConnection.id,
+      entityType: "FulcrumConnection",
+      metadata: {
+        accountLabelProvided: Boolean(accountLabel),
+        event: existingConnection
+          ? "fulcrum_connection_updated"
+          : "fulcrum_connection_created",
+      },
+      organisationId: context.organisationId,
+      summary: existingConnection
+        ? "Updated encrypted Fulcrum connection token metadata."
+        : "Created encrypted Fulcrum connection token metadata.",
+    });
 
     revalidatePath("/fulcrum");
     revalidatePath("/fulcrum/connections");
@@ -136,7 +151,7 @@ export async function disableFulcrumConnectionAction(formData: FormData) {
     }
 
     const session = await getTenantGuardSessionForRequest(prisma);
-    createOrganisationWriteContext({
+    const context = createOrganisationWriteContext({
       organisationId: organisation.id,
       relatedRecords: [{ label: "Fulcrum connection", record: connection }],
       session,
@@ -152,6 +167,17 @@ export async function disableFulcrumConnectionAction(formData: FormData) {
       where: {
         id: connection.id,
       },
+    });
+    await recordAuditLog(prisma, {
+      action: "UPDATED",
+      actorUserId: context.actorUserId,
+      entityId: connection.id,
+      entityType: "FulcrumConnection",
+      metadata: {
+        event: "fulcrum_connection_disabled",
+      },
+      organisationId: context.organisationId,
+      summary: "Disabled Fulcrum connection and cleared encrypted token storage.",
     });
 
     revalidatePath("/fulcrum");

@@ -16,7 +16,9 @@ closed unless it has:
 The current prototype resolves the guard session from Auth.js/NextAuth when
 auth providers and a database are configured. It keeps a clearly labelled
 fake/demo session fallback for local development when auth is not configured.
-The guard layer still does not add external integrations or audit logging.
+The guard layer still does not add external integrations. Persisted trip,
+vehicle booking and Fulcrum connection writes now add best-effort audit entries
+only after tenant access has been confirmed.
 
 ## Helpers
 
@@ -54,16 +56,25 @@ await prisma.vehicleBooking.create({
     tripId: trip.id,
   },
 });
+
+await recordAuditLog(prisma, {
+  action: "CREATED",
+  actorUserId: context.actorUserId,
+  entityId: booking.id,
+  entityType: "VehicleBooking",
+  organisationId: context.organisationId,
+  summary: "Created persisted vehicle booking request.",
+});
 ```
 
 ## Follow-up work
 
 - Trip and vehicle booking writes already use these guards with the resolved
   auth/demo session context.
-- #15 should use these guards before Fulcrum connection setup, credential
-  updates, connection tests or sync operations.
-- #16 should use these guards before server-side booking overlap checks and
-  booking writes.
+- Fulcrum connection setup already uses these guards before encrypted token
+  storage changes.
+- Server-side booking overlap checks already run inside the guarded persisted
+  booking action.
 
 ## Notes
 

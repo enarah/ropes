@@ -35,6 +35,8 @@ Vehicles records, and the initial authentication foundation.
   Records, Maps, Data Health, AI Assistant, App Builder and Sync Settings pages.
 - Fulcrum connection setup can save an organisation-scoped API token encrypted
   at rest when database, auth and encryption key configuration are available.
+- Organisation-scoped audit entries for persisted trip create/update, vehicle
+  booking create/overlap rejection, and Fulcrum connection save/update/disable.
 
 ## Still demo-only
 
@@ -56,5 +58,5 @@ Vehicles records, and the initial authentication foundation.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
   call AI providers or Fulcrum APIs.
 - Maps and data health checks are static placeholders.
-- Broader server-side permission enforcement and audit logging are still future
-  work.
+- Broader server-side permission enforcement, audit log review UI and wider
+  audit coverage are still future work.

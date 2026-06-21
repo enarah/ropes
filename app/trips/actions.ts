@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
+import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
   createOrganisationWriteContext,
@@ -80,6 +81,23 @@ export async function saveTripAction(formData: FormData) {
             status: "DRAFT",
           },
         });
+    const isUpdate = Boolean(tripId);
+
+    await recordAuditLog(prisma, {
+      action: isUpdate ? "UPDATED" : "CREATED",
+      actorUserId: context.actorUserId,
+      entityId: savedTrip.id,
+      entityType: "Trip",
+      metadata: {
+        event: isUpdate ? "trip_updated" : "trip_created",
+        endsAt: endsAt.toISOString(),
+        startsAt: startsAt.toISOString(),
+      },
+      organisationId: context.organisationId,
+      summary: isUpdate
+        ? "Updated persisted trip core details."
+        : "Created persisted trip draft.",
+    });
 
     revalidatePath("/trips");
     revalidatePath(`/trips/${savedTrip.id}`);
