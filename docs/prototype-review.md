@@ -26,8 +26,9 @@ Vehicles records, and the initial authentication foundation.
 - Structured trip participant/vehicle/itinerary rows, approval status and
   placeholder export actions.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
-  booking creation, booking calendar-style view, overlap warning and pre-start
-  status placeholders.
+  booking creation, server-side overlap enforcement for persisted bookings,
+  booking calendar-style view, client-side overlap warning and pre-start status
+  placeholders.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
   Records, Maps, Data Health, AI Assistant, App Builder and Sync Settings pages.
 
@@ -44,8 +45,7 @@ Vehicles records, and the initial authentication foundation.
 - Trip participant rows, trip vehicle allocation rows and trip itinerary rows
   are still demo-only and are not persisted yet.
 - Vehicle record create/edit forms are not implemented yet.
-- Full server-side booking overlap checks remain future work; the current
-  overlap warning is still client-side.
+- Broader calendar/scheduling features remain future work.
 - Fulcrum connection setup, encrypted token storage, connection testing and sync
   actions are not implemented.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
@@ -57,4 +57,3 @@ Vehicles records, and the initial authentication foundation.
 ## Follow-up issues
 
 - #15 Add Fulcrum encrypted connection setup.
-- #16 Add server-side booking overlap checks.

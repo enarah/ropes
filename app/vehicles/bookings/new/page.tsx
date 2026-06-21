@@ -55,12 +55,13 @@ export default async function NewVehicleBookingPage({
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
           Create an organisation-scoped vehicle booking request. This form keeps
-          the client-side overlap warning and persists a booking when a local
-          database is configured.
+          the client-side overlap warning, then enforces the same vehicle
+          booking overlap rule on the server before a persisted booking is
+          created.
         </p>
       </section>
       {resolvedSearchParams?.error ? (
-        <StatusMessage tone="error" />
+        <StatusMessage error={resolvedSearchParams.error} tone="error" />
       ) : resolvedSearchParams?.saved === "demo" ? (
         <StatusMessage tone="demo" />
       ) : null}
@@ -80,16 +81,30 @@ export default async function NewVehicleBookingPage({
   );
 }
 
-function StatusMessage({ tone }: { tone: "demo" | "error" }) {
+function StatusMessage({
+  error,
+  tone,
+}: {
+  error?: string;
+  tone: "demo" | "error";
+}) {
+  const isOverlap = error === "overlap";
+
   return (
     <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
       <p className="text-sm font-semibold text-charcoal-950">
-        {tone === "demo" ? "Demo fallback" : "Booking was not saved"}
+        {tone === "demo"
+          ? "Demo fallback"
+          : isOverlap
+            ? "Booking overlaps an existing booking"
+            : "Booking was not saved"}
       </p>
       <p className="text-sm leading-6 text-charcoal-600">
         {tone === "demo"
           ? "No local database is configured, so the form kept the demo-only behaviour."
-          : "The tenant guard, database lookup or validation check rejected the write before anything was saved."}
+          : isOverlap
+            ? "The server rejected this booking because the selected vehicle already has a non-cancelled booking in that time window."
+          : "The tenant guard, database lookup, date validation or server-side overlap check rejected the write before anything was saved."}
       </p>
     </div>
   );
