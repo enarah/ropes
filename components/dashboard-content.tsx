@@ -13,10 +13,14 @@ import {
   Users,
 } from "lucide-react";
 import {
-  dashboardStats,
+  fakeCurrentSession,
+  getDashboardStats,
   getModuleBySlug,
+  getModuleRecords,
+  getOverviewActivity,
+  getSelectedOrganisation,
+  isOperationalModule,
   modulePanels,
-  overviewActivity,
   type ModuleSlug,
 } from "@/lib/dashboard-data";
 
@@ -37,12 +41,19 @@ const moduleIconMap = {
 
 type DashboardContentProps = {
   moduleSlug: ModuleSlug;
+  selectedOrganisationSlug?: string;
 };
 
-export function DashboardContent({ moduleSlug }: DashboardContentProps) {
-  const activeModule = getModuleBySlug(moduleSlug);
+export function DashboardContent({
+  moduleSlug,
+  selectedOrganisationSlug,
+}: DashboardContentProps) {
+  const selectedOrganisation = getSelectedOrganisation(selectedOrganisationSlug);
+  const activeModule = getModuleBySlug(moduleSlug, selectedOrganisation.slug);
   const ActiveIcon = moduleIconMap[moduleSlug];
   const isOverview = moduleSlug === "overview";
+  const scopedRecords = getModuleRecords(moduleSlug, selectedOrganisation.slug);
+  const overviewActivity = getOverviewActivity(selectedOrganisation.slug);
 
   return (
     <div className="space-y-6">
@@ -52,7 +63,7 @@ export function DashboardContent({ moduleSlug }: DashboardContentProps) {
             <ActiveIcon aria-hidden="true" size={20} strokeWidth={2.3} />
           </div>
           <p className="text-sm font-semibold text-ochre-700">
-            ROPES Demo Aboriginal Corporation
+            {selectedOrganisation.name}
           </p>
           <h1 className="mt-1 text-3xl font-semibold text-charcoal-950 md:text-4xl">
             {activeModule.label}
@@ -64,16 +75,45 @@ export function DashboardContent({ moduleSlug }: DashboardContentProps) {
         <div className="grid grid-cols-2 gap-3 text-sm sm:flex">
           <div className="rounded-md border border-earth-200 bg-white px-4 py-3">
             <p className="font-semibold text-charcoal-950">Active tenant</p>
-            <p className="text-charcoal-600">Demo only</p>
+            <p className="text-charcoal-600">{selectedOrganisation.type}</p>
           </div>
           <div className="rounded-md border border-earth-200 bg-white px-4 py-3">
-            <p className="font-semibold text-charcoal-950">Integrations</p>
-            <p className="text-charcoal-600">Not connected</p>
+            <p className="font-semibold text-charcoal-950">Fake session</p>
+            <p className="text-charcoal-600">{fakeCurrentSession.user.name}</p>
           </div>
         </div>
       </section>
 
-      {isOverview ? <OverviewStats /> : <ModuleSnapshot moduleSlug={moduleSlug} />}
+      <section className="rounded-md border border-earth-200 bg-earth-50 p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-charcoal-950">
+              Selected organisation context
+            </p>
+            <p className="text-sm leading-6 text-charcoal-600">
+              Showing fake records for {selectedOrganisation.name} only.
+            </p>
+          </div>
+          <span className="w-fit rounded-md bg-white px-3 py-2 text-sm font-medium text-charcoal-700">
+            {selectedOrganisation.region}
+          </span>
+        </div>
+      </section>
+
+      {isOverview ? (
+        <OverviewStats organisationSlug={selectedOrganisation.slug} />
+      ) : (
+        <ModuleSnapshot
+          moduleSlug={moduleSlug}
+          organisationSlug={selectedOrganisation.slug}
+        />
+      )}
+
+      <ScopedRecords
+        moduleSlug={moduleSlug}
+        organisationName={selectedOrganisation.name}
+        records={scopedRecords}
+      />
 
       <section aria-labelledby="module-panels-heading" className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -174,7 +214,13 @@ export function DashboardContent({ moduleSlug }: DashboardContentProps) {
   );
 }
 
-function OverviewStats() {
+function OverviewStats({
+  organisationSlug,
+}: {
+  organisationSlug: Parameters<typeof getDashboardStats>[0];
+}) {
+  const dashboardStats = getDashboardStats(organisationSlug);
+
   return (
     <section
       aria-label="Demo dashboard summary"
@@ -211,8 +257,14 @@ function OverviewStats() {
   );
 }
 
-function ModuleSnapshot({ moduleSlug }: { moduleSlug: ModuleSlug }) {
-  const activeModule = getModuleBySlug(moduleSlug);
+function ModuleSnapshot({
+  moduleSlug,
+  organisationSlug,
+}: {
+  moduleSlug: ModuleSlug;
+  organisationSlug: Parameters<typeof getModuleBySlug>[1];
+}) {
+  const activeModule = getModuleBySlug(moduleSlug, organisationSlug);
 
   return (
     <section
@@ -235,6 +287,59 @@ function ModuleSnapshot({ moduleSlug }: { moduleSlug: ModuleSlug }) {
           </p>
         </article>
       ))}
+    </section>
+  );
+}
+
+function ScopedRecords({
+  moduleSlug,
+  organisationName,
+  records,
+}: {
+  moduleSlug: ModuleSlug;
+  organisationName: string;
+  records: ReturnType<typeof getModuleRecords>;
+}) {
+  const isOperational = isOperationalModule(moduleSlug);
+
+  return (
+    <section aria-labelledby="scoped-records-heading" className="space-y-4">
+      <div>
+        <h2
+          className="text-xl font-semibold text-charcoal-950"
+          id="scoped-records-heading"
+        >
+          {isOperational ? "Organisation-scoped mock data" : "Demo context"}
+        </h2>
+        <p className="text-sm leading-6 text-charcoal-600">
+          {isOperational
+            ? `These fake records are filtered to ${organisationName}.`
+            : `This view is using the selected organisation: ${organisationName}.`}
+        </p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {records.map((record) => (
+          <article
+            className="rounded-md border border-earth-200 bg-white p-5 shadow-sm"
+            key={`${record.moduleSlug}-${record.title}`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-base font-semibold text-charcoal-950">
+                {record.title}
+              </h3>
+              <span className="rounded-md bg-ochre-50 px-2.5 py-1 text-xs font-semibold text-ochre-800">
+                {record.status}
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-charcoal-600">
+              {record.detail}
+            </p>
+            <p className="mt-4 text-xs font-semibold uppercase text-charcoal-600">
+              {record.meta}
+            </p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }

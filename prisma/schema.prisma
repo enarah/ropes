@@ -1,0 +1,318 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrganisationType {
+  ENARAH
+  PARTNER
+  DEMO
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum TripStatus {
+  DRAFT
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  BOOKED
+  MAINTENANCE
+  RETIRED
+}
+
+enum BookingStatus {
+  REQUESTED
+  APPROVED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum FulcrumConnectionStatus {
+  NOT_CONNECTED
+  READY_FOR_SETUP
+  CONNECTED
+  ERROR
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  DELETED
+  APPROVED
+  EXPORTED
+  SYNC_STARTED
+  SYNC_FAILED
+  PERMISSION_CHANGED
+}
+
+model Organisation {
+  id                 String              @id @default(cuid())
+  name               String
+  slug               String              @unique
+  type               OrganisationType    @default(PARTNER)
+  isDemo             Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  memberships        Membership[]
+  projects           Project[]
+  rangerPrograms     RangerProgram[]
+  trips              Trip[]
+  vehicles           Vehicle[]
+  vehicleBookings    VehicleBooking[]
+  fulcrumConnections FulcrumConnection[]
+  fulcrumApps        FulcrumApp[]
+  fulcrumRecords     FulcrumRecord[]
+  auditLogs          AuditLog[]
+}
+
+model User {
+  id              String       @id @default(cuid())
+  name            String
+  email           String       @unique
+  isDemo          Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  memberships     Membership[]
+  auditLogs       AuditLog[]
+  tripsLed        Trip[]       @relation("TripLead")
+  vehicleBookings VehicleBooking[]
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+}
+
+model Membership {
+  id             String           @id @default(cuid())
+  organisationId String
+  userId         String
+  roleId         String
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([organisationId, userId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model Project {
+  id             String          @id @default(cuid())
+  organisationId String
+  name           String
+  code           String
+  description    String
+  fundingStream  String?
+  startsOn       DateTime?
+  endsOn         DateTime?
+  isDemo         Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  rangerPrograms RangerProgram[]
+  trips          Trip[]
+  fulcrumApps    FulcrumApp[]
+  fulcrumRecords FulcrumRecord[]
+
+  @@unique([organisationId, code])
+  @@index([organisationId])
+}
+
+model RangerProgram {
+  id             String       @id @default(cuid())
+  organisationId String
+  projectId      String?
+  name           String
+  description    String
+  region         String
+  isDemo         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  trips          Trip[]
+
+  @@index([organisationId])
+  @@index([projectId])
+}
+
+model Trip {
+  id              String         @id @default(cuid())
+  organisationId  String
+  projectId       String?
+  rangerProgramId String?
+  leadUserId      String?
+  title           String
+  purpose         String
+  status          TripStatus     @default(DRAFT)
+  destination     String
+  startsAt        DateTime
+  endsAt          DateTime
+  isDemo          Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  organisation    Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rangerProgram   RangerProgram? @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
+  leadUser        User?          @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
+  vehicleBookings VehicleBooking[]
+  fulcrumRecords  FulcrumRecord[]
+
+  @@index([organisationId])
+  @@index([projectId])
+  @@index([rangerProgramId])
+  @@index([leadUserId])
+}
+
+model Vehicle {
+  id              String           @id @default(cuid())
+  organisationId  String
+  name            String
+  registration    String
+  make            String
+  model           String
+  year            Int?
+  status          VehicleStatus    @default(AVAILABLE)
+  odometerKm      Int?
+  isDemo          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicleBookings VehicleBooking[]
+
+  @@unique([organisationId, registration])
+  @@index([organisationId])
+}
+
+model VehicleBooking {
+  id             String        @id @default(cuid())
+  organisationId String
+  vehicleId      String
+  tripId         String?
+  bookedByUserId String?
+  status         BookingStatus @default(REQUESTED)
+  startsAt       DateTime
+  endsAt         DateTime
+  notes          String?
+  isDemo         Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  trip           Trip?         @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  bookedBy       User?         @relation(fields: [bookedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([vehicleId])
+  @@index([tripId])
+  @@index([bookedByUserId])
+}
+
+model FulcrumConnection {
+  id             String                  @id @default(cuid())
+  organisationId String
+  name           String
+  status         FulcrumConnectionStatus @default(NOT_CONNECTED)
+  accountLabel   String?
+  lastSyncedAt   DateTime?
+  isDemo         Boolean                 @default(false)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  organisation   Organisation            @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  fulcrumApps    FulcrumApp[]
+  fulcrumRecords FulcrumRecord[]
+
+  @@index([organisationId])
+}
+
+model FulcrumApp {
+  id                  String             @id @default(cuid())
+  organisationId      String
+  fulcrumConnectionId String?
+  projectId           String?
+  name                String
+  description         String
+  externalAppId       String?
+  recordCount         Int                @default(0)
+  lastSyncedAt        DateTime?
+  isDemo              Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  organisation        Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  fulcrumConnection   FulcrumConnection? @relation(fields: [fulcrumConnectionId], references: [id], onDelete: SetNull)
+  project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  fulcrumRecords      FulcrumRecord[]
+
+  @@index([organisationId])
+  @@index([fulcrumConnectionId])
+  @@index([projectId])
+}
+
+model FulcrumRecord {
+  id                  String             @id @default(cuid())
+  organisationId      String
+  fulcrumConnectionId String?
+  fulcrumAppId        String
+  projectId           String?
+  tripId              String?
+  externalRecordId    String?
+  status              String
+  latitude            Float?
+  longitude           Float?
+  capturedAt          DateTime?
+  rawJson             Json
+  isDemo              Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  organisation        Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  fulcrumConnection   FulcrumConnection? @relation(fields: [fulcrumConnectionId], references: [id], onDelete: SetNull)
+  fulcrumApp          FulcrumApp         @relation(fields: [fulcrumAppId], references: [id], onDelete: Cascade)
+  project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  trip                Trip?              @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([fulcrumConnectionId])
+  @@index([fulcrumAppId])
+  @@index([projectId])
+  @@index([tripId])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organisationId String
+  actorUserId    String?
+  action         AuditAction
+  entityType     String
+  entityId       String?
+  summary        String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  actor          User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+}

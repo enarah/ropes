@@ -7,8 +7,8 @@ ROPES is a multi-organisation operations platform for Enarah and partner ranger 
 ## Current status
 
 This repository now contains the first ROPES application foundation: a
-Next.js, TypeScript and Tailwind dashboard shell with placeholder module
-navigation and demo-only dashboard content.
+Next.js, TypeScript and Tailwind dashboard shell, placeholder module
+navigation, demo-only dashboard content and an initial Prisma data model.
 
 The first implementation stream will establish:
 
@@ -50,6 +50,48 @@ npm run build
 npm run lint
 ```
 
+## Database setup
+
+ROPES uses Prisma with PostgreSQL for the initial data model.
+
+Create a local environment file from the example:
+
+```bash
+cp .env.example .env
+```
+
+Update `DATABASE_URL` in `.env` for your local PostgreSQL database. The
+example value is a placeholder only and does not contain real credentials.
+
+Generate the Prisma client:
+
+```bash
+npm run db:generate
+```
+
+Apply the initial migration to a local development database:
+
+```bash
+npm run db:migrate
+```
+
+Seed clearly fake demo data:
+
+```bash
+npm run db:seed
+```
+
+The seed creates fake organisations, users, memberships, roles, projects,
+ranger programs, trips, vehicles, bookings, Fulcrum placeholders and audit
+logs. It does not create authentication accounts, store Fulcrum tokens or call
+external APIs.
+
+For deployment-style environments, use:
+
+```bash
+npm run db:deploy
+```
+
 ## App foundation
 
 The current app includes:
@@ -59,11 +101,12 @@ The current app includes:
 - Tailwind configuration with ROPES/Enarah colours
 - Mobile-friendly dashboard layout
 - Navigation for all core ROPES modules
+- Demo organisation switcher with organisation-scoped mock data views
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include authentication, real
-organisation switching, Fulcrum API connections, database models, API keys or
-external service credentials.
+organisation switching, Fulcrum API connections, API keys or external service
+credentials.
 
 ## Build principles
 

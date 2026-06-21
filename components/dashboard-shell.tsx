@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
   ClipboardCheck,
@@ -16,7 +16,13 @@ import {
   Truck,
   Users,
 } from "lucide-react";
-import { navigationItems, type ModuleSlug } from "@/lib/dashboard-data";
+import {
+  demoOrganisations,
+  fakeCurrentSession,
+  getSelectedOrganisation,
+  navigationItems,
+  type ModuleSlug,
+} from "@/lib/dashboard-data";
 
 const navIcons = {
   overview: Home,
@@ -38,7 +44,16 @@ type DashboardShellProps = {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const activeSlug = getActiveSlug(pathname);
+  const selectedOrganisation = getSelectedOrganisation(searchParams.get("org"));
+
+  function handleOrganisationChange(organisationSlug: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("org", organisationSlug);
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
   return (
     <div className="min-h-screen bg-sand-100 text-charcoal-900">
@@ -46,11 +61,16 @@ export function DashboardShell({ children }: DashboardShellProps) {
         <aside className="hidden border-r border-earth-200 bg-charcoal-950 text-sand-50 lg:block">
           <div className="sticky top-0 flex h-screen flex-col">
             <BrandBlock />
+            <OrganisationSwitcher
+              onChange={handleOrganisationChange}
+              selectedOrganisationSlug={selectedOrganisation.slug}
+              tone="dark"
+            />
             <nav aria-label="Primary" className="flex-1 space-y-1 px-4 py-3">
               {navigationItems.map((item) => (
                 <NavItem
                   active={activeSlug === item.slug}
-                  href={item.href}
+                  href={withOrganisation(item.href, selectedOrganisation.slug)}
                   key={item.slug}
                   label={item.label}
                   slug={item.slug}
@@ -62,7 +82,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 Foundation milestone
               </p>
               <p className="mt-1 text-sm leading-6 text-sand-200">
-                Demo shell only. Auth and integrations come later.
+                Fake session for {fakeCurrentSession.user.name}. Auth comes
+                later.
               </p>
             </div>
           </div>
@@ -72,14 +93,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
           <header className="border-b border-earth-200 bg-sand-100/95 px-4 py-4 backdrop-blur md:px-6 lg:hidden">
             <div className="flex items-center justify-between gap-4">
               <BrandMark />
-              <button
-                aria-label="Navigation menu"
-                className="flex h-10 w-10 items-center justify-center rounded-md border border-earth-300 bg-white text-charcoal-900 shadow-sm"
-                type="button"
-              >
+              <div className="flex h-10 w-10 items-center justify-center rounded-md border border-earth-300 bg-white text-charcoal-900 shadow-sm">
                 <Menu aria-hidden="true" size={20} />
-              </button>
+              </div>
             </div>
+            <OrganisationSwitcher
+              onChange={handleOrganisationChange}
+              selectedOrganisationSlug={selectedOrganisation.slug}
+              tone="light"
+            />
             <nav
               aria-label="Primary"
               className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1"
@@ -95,7 +117,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
                         ? "border-ochre-600 bg-ochre-600 text-white"
                         : "border-earth-200 bg-white text-charcoal-700"
                     }`}
-                    href={item.href}
+                    href={withOrganisation(item.href, selectedOrganisation.slug)}
                     key={item.slug}
                   >
                     <Icon aria-hidden="true" size={16} />
@@ -111,6 +133,60 @@ export function DashboardShell({ children }: DashboardShellProps) {
           </main>
         </div>
       </div>
+    </div>
+  );
+}
+
+function OrganisationSwitcher({
+  onChange,
+  selectedOrganisationSlug,
+  tone,
+}: {
+  onChange: (organisationSlug: string) => void;
+  selectedOrganisationSlug: string;
+  tone: "dark" | "light";
+}) {
+  const isDark = tone === "dark";
+
+  return (
+    <div
+      className={
+        isDark
+          ? "border-b border-white/10 px-5 py-4"
+          : "mt-4 rounded-md border border-earth-200 bg-white p-3"
+      }
+    >
+      <label
+        className={`block text-xs font-semibold uppercase ${
+          isDark ? "text-sand-200" : "text-charcoal-600"
+        }`}
+        htmlFor={`organisation-switcher-${tone}`}
+      >
+        Demo organisation
+      </label>
+      <select
+        className={`mt-2 w-full rounded-md border px-3 py-2 text-sm font-medium outline-none ${
+          isDark
+            ? "border-white/10 bg-charcoal-900 text-sand-50"
+            : "border-earth-200 bg-sand-50 text-charcoal-900"
+        }`}
+        id={`organisation-switcher-${tone}`}
+        onChange={(event) => onChange(event.target.value)}
+        value={selectedOrganisationSlug}
+      >
+        {demoOrganisations.map((organisation) => (
+          <option key={organisation.slug} value={organisation.slug}>
+            {organisation.name}
+          </option>
+        ))}
+      </select>
+      <p
+        className={`mt-2 text-xs leading-5 ${
+          isDark ? "text-sand-200" : "text-charcoal-600"
+        }`}
+      >
+        Uses fake current-user memberships only.
+      </p>
     </div>
   );
 }
@@ -168,6 +244,10 @@ function NavItem({
       <span>{label}</span>
     </Link>
   );
+}
+
+function withOrganisation(href: string, organisationSlug: string) {
+  return `${href}?org=${organisationSlug}`;
 }
 
 function getActiveSlug(pathname: string): ModuleSlug {

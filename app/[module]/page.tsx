@@ -6,6 +6,9 @@ type ModulePageProps = {
   params: Promise<{
     module: string;
   }>;
+  searchParams?: Promise<{
+    org?: string;
+  }>;
 };
 
 export function generateStaticParams() {
@@ -14,12 +17,21 @@ export function generateStaticParams() {
     .map((moduleSlug) => ({ module: moduleSlug }));
 }
 
-export default async function ModulePage({ params }: ModulePageProps) {
+export default async function ModulePage({
+  params,
+  searchParams,
+}: ModulePageProps) {
   const { module } = await params;
+  const selectedOrganisationSlug = (await searchParams)?.org;
 
   if (!isModuleSlug(module)) {
     notFound();
   }
 
-  return <DashboardContent moduleSlug={module} />;
+  return (
+    <DashboardContent
+      moduleSlug={module}
+      selectedOrganisationSlug={selectedOrganisationSlug}
+    />
+  );
 }
