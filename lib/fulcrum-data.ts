@@ -322,7 +322,7 @@ const demoFulcrumRecords: DemoFulcrumRecord[] = [
     appId: "support-checklist-form",
     title: "Demo Partner Workshop Notes",
     status: "Complete",
-    createdBy: "Daryl Clarke - Demo",
+    createdBy: "Demo Enarah Admin",
     recordedAt: "2026-08-22T03:00:00.000Z",
     location: "Office record",
     project: "Demo Partner Enablement Project",

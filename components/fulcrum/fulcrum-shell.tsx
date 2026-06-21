@@ -437,10 +437,11 @@ function AiAssistant({ records }: { records: DemoFulcrumRecord[] }) {
       </Panel>
       <Panel icon={<DatabaseZap aria-hidden="true" size={18} />} title="Mock answer">
         <p className="text-sm leading-6 text-charcoal-600">
-          The assistant is a non-functional shell. It would search{" "}
-          {records.length} fake organisation-scoped Fulcrum record
-          {records.length === 1 ? "" : "s"} and return source-linked answers
-          after permissions, synced data and AI integration are added.
+          The assistant is a non-functional demo shell. It does not call an AI
+          provider. Later it would search {records.length} fake
+          organisation-scoped Fulcrum record{records.length === 1 ? "" : "s"}{" "}
+          and return source-linked answers after permissions, synced data and
+          AI integration are added.
         </p>
       </Panel>
     </section>
