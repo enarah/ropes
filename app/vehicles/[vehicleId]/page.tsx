@@ -13,6 +13,7 @@ type VehicleDetailPageProps = {
   }>;
   searchParams?: Promise<{
     org?: string;
+    saved?: string;
   }>;
 };
 
@@ -21,8 +22,8 @@ export default async function VehicleDetailPage({
   searchParams,
 }: VehicleDetailPageProps) {
   const { vehicleId } = await params;
-  const selectedOrganisationSlug = (await searchParams)?.org;
-  const access = await getOrganisationPageAccess(selectedOrganisationSlug);
+  const resolvedSearchParams = await searchParams;
+  const access = await getOrganisationPageAccess(resolvedSearchParams?.org);
 
   if (access.status === "denied") {
     return <UnauthorisedState {...access} />;
@@ -48,6 +49,7 @@ export default async function VehicleDetailPage({
       bookings={bookings}
       organisationName={selectedOrganisation.name}
       organisationSlug={selectedOrganisation.slug}
+      saved={resolvedSearchParams?.saved}
       vehicle={vehicle}
     />
   );

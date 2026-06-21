@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { CalendarPlus, ClipboardCheck, Gauge, Wrench } from "lucide-react";
+import {
+  CalendarPlus,
+  ClipboardCheck,
+  Gauge,
+  Pencil,
+  Wrench,
+} from "lucide-react";
 import type { DemoVehicle, DemoVehicleBooking } from "@/lib/vehicles-data";
 import { organisationHref } from "@/lib/vehicles-data";
 import {
@@ -11,6 +17,7 @@ type VehicleDetailProps = {
   bookings: DemoVehicleBooking[];
   organisationName: string;
   organisationSlug: string;
+  saved?: string;
   vehicle: DemoVehicle;
 };
 
@@ -18,6 +25,7 @@ export function VehicleDetail({
   bookings,
   organisationName,
   organisationSlug,
+  saved,
   vehicle,
 }: VehicleDetailProps) {
   return (
@@ -34,14 +42,38 @@ export function VehicleDetail({
             {vehicle.notes}
           </p>
         </div>
-        <Link
-          className="inline-flex w-fit items-center gap-2 rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white"
-          href={`${organisationHref("/vehicles/bookings/new", organisationSlug)}&vehicle=${vehicle.id}`}
-        >
-          <CalendarPlus aria-hidden="true" size={16} />
-          New booking
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="inline-flex w-fit items-center gap-2 rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/edit`,
+              organisationSlug,
+            )}
+          >
+            <Pencil aria-hidden="true" size={16} />
+            Edit
+          </Link>
+          <Link
+            className="inline-flex w-fit items-center gap-2 rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white"
+            href={`${organisationHref("/vehicles/bookings/new", organisationSlug)}&vehicle=${vehicle.id}`}
+          >
+            <CalendarPlus aria-hidden="true" size={16} />
+            New booking
+          </Link>
+        </div>
       </section>
+
+      {saved === "vehicle" ? (
+        <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+          <p className="text-sm font-semibold text-charcoal-950">
+            Vehicle saved
+          </p>
+          <p className="text-sm leading-6 text-charcoal-600">
+            The organisation-scoped vehicle record was saved. Existing bookings
+            were not changed.
+          </p>
+        </div>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Status" value={vehicle.status} />
