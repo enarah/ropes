@@ -8,10 +8,17 @@ import {
   createOrganisationWriteContext,
   isTenantGuardError,
 } from "@/lib/tenant-guards";
+import {
+  isVehicleBookingOverlapError,
+  requireNoVehicleBookingOverlap,
+} from "@/lib/vehicle-booking-overlaps";
 
 export async function createVehicleBookingAction(formData: FormData) {
   const organisationSlug = getRequiredString(formData, "organisationSlug");
-  const fallbackPath = `/vehicles/bookings/new?org=${organisationSlug}`;
+  const requestedVehicleId = getOptionalString(formData, "vehicleId");
+  const fallbackPath = `/vehicles/bookings/new?org=${organisationSlug}${
+    requestedVehicleId ? `&vehicle=${encodeURIComponent(requestedVehicleId)}` : ""
+  }`;
 
   if (!isDatabaseConfigured()) {
     redirect(`${fallbackPath}&saved=demo`);
@@ -54,6 +61,13 @@ export async function createVehicleBookingAction(formData: FormData) {
     const tripTitle = getRequiredString(formData, "tripTitle");
     const purpose = getRequiredString(formData, "purpose");
 
+    await requireNoVehicleBookingOverlap(prisma, {
+      endsAt,
+      organisationId: context.organisationId,
+      startsAt,
+      vehicleId: vehicle.id,
+    });
+
     const booking = await prisma.vehicleBooking.create({
       data: {
         bookedByUserId: context.actorUserId,
@@ -71,6 +85,11 @@ export async function createVehicleBookingAction(formData: FormData) {
     revalidatePath(`/vehicles/${booking.vehicleId}`);
     redirectTo = `/vehicles/${booking.vehicleId}?org=${organisation.slug}&saved=booking`;
   } catch (error) {
+    if (isVehicleBookingOverlapError(error)) {
+      redirectTo = `${fallbackPath}&error=overlap`;
+      redirect(redirectTo);
+    }
+
     redirectTo = `${fallbackPath}&error=${
       isTenantGuardError(error) ? "tenant" : "persistence"
     }`;
@@ -80,13 +99,19 @@ export async function createVehicleBookingAction(formData: FormData) {
 }
 
 function getRequiredString(formData: FormData, key: string) {
-  const value = formData.get(key);
+  const value = getOptionalString(formData, key);
 
-  if (typeof value !== "string" || !value.trim()) {
+  if (!value) {
     throw new Error(`${key} is required.`);
   }
 
-  return value.trim();
+  return value;
+}
+
+function getOptionalString(formData: FormData, key: string) {
+  const value = formData.get(key);
+
+  return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
 function getRequiredDate(formData: FormData, key: string) {

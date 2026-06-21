@@ -144,8 +144,9 @@ The current app includes:
 - Structured trip participant, vehicle and itinerary form rows that remain
   demo-only until the data model is expanded
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
-  booking creation, booking list/calendar view, client-side overlap warning and
-  pre-start status placeholders
+  booking creation, server-side overlap enforcement for persisted booking
+  writes, booking list/calendar view, client-side overlap warning and pre-start
+  status placeholders
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages
@@ -154,11 +155,11 @@ The current app includes:
 This milestone intentionally does not include user invitation/provisioning,
 route-level access blocking for every demo page, persisted structured trip
 participants/itineraries, vehicle record create/edit forms, full server-side
-booking overlap enforcement, real pre-start checklists, Fulcrum API calls,
-stored Fulcrum tokens, encrypted credential storage, AI provider calls, API keys
-or external service credentials. Persisted writes use Auth.js sessions when
-configured, or the clearly labelled fake/demo session fallback when auth is not
-configured for local development.
+booking calendar/scheduling features, real pre-start checklists, Fulcrum API
+calls, stored Fulcrum tokens, encrypted credential storage, AI provider calls,
+API keys or external service credentials. Persisted writes use Auth.js sessions
+when configured, or the clearly labelled fake/demo session fallback when auth is
+not configured for local development.
 
 ## Build principles
 
