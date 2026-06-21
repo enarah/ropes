@@ -20,6 +20,7 @@ async function main() {
   await prisma.tripItineraryItem.deleteMany();
   await prisma.tripVehicleAllocation.deleteMany();
   await prisma.tripParticipant.deleteMany();
+  await prisma.tripApprovalNote.deleteMany();
   await prisma.vehicleBooking.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.vehicle.deleteMany();
@@ -244,6 +245,19 @@ async function main() {
         isDemo: true,
       },
     ],
+  });
+
+  await prisma.tripApprovalNote.create({
+    data: {
+      actorUserId: users.operationsManager.id,
+      fromApprovalStatus: "READY_FOR_REVIEW",
+      isDemo: true,
+      note:
+        "Fake approval note: demo trip details are complete enough for prototype review.",
+      organisationId: partner.id,
+      toApprovalStatus: "APPROVED",
+      tripId: trip.id,
+    },
   });
 
   const fulcrumConnection = await prisma.fulcrumConnection.create({

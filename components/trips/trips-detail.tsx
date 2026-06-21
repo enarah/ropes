@@ -158,9 +158,13 @@ function ApprovalPanel({
 
       {trip.organisationId ? (
         actions.length ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <div className="grid gap-3 md:grid-cols-2">
             {actions.map((action) => (
-              <form action={transitionTripApprovalAction} key={action.target}>
+              <form
+                action={transitionTripApprovalAction}
+                className="rounded-md border border-earth-200 bg-white p-4"
+                key={action.target}
+              >
                 <input
                   name="organisationSlug"
                   type="hidden"
@@ -177,10 +181,23 @@ function ApprovalPanel({
                   type="hidden"
                   value={action.target}
                 />
-                <button
-                  className={action.className}
-                  type="submit"
-                >
+                <label className="block">
+                  <span className="text-sm font-semibold text-charcoal-800">
+                    {action.noteLabel}
+                  </span>
+                  <textarea
+                    className="mt-2 min-h-24 w-full rounded-md border border-earth-200 bg-earth-50 px-3 py-2 text-sm outline-none focus:border-ochre-600"
+                    maxLength={500}
+                    name="approvalNote"
+                    placeholder={action.notePlaceholder}
+                    required={action.requiresNote}
+                  />
+                </label>
+                <p className="mt-2 text-xs leading-5 text-charcoal-500">
+                  Plain text only. Maximum 500 characters.
+                  {action.requiresNote ? " Required for this action." : ""}
+                </p>
+                <button className={action.className} type="submit">
                   {action.label}
                 </button>
               </form>
@@ -198,26 +215,34 @@ function ApprovalPanel({
           read-only approval labels.
         </p>
       )}
+
+      <ApprovalNotes notes={trip.approvalNotes} />
     </div>
   );
 }
 
 function getApprovalActions(approvalStatus: DemoTrip["approvalStatus"]) {
   const primaryClass =
-    "rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white shadow-sm";
+    "mt-3 rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white shadow-sm";
   const secondaryClass =
-    "rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800";
+    "mt-3 rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800";
 
   if (approvalStatus === "Draft") {
     return [
       {
         className: primaryClass,
         label: "Request review",
+        noteLabel: "Review note",
+        notePlaceholder: "Optional context for the reviewer.",
+        requiresNote: false,
         target: "READY_FOR_REVIEW",
       },
       {
         className: secondaryClass,
         label: "Cancel trip",
+        noteLabel: "Cancellation reason",
+        notePlaceholder: "Briefly explain why this trip is being cancelled.",
+        requiresNote: true,
         target: "CANCELLED",
       },
     ];
@@ -228,16 +253,25 @@ function getApprovalActions(approvalStatus: DemoTrip["approvalStatus"]) {
       {
         className: primaryClass,
         label: "Approve",
+        noteLabel: "Approval note",
+        notePlaceholder: "Optional approval context.",
+        requiresNote: false,
         target: "APPROVED",
       },
       {
         className: secondaryClass,
         label: "Request changes",
+        noteLabel: "Change-request reason",
+        notePlaceholder: "Explain what needs to change before approval.",
+        requiresNote: true,
         target: "CHANGES_REQUESTED",
       },
       {
         className: secondaryClass,
         label: "Cancel trip",
+        noteLabel: "Cancellation reason",
+        notePlaceholder: "Briefly explain why this trip is being cancelled.",
+        requiresNote: true,
         target: "CANCELLED",
       },
     ];
@@ -248,6 +282,9 @@ function getApprovalActions(approvalStatus: DemoTrip["approvalStatus"]) {
       {
         className: primaryClass,
         label: "Resubmit for review",
+        noteLabel: "Response note",
+        notePlaceholder: "Optional note about what changed.",
+        requiresNote: false,
         target: "READY_FOR_REVIEW",
       },
     ];
@@ -278,6 +315,14 @@ function ApprovalResultMessage({ result }: { result: string }) {
       title: "Review requirements missing",
       body: "Add title, destination, purpose, valid dates, one participant and one itinerary row before requesting review.",
     },
+    "missing-required-note": {
+      title: "Review note required",
+      body: "Add a short plain-text reason before requesting changes or cancelling a trip.",
+    },
+    "note-too-long": {
+      title: "Review note is too long",
+      body: "Keep approval notes to 500 characters or fewer.",
+    },
     tenant: {
       title: "Organisation access required",
       body: "The tenant guard rejected this workflow action for the selected organisation.",
@@ -297,6 +342,48 @@ function ApprovalResultMessage({ result }: { result: string }) {
       <p className="mt-1 text-sm leading-6 text-charcoal-600">
         {message.body}
       </p>
+    </div>
+  );
+}
+
+function ApprovalNotes({ notes }: { notes: DemoTrip["approvalNotes"] }) {
+  if (!notes.length) {
+    return (
+      <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+        <p className="text-sm font-semibold text-charcoal-950">
+          No review notes yet
+        </p>
+        <p className="mt-1 text-sm leading-6 text-charcoal-600">
+          Approval notes will appear here for this organisation-scoped trip.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-charcoal-950">
+        Recent review notes
+      </h3>
+      <div className="mt-3 divide-y divide-earth-100 rounded-md border border-earth-200 bg-white">
+        {notes.map((note) => (
+          <article className="p-4" key={note.id}>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-charcoal-950">
+                {note.fromApprovalStatus
+                  ? `${note.fromApprovalStatus} to ${note.toApprovalStatus}`
+                  : note.toApprovalStatus}
+              </p>
+              <p className="text-xs text-charcoal-500">
+                {note.actorName} / {formatDate(note.createdAt)}
+              </p>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-charcoal-700">
+              {note.note}
+            </p>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }

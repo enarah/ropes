@@ -227,18 +227,20 @@ write path or broad sync engine.
 
 ## Audit logging
 
-Persisted trip create/update, vehicle booking create, server-side vehicle
-booking overlap rejection, Fulcrum connection save/update/disable, and Fulcrum
-connection test success/failure actions, and manual Fulcrum sync job placeholder
-creation/rejection write organisation-scoped audit entries after tenant access
-has been confirmed. Audit entries record the organisation, actor user when
-available, action, target record type, target record ID when available,
-timestamp and safe metadata.
+Persisted trip create/update, trip approval transitions, vehicle booking
+create, server-side vehicle booking overlap rejection, Fulcrum connection
+save/update/disable, Fulcrum connection test success/failure actions, and
+manual Fulcrum sync job placeholder creation/rejection write
+organisation-scoped audit entries after tenant access has been confirmed.
+Audit entries record the organisation, actor user when available, action,
+target record type, target record ID when available, timestamp and safe
+metadata.
 
 Audit metadata deliberately avoids raw Fulcrum API tokens, encrypted token
-values, auth/provider tokens, API keys, environment variables and full request
-payloads. Audit writes are best-effort for this prototype: if an audit insert
-fails after the primary operational write succeeds, the user workflow continues.
+values, auth/provider tokens, API keys, environment variables, full request
+payloads and full trip approval note text. Audit writes are best-effort for
+this prototype: if an audit insert fails after the primary operational write
+succeeds, the user workflow continues.
 
 ## App foundation
 
@@ -265,6 +267,9 @@ The current app includes:
 - Trip approval workflow foundation with tenant-guarded transitions from draft
   to ready for review, approved, changes requested or cancelled, including
   minimum review validation and safe audit entries
+- Plain-text trip approval notes for approval transitions, including required
+  change-request and cancellation reasons, safe author/timestamp display and
+  server-side length limits
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted booking
   writes, booking list/calendar view, client-side overlap warning and pre-start
@@ -282,7 +287,7 @@ The current app includes:
 
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
-user-linked trip participants, approval comments, notifications, vehicle
+user-linked trip participants, approval notifications, vehicle
 record create/edit forms, full server-side booking calendar/scheduling
 features, real pre-start checklists, broad Fulcrum sync, media/photo import,
 Fulcrum app writes, background workers, scheduled sync, AI provider calls, API
