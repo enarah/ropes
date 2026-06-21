@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { saveTripAction } from "@/app/trips/actions";
 import { TripForm } from "@/components/trips/trip-form";
-import { getSelectedOrganisation } from "@/lib/dashboard-data";
+import { UnauthorisedState } from "@/components/unauthorised-state";
+import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   getTripForOrganisationWithPersistence,
   getTripPersistenceState,
@@ -24,9 +25,13 @@ export default async function EditTripPage({
 }: EditTripPageProps) {
   const { tripId } = await params;
   const resolvedSearchParams = await searchParams;
-  const selectedOrganisation = getSelectedOrganisation(
-    resolvedSearchParams?.org,
-  );
+  const access = await getOrganisationPageAccess(resolvedSearchParams?.org);
+
+  if (access.status === "denied") {
+    return <UnauthorisedState {...access} />;
+  }
+
+  const selectedOrganisation = access.organisation;
   const [trip, persistence] = await Promise.all([
     getTripForOrganisationWithPersistence(selectedOrganisation.slug, tripId),
     getTripPersistenceState(selectedOrganisation.slug),

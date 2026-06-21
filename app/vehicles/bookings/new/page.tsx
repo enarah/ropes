@@ -1,6 +1,7 @@
 import { createVehicleBookingAction } from "@/app/vehicles/bookings/actions";
 import { VehicleBookingForm } from "@/components/vehicles/vehicle-booking-form";
-import { getSelectedOrganisation } from "@/lib/dashboard-data";
+import { UnauthorisedState } from "@/components/unauthorised-state";
+import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   getBookingFormDefaults,
   getVehicleBookingsForOrganisationWithPersistence,
@@ -21,9 +22,13 @@ export default async function NewVehicleBookingPage({
   searchParams,
 }: NewVehicleBookingPageProps) {
   const resolvedSearchParams = await searchParams;
-  const selectedOrganisation = getSelectedOrganisation(
-    resolvedSearchParams?.org,
-  );
+  const access = await getOrganisationPageAccess(resolvedSearchParams?.org);
+
+  if (access.status === "denied") {
+    return <UnauthorisedState {...access} />;
+  }
+
+  const selectedOrganisation = access.organisation;
   const [vehicles, bookings, persistence] = await Promise.all([
     getVehiclesForOrganisationWithPersistence(selectedOrganisation.slug),
     getVehicleBookingsForOrganisationWithPersistence(selectedOrganisation.slug),

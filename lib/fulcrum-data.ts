@@ -2,6 +2,7 @@ import type { OrganisationSlug } from "@/lib/dashboard-data";
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import { isFulcrumTokenEncryptionConfigured } from "@/lib/fulcrum-token-encryption";
+import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
 
 export const fulcrumSections = [
   {
@@ -176,7 +177,9 @@ export async function getFulcrumConnectionState(
 
     if (!organisation) {
       return {
-        connections: getFulcrumConnectionsForOrganisation(organisationSlug),
+        connections: isAuthenticatedDatabaseMode()
+          ? []
+          : getFulcrumConnectionsForOrganisation(organisationSlug),
         encryptionConfigured,
         isDatabaseAvailable: false,
         isDatabaseConfigured: true,
@@ -220,7 +223,9 @@ export async function getFulcrumConnectionState(
     };
   } catch {
     return {
-      connections: getFulcrumConnectionsForOrganisation(organisationSlug),
+      connections: isAuthenticatedDatabaseMode()
+        ? []
+        : getFulcrumConnectionsForOrganisation(organisationSlug),
       encryptionConfigured,
       isDatabaseAvailable: false,
       isDatabaseConfigured: true,

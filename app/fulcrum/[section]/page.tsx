@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { FulcrumShell } from "@/components/fulcrum/fulcrum-shell";
+import { UnauthorisedState } from "@/components/unauthorised-state";
 import { fulcrumSections, isFulcrumSectionSlug } from "@/lib/fulcrum-data";
+import { getOrganisationPageAccess } from "@/lib/organisation-access";
 
 type FulcrumSectionPageProps = {
   params: Promise<{
@@ -31,10 +33,17 @@ export default async function FulcrumSectionPage({
     notFound();
   }
 
+  const access = await getOrganisationPageAccess(selectedOrganisationSlug);
+
+  if (access.status === "denied") {
+    return <UnauthorisedState {...access} />;
+  }
+
   return (
     <FulcrumShell
       connectionError={resolvedSearchParams?.error}
       connectionSaved={resolvedSearchParams?.saved}
+      organisation={access.organisation}
       sectionSlug={section}
       selectedOrganisationSlug={selectedOrganisationSlug}
     />

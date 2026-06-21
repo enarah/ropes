@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ClipboardCheck, Plus, Truck } from "lucide-react";
-import { getSelectedOrganisation } from "@/lib/dashboard-data";
+import {
+  getSelectedOrganisation,
+  type DashboardOrganisation,
+} from "@/lib/dashboard-data";
 import {
   getVehicleBookingsForOrganisationWithPersistence,
   getVehiclePersistenceState,
@@ -11,13 +14,16 @@ import {
 import { BookingCalendar } from "@/components/vehicles/booking-calendar";
 
 type VehiclesRegisterProps = {
+  organisation?: DashboardOrganisation;
   selectedOrganisationSlug?: string;
 };
 
 export async function VehiclesRegister({
+  organisation: resolvedOrganisation,
   selectedOrganisationSlug,
 }: VehiclesRegisterProps) {
-  const organisation = getSelectedOrganisation(selectedOrganisationSlug);
+  const organisation =
+    resolvedOrganisation ?? getSelectedOrganisation(selectedOrganisationSlug);
   const [vehicles, bookings, persistence] = await Promise.all([
     getVehiclesForOrganisationWithPersistence(organisation.slug),
     getVehicleBookingsForOrganisationWithPersistence(organisation.slug),

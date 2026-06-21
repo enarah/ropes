@@ -10,7 +10,10 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
-import { getSelectedOrganisation } from "@/lib/dashboard-data";
+import {
+  getSelectedOrganisation,
+  type DashboardOrganisation,
+} from "@/lib/dashboard-data";
 import {
   fulcrumSections,
   getFulcrumAppsForOrganisation,
@@ -37,6 +40,7 @@ import { organisationHref } from "@/components/fulcrum/fulcrum-ui";
 type FulcrumShellProps = {
   connectionError?: string;
   connectionSaved?: string;
+  organisation?: DashboardOrganisation;
   sectionSlug?: string;
   selectedOrganisationSlug?: string;
 };
@@ -56,10 +60,12 @@ const sectionIcons = {
 export async function FulcrumShell({
   connectionError,
   connectionSaved,
+  organisation: resolvedOrganisation,
   sectionSlug,
   selectedOrganisationSlug,
 }: FulcrumShellProps) {
-  const organisation = getSelectedOrganisation(selectedOrganisationSlug);
+  const organisation =
+    resolvedOrganisation ?? getSelectedOrganisation(selectedOrganisationSlug);
   const activeSection = getFulcrumSection(sectionSlug);
   const connectionState = await getFulcrumConnectionState(organisation.slug);
   const connections = connectionState.connections;

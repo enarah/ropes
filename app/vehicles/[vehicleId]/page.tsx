@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { VehicleDetail } from "@/components/vehicles/vehicle-detail";
-import { getSelectedOrganisation } from "@/lib/dashboard-data";
+import { UnauthorisedState } from "@/components/unauthorised-state";
+import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   getBookingsForVehicleWithPersistence,
   getVehicleForOrganisationWithPersistence,
@@ -20,7 +21,14 @@ export default async function VehicleDetailPage({
   searchParams,
 }: VehicleDetailPageProps) {
   const { vehicleId } = await params;
-  const selectedOrganisation = getSelectedOrganisation((await searchParams)?.org);
+  const selectedOrganisationSlug = (await searchParams)?.org;
+  const access = await getOrganisationPageAccess(selectedOrganisationSlug);
+
+  if (access.status === "denied") {
+    return <UnauthorisedState {...access} />;
+  }
+
+  const selectedOrganisation = access.organisation;
   const vehicle = await getVehicleForOrganisationWithPersistence(
     selectedOrganisation.slug,
     vehicleId,

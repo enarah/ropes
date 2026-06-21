@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import { DashboardContent } from "@/components/dashboard-content";
 import { FulcrumShell } from "@/components/fulcrum/fulcrum-shell";
 import { TripsList } from "@/components/trips/trips-list";
+import { UnauthorisedState } from "@/components/unauthorised-state";
 import { VehiclesRegister } from "@/components/vehicles/vehicles-register";
 import { isModuleSlug, moduleSlugs } from "@/lib/dashboard-data";
+import { getOrganisationPageAccess } from "@/lib/organisation-access";
 
 type ModulePageProps = {
   params: Promise<{
@@ -34,13 +36,27 @@ export default async function ModulePage({
     notFound();
   }
 
+  const access = await getOrganisationPageAccess(selectedOrganisationSlug);
+
+  if (access.status === "denied") {
+    return <UnauthorisedState {...access} />;
+  }
+
   if (module === "trips") {
-    return <TripsList selectedOrganisationSlug={selectedOrganisationSlug} />;
+    return (
+      <TripsList
+        organisation={access.organisation}
+        selectedOrganisationSlug={selectedOrganisationSlug}
+      />
+    );
   }
 
   if (module === "vehicles") {
     return (
-      <VehiclesRegister selectedOrganisationSlug={selectedOrganisationSlug} />
+      <VehiclesRegister
+        organisation={access.organisation}
+        selectedOrganisationSlug={selectedOrganisationSlug}
+      />
     );
   }
 
@@ -49,6 +65,7 @@ export default async function ModulePage({
       <FulcrumShell
         connectionError={resolvedSearchParams?.error}
         connectionSaved={resolvedSearchParams?.saved}
+        organisation={access.organisation}
         selectedOrganisationSlug={selectedOrganisationSlug}
       />
     );
@@ -57,6 +74,7 @@ export default async function ModulePage({
   return (
     <DashboardContent
       moduleSlug={module}
+      organisation={access.organisation}
       selectedOrganisationSlug={selectedOrganisationSlug}
     />
   );

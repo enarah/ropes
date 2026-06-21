@@ -16,6 +16,8 @@ Vehicles records, and the initial authentication foundation.
 - Signed-in user resolution from OAuth email to the app `User` record and
   active organisation memberships.
 - Local fake/demo session fallback when database/auth setup is not configured.
+- Route-level active membership blocking for dashboard, Trips, Vehicles and
+  Fulcrum pages when authentication and the database are configured.
 - Organisation-scoped in-memory dashboard/module mock data.
 - Initial Prisma schema and clearly fake seed data for organisations, users,
   memberships, roles, projects, ranger programs, trips, vehicles, bookings,
@@ -42,7 +44,8 @@ Vehicles records, and the initial authentication foundation.
   implemented.
 - Organisation switching still uses query-string UI state, but the available
   options come from active memberships when auth/database are configured.
-- Full route-level access blocking for every demo page is not implemented yet.
+- Role-specific permission rules beyond active membership checks are not
+  implemented yet.
 - Dashboard and Fulcrum UI data is in-memory demo data.
 - Trip participant rows, trip vehicle allocation rows and trip itinerary rows
   are still demo-only and are not persisted yet.

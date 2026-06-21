@@ -94,6 +94,14 @@ type ScopedRecord = {
   meta: string;
 };
 
+export type DashboardOrganisation = {
+  id?: string;
+  name: string;
+  slug: string;
+  type: string;
+  region: string;
+};
+
 export const demoOrganisations = [
   {
     name: "ROPES Demo Aboriginal Corporation",
@@ -107,9 +115,9 @@ export const demoOrganisations = [
     type: "Enarah internal",
     region: "Enarah operations",
   },
-] as const;
+] as const satisfies readonly DashboardOrganisation[];
 
-export type OrganisationSlug = (typeof demoOrganisations)[number]["slug"];
+export type OrganisationSlug = string;
 
 export const fakeCurrentSession = {
   user: {
@@ -133,7 +141,7 @@ export function isModuleSlug(slug: string): slug is ModuleSlug {
 
 export function getSelectedOrganisation(
   organisationSlug?: string | null,
-): (typeof demoOrganisations)[number] {
+): DashboardOrganisation {
   return (
     demoOrganisations.find(
       (organisation) => organisation.slug === organisationSlug,

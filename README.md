@@ -124,6 +124,12 @@ Only active memberships for that user are exposed to the organisation switcher
 and tenant guards. If auth providers are not configured, the local prototype
 keeps the clearly labelled fake/demo session fallback for development.
 
+When both authentication and `DATABASE_URL` are configured, organisation-scoped
+dashboard, Trips, Vehicles and Fulcrum pages check the signed-in user's active
+membership before loading server-side organisation data. Users without access
+see an unauthorised state instead of fake fallback data. Local demo fallback is
+kept only for development when authentication or the database is not configured.
+
 ## Fulcrum token encryption setup
 
 ROPES can store a per-organisation Fulcrum API token encrypted at rest for the
@@ -159,6 +165,8 @@ The current app includes:
   configuration through environment variables only
 - Signed-in user resolution from OAuth email to the app `User` record and
   active organisation memberships
+- Route-level access blocking for dashboard, Trips, Vehicles and Fulcrum pages
+  when authentication and the database are configured
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
@@ -174,13 +182,13 @@ The current app includes:
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include user invitation/provisioning,
-route-level access blocking for every demo page, persisted structured trip
-participants/itineraries, vehicle record create/edit forms, full server-side
-booking calendar/scheduling features, real pre-start checklists, Fulcrum API
-sync jobs, Fulcrum record imports, Fulcrum app writes, AI provider calls, API
-keys or external service credentials. Persisted writes use Auth.js sessions when
-configured, or the clearly labelled fake/demo session fallback when auth is not
-configured for local development.
+role-specific permission rules beyond active memberships, audit logging,
+persisted structured trip participants/itineraries, vehicle record create/edit
+forms, full server-side booking calendar/scheduling features, real pre-start
+checklists, Fulcrum API sync jobs, Fulcrum record imports, Fulcrum app writes,
+AI provider calls, API keys or external service credentials. Persisted writes
+use Auth.js sessions when configured, or the clearly labelled fake/demo session
+fallback when auth is not configured for local development.
 
 ## Build principles
 
