@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { DashboardContent } from "@/components/dashboard-content";
+import { TripsList } from "@/components/trips/trips-list";
 import { isModuleSlug, moduleSlugs } from "@/lib/dashboard-data";
 
 type ModulePageProps = {
@@ -26,6 +27,10 @@ export default async function ModulePage({
 
   if (!isModuleSlug(module)) {
     notFound();
+  }
+
+  if (module === "trips") {
+    return <TripsList selectedOrganisationSlug={selectedOrganisationSlug} />;
   }
 
   return (
