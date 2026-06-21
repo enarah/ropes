@@ -30,13 +30,37 @@ export type VehicleStatusFilter =
   | "booked"
   | "maintenance"
   | "retired";
+export type VehicleBookingStatusFilter =
+  | "all"
+  | "requested"
+  | "approved"
+  | "active"
+  | "completed"
+  | "cancelled";
+export type VehicleBookingTimingFilter =
+  | "all"
+  | "upcoming"
+  | "current"
+  | "past"
+  | "cancelled";
 export type VehicleRegisterFilters = {
+  bookingStatus: VehicleBookingStatusFilter;
+  bookingTiming: VehicleBookingTimingFilter;
   status: VehicleStatusFilter;
 };
 export type VehicleRegisterSearchParams = {
+  bookingStatus?: string;
+  bookingTiming?: string;
   status?: string;
 };
 export type VehicleSummaryCard = {
+  count: number;
+  description: string;
+  filters: Partial<VehicleRegisterFilters>;
+  id: string;
+  label: string;
+};
+export type VehicleBookingSummaryCard = {
   count: number;
   description: string;
   filters: Partial<VehicleRegisterFilters>;
@@ -135,6 +159,21 @@ export function getVehicleRegisterFilters(
   searchParams?: VehicleRegisterSearchParams,
 ): VehicleRegisterFilters {
   return {
+    bookingStatus: getAllowedValue(searchParams?.bookingStatus, [
+      "all",
+      "requested",
+      "approved",
+      "active",
+      "completed",
+      "cancelled",
+    ] as const),
+    bookingTiming: getAllowedValue(searchParams?.bookingTiming, [
+      "all",
+      "upcoming",
+      "current",
+      "past",
+      "cancelled",
+    ] as const),
     status: getAllowedValue(searchParams?.status, [
       "all",
       "available",
@@ -143,6 +182,30 @@ export function getVehicleRegisterFilters(
       "retired",
     ] as const),
   };
+}
+
+export function filterVehicleBookingsForRegister(
+  bookings: DemoVehicleBooking[],
+  filters: VehicleRegisterFilters,
+) {
+  return bookings.filter((booking) => {
+    if (
+      filters.bookingStatus !== "all" &&
+      getVehicleBookingStatusFilterValue(booking.status) !==
+        filters.bookingStatus
+    ) {
+      return false;
+    }
+
+    if (
+      filters.bookingTiming !== "all" &&
+      getVehicleBookingTimingState(booking).value !== filters.bookingTiming
+    ) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 export function filterVehiclesForRegister(
@@ -215,6 +278,98 @@ export function getVehicleBookingCounts(bookings: DemoVehicleBooking[]) {
 
     return counts;
   }, {});
+}
+
+export function getVehicleBookingSummaryCards(
+  bookings: DemoVehicleBooking[],
+): VehicleBookingSummaryCard[] {
+  return [
+    {
+      count: bookings.length,
+      description: "All bookings in this organisation.",
+      filters: {
+        bookingStatus: "all",
+        bookingTiming: "all",
+      },
+      id: "total-bookings",
+      label: "Total bookings",
+    },
+    {
+      count: filterVehicleBookingsForRegister(bookings, {
+        ...getVehicleRegisterFilters(),
+        bookingTiming: "upcoming",
+      }).length,
+      description: "Future non-cancelled bookings.",
+      filters: { bookingTiming: "upcoming" },
+      id: "upcoming-bookings",
+      label: "Upcoming",
+    },
+    {
+      count: filterVehicleBookingsForRegister(bookings, {
+        ...getVehicleRegisterFilters(),
+        bookingTiming: "current",
+      }).length,
+      description: "Currently inside the booking window.",
+      filters: { bookingTiming: "current" },
+      id: "current-bookings",
+      label: "Active now",
+    },
+    {
+      count: filterVehicleBookingsForRegister(bookings, {
+        ...getVehicleRegisterFilters(),
+        bookingStatus: "requested",
+      }).length,
+      description: "Requested bookings needing coordinator review.",
+      filters: { bookingStatus: "requested" },
+      id: "requested-bookings",
+      label: "Requested",
+    },
+    {
+      count: filterVehicleBookingsForRegister(bookings, {
+        ...getVehicleRegisterFilters(),
+        bookingTiming: "cancelled",
+      }).length,
+      description: "Cancelled bookings retained for visibility.",
+      filters: { bookingTiming: "cancelled" },
+      id: "cancelled-bookings",
+      label: "Cancelled",
+    },
+  ];
+}
+
+export function getVehicleBookingTimingState(booking: DemoVehicleBooking): {
+  label: "Upcoming" | "Active now" | "Past" | "Cancelled";
+  value: Exclude<VehicleBookingTimingFilter, "all">;
+} {
+  if (booking.status === "Cancelled") {
+    return {
+      label: "Cancelled",
+      value: "cancelled",
+    };
+  }
+
+  const now = new Date();
+  const startsAt = new Date(booking.startsAt);
+  const endsAt = new Date(booking.endsAt);
+
+  if (booking.status === "Completed" || endsAt < now) {
+    return {
+      label: "Past",
+      value: "past",
+    };
+  }
+
+  if (startsAt <= now && endsAt >= now) {
+    return {
+      label: "Active now",
+      value: "current",
+    };
+  }
+
+  return {
+    label: "Upcoming",
+    value: "upcoming",
+  };
 }
 
 export async function getVehiclesForOrganisationWithPersistence(
@@ -538,6 +693,12 @@ function getVehicleStatusFilterValue(
   status: VehicleStatus,
 ): Exclude<VehicleStatusFilter, "all"> {
   return status.toLowerCase() as Exclude<VehicleStatusFilter, "all">;
+}
+
+function getVehicleBookingStatusFilterValue(
+  status: VehicleBookingStatus,
+): Exclude<VehicleBookingStatusFilter, "all"> {
+  return status.toLowerCase() as Exclude<VehicleBookingStatusFilter, "all">;
 }
 
 function countVehiclesByStatus(vehicles: DemoVehicle[], status: VehicleStatus) {

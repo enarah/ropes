@@ -14,6 +14,8 @@ type ModulePageProps = {
   searchParams?: Promise<{
     action?: string;
     approval?: string;
+    bookingStatus?: string;
+    bookingTiming?: string;
     error?: string;
     import?: string;
     org?: string;

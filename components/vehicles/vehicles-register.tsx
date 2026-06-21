@@ -6,9 +6,11 @@ import {
   type OrganisationSlug,
 } from "@/lib/dashboard-data";
 import {
+  filterVehicleBookingsForRegister,
   filterVehiclesForRegister,
   getVehicleBookingCounts,
   getVehicleBookingsForOrganisationWithPersistence,
+  getVehicleBookingSummaryCards,
   getVehiclePersistenceState,
   getVehicleRegisterFilters,
   getVehicleSummaryCards,
@@ -16,6 +18,7 @@ import {
   hasActiveVehicleRegisterFilters,
   organisationHref,
   type DemoVehicle,
+  type VehicleBookingSummaryCard,
   type VehicleRegisterFilters,
   type VehicleRegisterSearchParams,
   type VehicleSummaryCard,
@@ -42,9 +45,11 @@ export async function VehiclesRegister({
     getVehiclePersistenceState(organisation.slug),
   ]);
   const filteredVehicles = filterVehiclesForRegister(vehicles, filters);
+  const filteredBookings = filterVehicleBookingsForRegister(bookings, filters);
   const summaryCards = getVehicleSummaryCards(vehicles);
+  const bookingSummaryCards = getVehicleBookingSummaryCards(bookings);
   const bookingCounts = getVehicleBookingCounts(bookings);
-  const activeFilterCount = hasActiveVehicleRegisterFilters(filters) ? 1 : 0;
+  const activeFilterCount = getActiveFilterCount(filters);
 
   return (
     <div className="space-y-6">
@@ -89,11 +94,17 @@ export async function VehiclesRegister({
             ? ` of ${vehicles.length}`
             : ""}{" "}
           {persistence.isDatabaseAvailable ? "persisted" : "fake demo"} vehicle
-          {filteredVehicles.length === 1 ? "" : "s"} and {bookings.length}{" "}
+          {filteredVehicles.length === 1 ? "" : "s"} and{" "}
+          {filteredBookings.length}
+          {hasActiveBookingFilters(filters) ? ` of ${bookings.length}` : ""}{" "}
           {persistence.isDatabaseAvailable ? "persisted" : "fake demo"} booking
-          {bookings.length === 1 ? "" : "s"} for {organisation.name}. No
+          {filteredBookings.length === 1 ? "" : "s"} for {organisation.name}. No
           vehicle data from another organisation is included.
-          {activeFilterCount ? " 1 register filter active." : ""}
+          {activeFilterCount
+            ? ` ${activeFilterCount} register filter${
+                activeFilterCount === 1 ? "" : "s"
+              } active.`
+            : ""}
         </p>
       </section>
 
@@ -125,11 +136,28 @@ export async function VehiclesRegister({
         )}
       </section>
 
+      <VehicleBookingSummaryStrip
+        cards={bookingSummaryCards}
+        filters={filters}
+        organisationSlug={organisation.slug}
+      />
+
+      <VehicleBookingFiltersBar
+        filters={filters}
+        organisationSlug={organisation.slug}
+      />
+
       <BookingCalendar
-        bookings={bookings}
+        bookings={filteredBookings}
         organisationSlug={organisation.slug}
         vehicles={vehicles}
       />
+      {!filteredBookings.length ? (
+        <EmptyBookingFilterState
+          filters={filters}
+          organisationSlug={organisation.slug}
+        />
+      ) : null}
     </div>
   );
 }
@@ -151,6 +179,38 @@ function VehicleSummaryStrip({
             getVehicleRegisterFilters(),
             card.filters,
           )}
+          key={card.id}
+        >
+          <p className="text-sm font-semibold text-charcoal-600">
+            {card.label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-charcoal-950">
+            {card.count}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-charcoal-600">
+            {card.description}
+          </p>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+function VehicleBookingSummaryStrip({
+  cards,
+  filters,
+  organisationSlug,
+}: {
+  cards: VehicleBookingSummaryCard[];
+  filters: VehicleRegisterFilters;
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {cards.map((card) => (
+        <Link
+          className="rounded-md border border-earth-200 bg-white p-4 shadow-sm transition hover:border-ochre-500"
+          href={vehicleFilterHref(organisationSlug, filters, card.filters)}
           key={card.id}
         >
           <p className="text-sm font-semibold text-charcoal-600">
@@ -195,6 +255,54 @@ function VehicleRegisterFiltersBar({
         ]}
         organisationSlug={organisationSlug}
       />
+    </section>
+  );
+}
+
+function VehicleBookingFiltersBar({
+  filters,
+  organisationSlug,
+}: {
+  filters: VehicleRegisterFilters;
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <section className="rounded-md border border-earth-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex items-center gap-2 text-charcoal-950">
+        <ListFilter aria-hidden="true" size={18} />
+        <h2 className="text-lg font-semibold">Booking visibility filters</h2>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FilterGroup
+          currentValue={filters.bookingStatus}
+          filters={filters}
+          label="Booking status"
+          name="bookingStatus"
+          options={[
+            { label: "All", value: "all" },
+            { label: "Requested", value: "requested" },
+            { label: "Approved", value: "approved" },
+            { label: "Active", value: "active" },
+            { label: "Completed", value: "completed" },
+            { label: "Cancelled", value: "cancelled" },
+          ]}
+          organisationSlug={organisationSlug}
+        />
+        <FilterGroup
+          currentValue={filters.bookingTiming}
+          filters={filters}
+          label="Timing"
+          name="bookingTiming"
+          options={[
+            { label: "All", value: "all" },
+            { label: "Upcoming", value: "upcoming" },
+            { label: "Active now", value: "current" },
+            { label: "Past", value: "past" },
+            { label: "Cancelled", value: "cancelled" },
+          ]}
+          organisationSlug={organisationSlug}
+        />
+      </div>
     </section>
   );
 }
@@ -358,6 +466,44 @@ function EmptyVehicleFilterState({
   );
 }
 
+function EmptyBookingFilterState({
+  filters,
+  organisationSlug,
+}: {
+  filters: VehicleRegisterFilters;
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <section className="rounded-md border border-earth-200 bg-earth-50 p-6">
+      <div className="flex items-start gap-3">
+        <ClipboardCheck
+          aria-hidden="true"
+          className="mt-1 text-ochre-700"
+          size={20}
+        />
+        <div>
+          <h2 className="text-lg font-semibold text-charcoal-950">
+            No bookings match these filters
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-charcoal-600">
+            The selected organisation has no bookings for this status and timing
+            view. Clear the booking filters to return to all bookings.
+          </p>
+          <Link
+            className="mt-4 inline-flex rounded-md bg-charcoal-900 px-4 py-2 text-sm font-semibold text-white"
+            href={vehicleFilterHref(organisationSlug, filters, {
+              bookingStatus: "all",
+              bookingTiming: "all",
+            })}
+          >
+            Clear booking filters
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Fact({
   icon,
   label,
@@ -406,4 +552,12 @@ function formatVehicleDescription(vehicle: DemoVehicle) {
 
 function formatOdometer(odometerKm: number) {
   return `${new Intl.NumberFormat("en-AU").format(odometerKm)} km`;
+}
+
+function getActiveFilterCount(filters: VehicleRegisterFilters) {
+  return Object.values(filters).filter((value) => value !== "all").length;
+}
+
+function hasActiveBookingFilters(filters: VehicleRegisterFilters) {
+  return filters.bookingStatus !== "all" || filters.bookingTiming !== "all";
 }
