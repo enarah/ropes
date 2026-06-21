@@ -178,6 +178,40 @@ store Fulcrum response payloads, run background workers or schedule cron jobs.
 Recent job status is shown in the Fulcrum UI with safe timestamps, status and
 summary metadata only.
 
+## Fulcrum manual import MVP
+
+ROPES can run a small manual Fulcrum import from the Sync Settings page when a
+database, authentication, token encryption and a tested Fulcrum connection are
+configured. The import uses the authenticated tenant guard path, decrypts the
+saved Fulcrum token on the server only, imports selected app/form metadata
+before records, and caps each run at 100 records by default.
+
+The first import stores organisation-scoped `FulcrumApp` and `FulcrumRecord`
+rows, preserves external Fulcrum IDs, and updates records only within the same
+organisation, connection and external record ID scope. Records without GPS are
+stored with null coordinates and a safe `missing_gps` data-health flag. Project
+and trip links remain empty unless a later safe mapping step sets them.
+
+The import stores only deliberate safe record metadata and a small form-values
+preview for later mapping/debugging. It does not store raw or encrypted tokens,
+request headers, media blobs, full unfiltered Fulcrum API responses, or secret
+metadata in records, UI, audit logs or sync job metadata.
+
+The default read-only Fulcrum import endpoints can be overridden for local
+testing:
+
+```bash
+FULCRUM_API_BASE_URL="https://api.fulcrumapp.com/api/v2"
+FULCRUM_FORMS_IMPORT_URL="https://api.fulcrumapp.com/api/v2/forms.json"
+FULCRUM_RECORDS_IMPORT_URL="https://api.fulcrumapp.com/api/v2/records.json"
+```
+
+Manual imports update Fulcrum sync job status through queued, running,
+succeeded or failed states and write safe audit events for import start,
+app/form metadata import, record import, failure and completion. This is not a
+background worker, scheduled sync system, media import, Fulcrum App Builder
+write path or broad sync engine.
+
 ## Audit logging
 
 Persisted trip create/update, vehicle booking create, server-side vehicle
@@ -223,7 +257,8 @@ The current app includes:
   pages, plus encrypted per-organisation token storage and server-side
   credential testing for connection setup
 - Organisation-scoped Fulcrum sync job status placeholders for tested
-  connections, without record imports or background sync workers
+  connections and capped manual Fulcrum app/form and record imports for
+  selected app IDs, without background sync workers
 - Organisation-scoped audit logging for the first persisted trip, vehicle
   booking and Fulcrum connection writes
 - Placeholder summary cards and module panels using clearly fake demo content
@@ -232,11 +267,12 @@ This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
 persisted structured trip participants/itineraries, vehicle record create/edit
 forms, full server-side booking calendar/scheduling features, real pre-start
-checklists, Fulcrum record import jobs, Fulcrum app/form sync, Fulcrum app
-writes, background workers, scheduled sync, AI provider calls, API keys or
-external service credentials beyond local environment configuration. Persisted
-writes use Auth.js sessions when configured, or the clearly labelled fake/demo
-session fallback when auth is not configured for local development.
+checklists, broad Fulcrum sync, media/photo import, Fulcrum app writes,
+background workers, scheduled sync, AI provider calls, API keys or external
+service credentials beyond local environment configuration. Persisted writes
+and manual Fulcrum imports use Auth.js sessions when configured, or the clearly
+labelled fake/demo session fallback when auth is not configured for local
+development.
 
 ## Build principles
 

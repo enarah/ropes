@@ -39,6 +39,7 @@ import { organisationHref } from "@/components/fulcrum/fulcrum-ui";
 
 type FulcrumShellProps = {
   connectionError?: string;
+  importStatus?: string;
   connectionSaved?: string;
   connectionTested?: string;
   syncStatus?: string;
@@ -61,6 +62,7 @@ const sectionIcons = {
 
 export async function FulcrumShell({
   connectionError,
+  importStatus,
   connectionSaved,
   connectionTested,
   syncStatus,
@@ -73,8 +75,8 @@ export async function FulcrumShell({
   const activeSection = getFulcrumSection(sectionSlug);
   const connectionState = await getFulcrumConnectionState(organisation.slug);
   const connections = connectionState.connections;
-  const apps = getFulcrumAppsForOrganisation(organisation.slug);
-  const records = getFulcrumRecordsForOrganisation(organisation.slug);
+  const apps = await getFulcrumAppsForOrganisation(organisation.slug);
+  const records = await getFulcrumRecordsForOrganisation(organisation.slug);
   const healthChecks = getHealthChecksForOrganisation(organisation.slug);
   const syncSettings = getSyncSettingsForOrganisation(organisation.slug);
   const syncJobs = connectionState.syncJobs;
@@ -98,8 +100,8 @@ export async function FulcrumShell({
             </h1>
           </div>
           <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
-            {activeSection.description} This shell uses demo data only and does
-            not call Fulcrum.
+            {activeSection.description} Fulcrum imports are manual, capped and
+            organisation-scoped when a tested connection is configured.
           </p>
         </div>
         <div className="rounded-md border border-earth-200 bg-white px-4 py-3 text-sm">
@@ -143,13 +145,19 @@ export async function FulcrumShell({
         <p className="text-sm leading-6 text-charcoal-600">
           Showing Fulcrum setup for {organisation.name} only. Raw API tokens are
           never returned to the browser after save, and no Fulcrum sync or
-          import calls run in this setup flow.
+          import calls only run from the guarded manual import action for a
+          tested connection.
         </p>
       </section>
 
-      {connectionError || connectionSaved || connectionTested || syncStatus ? (
+      {connectionError ||
+      connectionSaved ||
+      connectionTested ||
+      importStatus ||
+      syncStatus ? (
         <ConnectionStatusMessage
           error={connectionError}
+          importStatus={importStatus}
           saved={connectionSaved}
           syncStatus={syncStatus}
           tested={connectionTested}
@@ -200,18 +208,22 @@ export async function FulcrumShell({
 
 function ConnectionStatusMessage({
   error,
+  importStatus,
   saved,
   syncStatus,
   tested,
 }: {
   error?: string;
+  importStatus?: string;
   saved?: string;
   syncStatus?: string;
   tested?: string;
 }) {
   const title = error
     ? "Fulcrum connection was not saved"
-    : syncStatus
+    : importStatus
+      ? getImportStatusTitle(importStatus)
+      : syncStatus
       ? getSyncStatusTitle(syncStatus)
       : tested
         ? getTestStatusTitle(tested)
@@ -225,7 +237,13 @@ function ConnectionStatusMessage({
     <section className="rounded-md border border-earth-200 bg-white p-4">
       <p className="text-sm font-semibold text-charcoal-950">{title}</p>
       <p className="mt-1 text-sm leading-6 text-charcoal-600">
-        {getConnectionStatusMessage({ error, saved, syncStatus, tested })}
+        {getConnectionStatusMessage({
+          error,
+          importStatus,
+          saved,
+          syncStatus,
+          tested,
+        })}
       </p>
     </section>
   );
@@ -233,15 +251,21 @@ function ConnectionStatusMessage({
 
 function getConnectionStatusMessage({
   error,
+  importStatus,
   saved,
   syncStatus,
   tested,
 }: {
   error?: string;
+  importStatus?: string;
   saved?: string;
   syncStatus?: string;
   tested?: string;
 }) {
+  if (importStatus) {
+    return getImportStatusMessage(importStatus);
+  }
+
   if (syncStatus) {
     return getSyncStatusMessage(syncStatus);
   }
@@ -275,6 +299,53 @@ function getConnectionStatusMessage({
   }
 
   return "The database write was rejected before anything was saved.";
+}
+
+function getImportStatusTitle(importStatus: string) {
+  if (importStatus === "completed") {
+    return "Fulcrum import completed";
+  }
+
+  if (importStatus === "connection-not-tested") {
+    return "Fulcrum connection must be tested first";
+  }
+
+  if (importStatus === "missing-token") {
+    return "Fulcrum connection is missing a token";
+  }
+
+  if (importStatus === "demo") {
+    return "Demo fallback";
+  }
+
+  return "Fulcrum import did not complete";
+}
+
+function getImportStatusMessage(importStatus: string) {
+  if (importStatus === "completed") {
+    return "ROPES imported selected app/form metadata before a capped set of records, then stored safe summary metadata and audit events.";
+  }
+
+  if (importStatus === "connection-not-tested") {
+    return "Test the Fulcrum connection successfully before running a manual record import.";
+  }
+
+  if (importStatus === "missing-token") {
+    return "Save an encrypted Fulcrum token before running a manual record import.";
+  }
+
+  if (importStatus === "demo") {
+    return "No local database is configured, so Fulcrum imports remain demo-only.";
+  }
+
+  if (importStatus.startsWith("failed-")) {
+    return `Fulcrum returned a safe failure category: ${importStatus.replace(
+      "failed-",
+      "",
+    )}. No raw response body was shown or logged.`;
+  }
+
+  return "The import was rejected before records were saved.";
 }
 
 function getSyncStatusTitle(syncStatus: string) {

@@ -7,6 +7,11 @@ import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import { testFulcrumApiToken } from "@/lib/fulcrum-connection-test";
 import {
+  importFulcrumRecordsForConnection,
+  parseFulcrumImportLimit,
+  parseSelectedFulcrumAppIds,
+} from "@/lib/fulcrum-import";
+import {
   createFulcrumTokenHint,
   decryptFulcrumApiToken,
   encryptFulcrumApiToken,
@@ -410,6 +415,289 @@ export async function startFulcrumSyncJobAction(formData: FormData) {
 
     revalidatePath("/fulcrum");
     revalidatePath("/fulcrum/connections");
+    revalidatePath("/fulcrum/sync-settings");
+  } catch (error) {
+    redirectTo = `${fallbackPath}&error=${getConnectionErrorCode(error)}`;
+  }
+
+  redirect(redirectTo);
+}
+
+export async function importFulcrumRecordsAction(formData: FormData) {
+  const organisationSlug = getRequiredString(formData, "organisationSlug");
+  const fallbackPath = `/fulcrum/sync-settings?org=${organisationSlug}`;
+
+  if (!isDatabaseConfigured()) {
+    redirect(`${fallbackPath}&import=demo`);
+  }
+
+  let redirectTo = `${fallbackPath}&error=persistence`;
+
+  try {
+    const prisma = getPrismaClient();
+    const organisationId = getRequiredString(formData, "organisationId");
+    const connectionId = getRequiredString(formData, "connectionId");
+    const selectedAppIds = parseSelectedFulcrumAppIds(
+      getOptionalString(formData, "selectedAppIds"),
+    );
+    const limit = parseFulcrumImportLimit(
+      getOptionalString(formData, "recordLimit"),
+    );
+
+    if (!selectedAppIds.length) {
+      throw new FulcrumConnectionValidationError(
+        "At least one Fulcrum app ID is required.",
+      );
+    }
+
+    const [organisation, connection] = await Promise.all([
+      prisma.organisation.findUnique({
+        select: { id: true, slug: true },
+        where: { id: organisationId },
+      }),
+      prisma.fulcrumConnection.findUnique({
+        select: {
+          encryptedApiToken: true,
+          id: true,
+          lastTestMessage: true,
+          organisationId: true,
+          status: true,
+        },
+        where: { id: connectionId },
+      }),
+    ]);
+
+    if (!organisation || !connection) {
+      throw new FulcrumConnectionValidationError(
+        "Organisation or Fulcrum connection was not found.",
+      );
+    }
+
+    const session = await getTenantGuardSessionForRequest(prisma);
+    const context = createOrganisationWriteContext({
+      organisationId: organisation.id,
+      relatedRecords: [{ label: "Fulcrum connection", record: connection }],
+      session,
+    });
+
+    if (
+      connection.status !== "CONNECTED" ||
+      connection.lastTestMessage !== "credentials_accepted"
+    ) {
+      await recordAuditLog(prisma, {
+        action: "REJECTED",
+        actorUserId: context.actorUserId,
+        entityId: null,
+        entityType: "FulcrumSyncJob",
+        metadata: {
+          connectionId: connection.id,
+          event: "fulcrum_import_rejected",
+          reason: "connection_not_tested",
+          selectedAppCount: selectedAppIds.length,
+        },
+        organisationId: context.organisationId,
+        summary:
+          "Rejected Fulcrum import because the connection was not tested successfully.",
+      });
+      redirectTo = `/fulcrum/sync-settings?org=${organisation.slug}&import=connection-not-tested`;
+    } else if (!connection.encryptedApiToken) {
+      await recordAuditLog(prisma, {
+        action: "REJECTED",
+        actorUserId: context.actorUserId,
+        entityId: null,
+        entityType: "FulcrumSyncJob",
+        metadata: {
+          connectionId: connection.id,
+          event: "fulcrum_import_rejected",
+          reason: "missing_token",
+          selectedAppCount: selectedAppIds.length,
+        },
+        organisationId: context.organisationId,
+        summary: "Rejected Fulcrum import because no encrypted token is stored.",
+      });
+      redirectTo = `/fulcrum/sync-settings?org=${organisation.slug}&import=missing-token`;
+    } else {
+      const apiToken = decryptFulcrumApiToken(connection.encryptedApiToken);
+      const syncJob = await prisma.fulcrumSyncJob.create({
+        data: {
+          fulcrumConnectionId: connection.id,
+          metadata: {
+            connectionId: connection.id,
+            event: "manual_fulcrum_import_started",
+            recordLimit: limit,
+            selectedAppCount: selectedAppIds.length,
+            selectedAppIds,
+            status: "QUEUED",
+          },
+          organisationId: context.organisationId,
+          requestedByUserId: context.actorUserId,
+          status: "QUEUED",
+          summary:
+            "Manual Fulcrum import queued for selected app IDs. Records are capped for the MVP.",
+        },
+      });
+
+      await recordAuditLog(prisma, {
+        action: "SYNC_STARTED",
+        actorUserId: context.actorUserId,
+        entityId: syncJob.id,
+        entityType: "FulcrumSyncJob",
+        metadata: {
+          connectionId: connection.id,
+          event: "fulcrum_import_started",
+          recordLimit: limit,
+          selectedAppCount: selectedAppIds.length,
+        },
+        organisationId: context.organisationId,
+        summary: "Started manual Fulcrum import for selected app IDs.",
+      });
+
+      await prisma.fulcrumSyncJob.update({
+        data: {
+          metadata: {
+            connectionId: connection.id,
+            event: "manual_fulcrum_import_running",
+            recordLimit: limit,
+            selectedAppCount: selectedAppIds.length,
+            selectedAppIds,
+            status: "RUNNING",
+          },
+          startedAt: new Date(),
+          status: "RUNNING",
+          summary:
+            "Manual Fulcrum import is reading selected apps/forms before records.",
+        },
+        where: {
+          id: syncJob.id,
+        },
+      });
+
+      const importResult = await importFulcrumRecordsForConnection({
+        apiToken,
+        connectionId: connection.id,
+        limit,
+        organisationId: context.organisationId,
+        prisma,
+        selectedAppIds,
+      });
+
+      if (importResult.ok) {
+        await prisma.fulcrumSyncJob.update({
+          data: {
+            finishedAt: new Date(),
+            metadata: {
+              appCount: importResult.appCount,
+              connectionId: connection.id,
+              event: "manual_fulcrum_import_completed",
+              importedRecordCount: importResult.importedRecordCount,
+              missingGpsCount: importResult.missingGpsCount,
+              recordLimit: limit,
+              selectedAppCount: selectedAppIds.length,
+              status: "SUCCEEDED",
+              updatedRecordCount: importResult.updatedRecordCount,
+            },
+            status: "SUCCEEDED",
+            summary: `Imported ${importResult.importedRecordCount} Fulcrum records from ${importResult.appCount} selected app(s).`,
+          },
+          where: {
+            id: syncJob.id,
+          },
+        });
+        await prisma.fulcrumConnection.update({
+          data: {
+            lastSyncedAt: new Date(),
+          },
+          where: {
+            id: connection.id,
+          },
+        });
+        await recordAuditLog(prisma, {
+          action: "UPDATED",
+          actorUserId: context.actorUserId,
+          entityId: syncJob.id,
+          entityType: "FulcrumSyncJob",
+          metadata: {
+            appCount: importResult.appCount,
+            connectionId: connection.id,
+            event: "fulcrum_import_app_metadata_imported",
+            selectedAppCount: selectedAppIds.length,
+          },
+          organisationId: context.organisationId,
+          summary: "Imported Fulcrum app/form metadata for selected app IDs.",
+        });
+        await recordAuditLog(prisma, {
+          action: "UPDATED",
+          actorUserId: context.actorUserId,
+          entityId: syncJob.id,
+          entityType: "FulcrumSyncJob",
+          metadata: {
+            connectionId: connection.id,
+            event: "fulcrum_import_records_imported",
+            importedRecordCount: importResult.importedRecordCount,
+            missingGpsCount: importResult.missingGpsCount,
+            updatedRecordCount: importResult.updatedRecordCount,
+          },
+          organisationId: context.organisationId,
+          summary: "Imported capped Fulcrum records for selected app IDs.",
+        });
+        await recordAuditLog(prisma, {
+          action: "UPDATED",
+          actorUserId: context.actorUserId,
+          entityId: syncJob.id,
+          entityType: "FulcrumSyncJob",
+          metadata: {
+            appCount: importResult.appCount,
+            connectionId: connection.id,
+            event: "fulcrum_import_completed",
+            importedRecordCount: importResult.importedRecordCount,
+            status: "SUCCEEDED",
+          },
+          organisationId: context.organisationId,
+          summary: "Completed manual Fulcrum import MVP run.",
+        });
+        redirectTo = `/fulcrum/sync-settings?org=${organisation.slug}&import=completed`;
+      } else {
+        await prisma.fulcrumSyncJob.update({
+          data: {
+            finishedAt: new Date(),
+            metadata: {
+              connectionId: connection.id,
+              event: "manual_fulcrum_import_failed",
+              recordLimit: limit,
+              safeErrorCategory: importResult.category,
+              selectedAppCount: selectedAppIds.length,
+              status: "FAILED",
+            },
+            safeErrorCategory: importResult.category,
+            status: "FAILED",
+            summary:
+              "Manual Fulcrum import failed with a safe API failure category.",
+          },
+          where: {
+            id: syncJob.id,
+          },
+        });
+        await recordAuditLog(prisma, {
+          action: "SYNC_FAILED",
+          actorUserId: context.actorUserId,
+          entityId: syncJob.id,
+          entityType: "FulcrumSyncJob",
+          metadata: {
+            connectionId: connection.id,
+            event: "fulcrum_import_failed",
+            safeErrorCategory: importResult.category,
+            selectedAppCount: selectedAppIds.length,
+          },
+          organisationId: context.organisationId,
+          summary: "Manual Fulcrum import failed with a safe failure category.",
+        });
+        redirectTo = `/fulcrum/sync-settings?org=${organisation.slug}&import=failed-${importResult.category}`;
+      }
+    }
+
+    revalidatePath("/fulcrum");
+    revalidatePath("/fulcrum/apps-forms");
+    revalidatePath("/fulcrum/field-records");
     revalidatePath("/fulcrum/sync-settings");
   } catch (error) {
     redirectTo = `${fallbackPath}&error=${getConnectionErrorCode(error)}`;

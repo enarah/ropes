@@ -10,6 +10,7 @@ type FulcrumSectionPageProps = {
   }>;
   searchParams?: Promise<{
     error?: string;
+    import?: string;
     org?: string;
     saved?: string;
     sync?: string;
@@ -44,6 +45,7 @@ export default async function FulcrumSectionPage({
   return (
     <FulcrumShell
       connectionError={resolvedSearchParams?.error}
+      importStatus={resolvedSearchParams?.import}
       connectionSaved={resolvedSearchParams?.saved}
       connectionTested={resolvedSearchParams?.tested}
       organisation={access.organisation}

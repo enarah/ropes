@@ -271,18 +271,130 @@ export async function getFulcrumConnectionState(
   }
 }
 
-export function getFulcrumAppsForOrganisation(
+export async function getFulcrumAppsForOrganisation(
   organisationSlug: OrganisationSlug,
-) {
-  return demoFulcrumApps.filter((app) => app.organisationSlug === organisationSlug);
+): Promise<DemoFulcrumApp[]> {
+  if (!isDatabaseConfigured()) {
+    return getDemoFulcrumAppsForOrganisation(organisationSlug);
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        fulcrumApps: {
+          include: {
+            project: {
+              select: {
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            updatedAt: "desc",
+          },
+        },
+      },
+      where: {
+        slug: organisationSlug,
+      },
+    });
+
+    if (!organisation || !(await canReadOrganisation(prisma, organisation.id))) {
+      return isAuthenticatedDatabaseMode()
+        ? []
+        : getDemoFulcrumAppsForOrganisation(organisationSlug);
+    }
+
+    if (!organisation.fulcrumApps.length) {
+      return getDemoFulcrumAppsForOrganisation(organisationSlug);
+    }
+
+    return organisation.fulcrumApps.map((app) => ({
+      fields: getPersistedAppFields(app.rawJson),
+      id: app.id,
+      lastSynced: app.lastSyncedAt
+        ? formatDateTime(app.lastSyncedAt)
+        : "Not imported yet",
+      name: app.name,
+      organisationSlug,
+      project: app.project?.name ?? "Unmapped",
+      purpose: app.description,
+      recordCount: app.recordCount,
+      requiredFields: [],
+    }));
+  } catch {
+    return isAuthenticatedDatabaseMode()
+      ? []
+      : getDemoFulcrumAppsForOrganisation(organisationSlug);
+  }
 }
 
-export function getFulcrumRecordsForOrganisation(
+export async function getFulcrumRecordsForOrganisation(
   organisationSlug: OrganisationSlug,
-) {
-  return demoFulcrumRecords.filter(
-    (record) => record.organisationSlug === organisationSlug,
-  );
+): Promise<DemoFulcrumRecord[]> {
+  if (!isDatabaseConfigured()) {
+    return getDemoFulcrumRecordsForOrganisation(organisationSlug);
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        fulcrumRecords: {
+          include: {
+            fulcrumApp: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            project: {
+              select: {
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            updatedAt: "desc",
+          },
+          take: 100,
+        },
+      },
+      where: {
+        slug: organisationSlug,
+      },
+    });
+
+    if (!organisation || !(await canReadOrganisation(prisma, organisation.id))) {
+      return isAuthenticatedDatabaseMode()
+        ? []
+        : getDemoFulcrumRecordsForOrganisation(organisationSlug);
+    }
+
+    if (!organisation.fulcrumRecords.length) {
+      return getDemoFulcrumRecordsForOrganisation(organisationSlug);
+    }
+
+    return organisation.fulcrumRecords.map((record) => ({
+      appId: record.fulcrumApp.id,
+      createdBy: "Fulcrum import",
+      id: record.id,
+      location:
+        record.latitude === null || record.longitude === null
+          ? "Missing GPS"
+          : "GPS captured",
+      organisationSlug,
+      project: record.project?.name ?? "Unmapped",
+      recordedAt: (record.capturedAt ?? record.updatedAt).toISOString(),
+      status: mapPersistedRecordStatus(record.status),
+      title: getPersistedRecordTitle(record.rawJson, record.fulcrumApp.name),
+    }));
+  } catch {
+    return isAuthenticatedDatabaseMode()
+      ? []
+      : getDemoFulcrumRecordsForOrganisation(organisationSlug);
+  }
 }
 
 export function getHealthChecksForOrganisation(
@@ -301,25 +413,37 @@ export function getSyncSettingsForOrganisation(
   );
 }
 
-export function getFulcrumSummary(organisationSlug: OrganisationSlug) {
-  const apps = getFulcrumAppsForOrganisation(organisationSlug);
-  const records = getFulcrumRecordsForOrganisation(organisationSlug);
+export function getFulcrumSummary(
+  organisationSlug: OrganisationSlug,
+  counts?: {
+    appCount: number;
+    healthReviewCount: number;
+    recordCount: number;
+  },
+) {
+  const apps = getDemoFulcrumAppsForOrganisation(organisationSlug);
+  const records = getDemoFulcrumRecordsForOrganisation(organisationSlug);
   const checks = getHealthChecksForOrganisation(organisationSlug);
+  const appCount = counts?.appCount ?? apps.length;
+  const recordCount = counts?.recordCount ?? records.length;
+  const healthReviewCount =
+    counts?.healthReviewCount ??
+    checks.filter((check) => check.status !== "Good").length;
 
   return [
     {
-      label: "Demo apps",
-      value: String(apps.length),
-      caption: "Fake app metadata only.",
+      label: "Apps",
+      value: String(appCount),
+      caption: "Demo or imported app metadata in this organisation.",
     },
     {
       label: "Field records",
-      value: String(records.length),
-      caption: "Demo records scoped to this organisation.",
+      value: String(recordCount),
+      caption: "Demo fallback or capped imported records.",
     },
     {
       label: "Health checks",
-      value: String(checks.filter((check) => check.status !== "Good").length),
+      value: String(healthReviewCount),
       caption: "Mock quality signals needing review.",
     },
     {
@@ -328,6 +452,66 @@ export function getFulcrumSummary(organisationSlug: OrganisationSlug) {
       caption: "Raw Fulcrum tokens are never shown in the UI.",
     },
   ];
+}
+
+function getDemoFulcrumAppsForOrganisation(organisationSlug: OrganisationSlug) {
+  return demoFulcrumApps.filter(
+    (app) => app.organisationSlug === organisationSlug,
+  );
+}
+
+function getDemoFulcrumRecordsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  return demoFulcrumRecords.filter(
+    (record) => record.organisationSlug === organisationSlug,
+  );
+}
+
+function getPersistedAppFields(rawJson: unknown) {
+  if (!rawJson || typeof rawJson !== "object") {
+    return ["Imported metadata"];
+  }
+
+  const fieldCount = (rawJson as Record<string, unknown>)["fieldCount"];
+
+  return typeof fieldCount === "number" && fieldCount > 0
+    ? [`${fieldCount} imported form fields`]
+    : ["Imported metadata"];
+}
+
+function getPersistedRecordTitle(rawJson: unknown, fallback: string) {
+  if (!rawJson || typeof rawJson !== "object") {
+    return fallback;
+  }
+
+  const preview = (rawJson as Record<string, unknown>)["formValuesPreview"];
+
+  if (!preview || typeof preview !== "object") {
+    return fallback;
+  }
+
+  const firstTextValue = Object.values(preview).find(
+    (value) => typeof value === "string" && value.trim(),
+  );
+
+  return typeof firstTextValue === "string" ? firstTextValue : fallback;
+}
+
+function mapPersistedRecordStatus(
+  status: string,
+): DemoFulcrumRecord["status"] {
+  const normalisedStatus = status.toLowerCase();
+
+  if (normalisedStatus.includes("complete")) {
+    return "Complete";
+  }
+
+  if (normalisedStatus.includes("draft")) {
+    return "Draft";
+  }
+
+  return "Needs review";
 }
 
 function createReadyConnectionPlaceholder(
@@ -603,8 +787,8 @@ const demoSyncSettings: DemoSyncSetting[] = [
     id: "manual-sync",
     organisationSlug: "ropes-demo-aboriginal-corporation",
     label: "Manual sync",
-    value: "Placeholder only",
-    note: "No Fulcrum API call is available in this shell.",
+    value: "Capped import MVP",
+    note: "Tested connections can import selected app IDs manually.",
   },
   {
     id: "sync-cadence",
@@ -617,21 +801,21 @@ const demoSyncSettings: DemoSyncSetting[] = [
     id: "audit-log",
     organisationSlug: "ropes-demo-aboriginal-corporation",
     label: "Audit logging",
-    value: "Future",
-    note: "Connection tests and sync runs should be logged later.",
+    value: "Safe events",
+    note: "Connection tests, sync placeholders and imports log safe metadata.",
   },
   {
     id: "support-manual-sync",
     organisationSlug: "demo-enarah-services",
     label: "Manual sync",
-    value: "Placeholder only",
-    note: "No Fulcrum API call is available in this shell.",
+    value: "Capped import MVP",
+    note: "Tested connections can import selected app IDs manually.",
   },
   {
     id: "support-token-storage",
     organisationSlug: "demo-enarah-services",
     label: "Token storage",
-    value: "Not implemented",
-    note: "No API token fields are present in this MVP.",
+    value: "Encrypted setup",
+    note: "Raw tokens are encrypted at rest and never shown after save.",
   },
 ];
