@@ -201,11 +201,11 @@ export const demoTrips: DemoTrip[] = [
     approvalStatus: "Draft",
     startsAt: "2026-08-22T00:30:00.000Z",
     endsAt: "2026-08-22T07:00:00.000Z",
-    lead: "Daryl Clarke - Demo",
+    lead: "Demo Enarah Admin",
     emergencyContact: "Demo Enarah Admin",
     participants: [
       {
-        name: "Daryl Clarke - Demo",
+        name: "Demo Enarah Admin",
         role: "Trip lead",
         status: "Confirmed",
       },

@@ -63,6 +63,7 @@ export function TripForm({ mode, organisationName, trip }: TripFormProps) {
           className="mt-2 min-h-28 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
           defaultValue={trip.purpose}
           name="purpose"
+          required
         />
       </label>
 
@@ -127,6 +128,7 @@ function Field({
         className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
         defaultValue={defaultValue}
         name={name}
+        required
         type={type}
       />
     </label>
