@@ -44,6 +44,13 @@ Vehicles records, and the initial authentication foundation.
 - Fulcrum Sync Settings can run a manual, capped import for selected Fulcrum
   app IDs from a tested connection, importing app/form metadata before records
   and storing organisation-scoped records with preserved external IDs.
+- Fulcrum import validation now checks selected app ID format, app/form payload
+  shape and record payload shape, skips unsupported malformed records where
+  possible, and filters likely sensitive form values out of
+  `rawJson.formValuesPreview`.
+- Recent Fulcrum sync job status shows safe import counts for records imported,
+  records updated, records skipped, missing GPS and filtered sensitive field
+  previews.
 - Organisation-scoped audit entries for persisted trip create/update, vehicle
   booking create/overlap rejection, Fulcrum connection save/update/disable, and
   Fulcrum connection test success/failure, sync job placeholder events and safe
@@ -69,6 +76,8 @@ Vehicles records, and the initial authentication foundation.
 - Fulcrum import is a capped MVP for selected app IDs only. It does not import
   media/photos, run background workers, schedule sync, perform broad app/form
   sync or write back to Fulcrum.
+- Fulcrum field sensitivity rules are conservative key/label filtering only;
+  richer form-schema-aware allowlists remain future work.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
   call AI providers or Fulcrum APIs.
 - Maps and data health checks are static placeholders.

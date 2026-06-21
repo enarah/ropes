@@ -1,4 +1,4 @@
-import type { FulcrumSyncJobStatus } from "@prisma/client";
+import type { FulcrumSyncJobStatus, Prisma } from "@prisma/client";
 import type { OrganisationSlug } from "@/lib/dashboard-data";
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
@@ -120,6 +120,13 @@ export type DemoSyncSetting = {
 
 export type DemoFulcrumSyncJob = {
   id: string;
+  importSummary?: {
+    filteredSensitiveFieldCount: number;
+    importedRecordCount: number;
+    missingGpsCount: number;
+    skippedRecordCount: number;
+    updatedRecordCount: number;
+  };
   connectionId: string;
   connectionName: string;
   requestedAt: string;
@@ -554,6 +561,7 @@ function mapPersistedSyncJob({
   id: string;
   fulcrumConnectionId: string;
   fulcrumConnection: { name: string };
+  metadata: Prisma.JsonValue | null;
   requestedAt: Date;
   requestedBy: { name: string } | null;
   safeErrorCategory: string | null;
@@ -564,12 +572,39 @@ function mapPersistedSyncJob({
     connectionId: syncJob.fulcrumConnectionId,
     connectionName: fulcrumConnection.name,
     id: syncJob.id,
+    importSummary: getImportSummary(syncJob.metadata),
     requestedAt: formatDateTime(syncJob.requestedAt),
     requestedBy: requestedBy?.name ?? "Unknown user",
     safeErrorCategory: syncJob.safeErrorCategory ?? undefined,
     status: mapSyncJobStatus(syncJob.status),
     summary: syncJob.summary,
   };
+}
+
+function getImportSummary(metadata: Prisma.JsonValue | null) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return undefined;
+  }
+
+  const record = metadata as Record<string, unknown>;
+
+  if (record["event"] !== "manual_fulcrum_import_completed") {
+    return undefined;
+  }
+
+  return {
+    filteredSensitiveFieldCount: getMetadataNumber(
+      record["filteredSensitiveFieldCount"],
+    ),
+    importedRecordCount: getMetadataNumber(record["importedRecordCount"]),
+    missingGpsCount: getMetadataNumber(record["missingGpsCount"]),
+    skippedRecordCount: getMetadataNumber(record["skippedRecordCount"]),
+    updatedRecordCount: getMetadataNumber(record["updatedRecordCount"]),
+  };
+}
+
+function getMetadataNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function mapSyncJobStatus(
