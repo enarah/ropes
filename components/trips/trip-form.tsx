@@ -72,7 +72,7 @@ export function TripForm({
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
           This {mode === "create" ? "new" : "edit"} form is for{" "}
-          {organisationName}. It uses fake session data and{" "}
+          {organisationName}. It uses the resolved auth/session context and{" "}
           {persistenceEnabled
             ? "persists core trip details through tenant-guarded Prisma writes. Structured participants, vehicles and itinerary rows remain demo-only."
             : "does not persist because a local database is not available."}

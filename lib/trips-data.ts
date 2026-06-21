@@ -2,6 +2,7 @@ import {
   getSelectedOrganisation,
   type OrganisationSlug,
 } from "@/lib/dashboard-data";
+import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
 export type TripApprovalStatus =
@@ -210,6 +211,10 @@ async function getPersistedTripsForOrganisation(
 
     if (!organisation) {
       return null;
+    }
+
+    if (!(await canReadOrganisation(prisma, organisation.id))) {
+      return [];
     }
 
     return organisation.trips.map((trip) =>

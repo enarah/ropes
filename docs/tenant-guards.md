@@ -13,9 +13,10 @@ closed unless it has:
 - an active membership for that organisation, and
 - related records that all belong to the same organisation.
 
-This foundation does not add real authentication, persisted writes or external
-integrations. It accepts a session-shaped object so the current prototype can
-continue using fake/demo session data until #14 adds real authentication.
+The current prototype resolves the guard session from Auth.js/NextAuth when
+auth providers and a database are configured. It keeps a clearly labelled
+fake/demo session fallback for local development when auth is not configured.
+The guard layer still does not add external integrations or audit logging.
 
 ## Helpers
 
@@ -33,7 +34,7 @@ Use `lib/tenant-guards.ts` from server-side code:
 
 ## Future write pattern
 
-Future work in #13, #15 and #16 should follow this pattern before writing:
+Future work in #15 and #16 should follow this pattern before writing:
 
 ```ts
 const context = createOrganisationWriteContext({
@@ -57,9 +58,8 @@ await prisma.vehicleBooking.create({
 
 ## Follow-up work
 
-- #13 should use these guards before persisted trip, vehicle or booking writes.
-- #14 should replace fake/demo session input with the real authenticated
-  session and active memberships.
+- Trip and vehicle booking writes already use these guards with the resolved
+  auth/demo session context.
 - #15 should use these guards before Fulcrum connection setup, credential
   updates, connection tests or sync operations.
 - #16 should use these guards before server-side booking overlap checks and

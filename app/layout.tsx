@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { getDashboardAuthContext } from "@/lib/auth-session";
+import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,16 +10,20 @@ export const metadata: Metadata = {
   description: "Ranger Operations Platform for Enarah Services",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const authContext = await getDashboardAuthContext(
+    isDatabaseConfigured() ? getPrismaClient() : undefined,
+  );
+
   return (
     <html lang="en">
       <body className="font-sans antialiased">
         <Suspense fallback={<DashboardFallback />}>
-          <DashboardShell>{children}</DashboardShell>
+          <DashboardShell authContext={authContext}>{children}</DashboardShell>
         </Suspense>
       </body>
     </html>
