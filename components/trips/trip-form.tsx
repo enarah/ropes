@@ -77,6 +77,13 @@ export function TripForm({
             ? "persists core trip details, participants, vehicle allocations and itinerary rows through tenant-guarded Prisma writes."
             : "does not persist because a local database is not available."}
         </p>
+        <p className="mt-2 text-sm leading-6 text-charcoal-600">
+          Current approval state:{" "}
+          <span className="font-semibold text-charcoal-950">
+            {trip.approvalStatus}
+          </span>
+          . Approval transitions are handled from the trip detail review panel.
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

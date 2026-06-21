@@ -9,6 +9,7 @@ type TripDetailPageProps = {
     tripId: string;
   }>;
   searchParams?: Promise<{
+    approval?: string;
     org?: string;
   }>;
 };
@@ -18,8 +19,8 @@ export default async function TripDetailPage({
   searchParams,
 }: TripDetailPageProps) {
   const { tripId } = await params;
-  const selectedOrganisationSlug = (await searchParams)?.org;
-  const access = await getOrganisationPageAccess(selectedOrganisationSlug);
+  const resolvedSearchParams = await searchParams;
+  const access = await getOrganisationPageAccess(resolvedSearchParams?.org);
 
   if (access.status === "denied") {
     return <UnauthorisedState {...access} />;
@@ -39,6 +40,7 @@ export default async function TripDetailPage({
     <TripsDetail
       organisationName={selectedOrganisation.name}
       organisationSlug={selectedOrganisation.slug}
+      approvalResult={resolvedSearchParams?.approval}
       trip={trip}
     />
   );

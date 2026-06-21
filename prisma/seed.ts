@@ -122,6 +122,7 @@ async function main() {
       title: "Demo Water Point Inspection Trip",
       purpose:
         "Fake trip used to test journey management, vehicle booking and Fulcrum links.",
+      approvalStatus: "APPROVED",
       status: "PLANNED",
       destination: "Demo Water Point 7",
       startsAt: new Date("2026-08-10T22:30:00.000Z"),

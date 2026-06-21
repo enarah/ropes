@@ -26,6 +26,14 @@ enum TripStatus {
   CANCELLED
 }
 
+enum TripApprovalState {
+  DRAFT
+  READY_FOR_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  CANCELLED
+}
+
 enum VehicleStatus {
   AVAILABLE
   BOOKED
@@ -182,6 +190,7 @@ model Trip {
   title           String
   purpose         String
   status          TripStatus     @default(DRAFT)
+  approvalStatus  TripApprovalState @default(DRAFT)
   destination     String
   startsAt        DateTime
   endsAt          DateTime
@@ -202,6 +211,7 @@ model Trip {
   @@index([projectId])
   @@index([rangerProgramId])
   @@index([leadUserId])
+  @@index([approvalStatus])
 }
 
 model TripParticipant {

@@ -8,9 +8,10 @@ import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
 
 export type TripApprovalStatus =
   | "Draft"
-  | "Awaiting approval"
+  | "Ready for review"
   | "Approved"
-  | "Changes requested";
+  | "Changes requested"
+  | "Cancelled";
 
 export type DemoTrip = {
   id: string;
@@ -19,7 +20,7 @@ export type DemoTrip = {
   title: string;
   destination: string;
   purpose: string;
-  status: "Draft" | "Planned" | "In progress" | "Completed";
+  status: "Draft" | "Planned" | "In progress" | "Completed" | "Cancelled";
   approvalStatus: TripApprovalStatus;
   startsAt: string;
   endsAt: string;
@@ -54,6 +55,7 @@ type PersistedTrip = {
   title: string;
   destination: string;
   purpose: string;
+  approvalStatus: string;
   status: string;
   startsAt: Date;
   endsAt: Date;
@@ -285,7 +287,7 @@ function mapPersistedTripToDemoTrip(
     destination: trip.destination,
     purpose: trip.purpose,
     status: mapTripStatus(trip.status),
-    approvalStatus: mapTripApprovalStatus(trip.status),
+    approvalStatus: mapTripApprovalStatus(trip.approvalStatus),
     startsAt: trip.startsAt.toISOString(),
     endsAt: trip.endsAt.toISOString(),
     lead: leadName,
@@ -355,16 +357,28 @@ function mapTripStatus(status: string): DemoTrip["status"] {
     return "Completed";
   }
 
+  if (status === "CANCELLED") {
+    return "Cancelled";
+  }
+
   return "Draft";
 }
 
-function mapTripApprovalStatus(status: string): TripApprovalStatus {
-  if (status === "PLANNED" || status === "IN_PROGRESS" || status === "COMPLETED") {
+function mapTripApprovalStatus(approvalStatus: string): TripApprovalStatus {
+  if (approvalStatus === "READY_FOR_REVIEW") {
+    return "Ready for review";
+  }
+
+  if (approvalStatus === "APPROVED") {
     return "Approved";
   }
 
-  if (status === "CANCELLED") {
+  if (approvalStatus === "CHANGES_REQUESTED") {
     return "Changes requested";
+  }
+
+  if (approvalStatus === "CANCELLED") {
+    return "Cancelled";
   }
 
   return "Draft";
@@ -437,7 +451,7 @@ export const demoTrips: DemoTrip[] = [
     purpose:
       "Review fake track access conditions before the next ranger activity.",
     status: "Draft",
-    approvalStatus: "Awaiting approval",
+    approvalStatus: "Ready for review",
     startsAt: "2026-08-18T23:00:00.000Z",
     endsAt: "2026-08-19T06:30:00.000Z",
     lead: "Demo Ranger",

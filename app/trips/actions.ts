@@ -86,6 +86,7 @@ export async function saveTripAction(formData: FormData) {
               isDemo: true,
               leadUserId: context.actorUserId,
               organisationId: context.organisationId,
+              approvalStatus: "DRAFT",
               status: "DRAFT",
             },
           });
@@ -179,6 +180,118 @@ export async function saveTripAction(formData: FormData) {
   redirect(redirectTo);
 }
 
+export async function transitionTripApprovalAction(formData: FormData) {
+  const organisationSlug = getRequiredString(formData, "organisationSlug");
+  const tripId = getRequiredString(formData, "tripId");
+  const fallbackPath = `/trips/${tripId}?org=${organisationSlug}`;
+
+  if (!isDatabaseConfigured()) {
+    redirect(`${fallbackPath}&approval=demo`);
+  }
+
+  let redirectTo = `${fallbackPath}&approval=error`;
+
+  try {
+    const prisma = getPrismaClient();
+    const organisationId = getRequiredString(formData, "organisationId");
+    const targetApprovalStatus = getApprovalTarget(formData);
+    const [organisation, trip] = await Promise.all([
+      prisma.organisation.findUnique({
+        select: { id: true, slug: true },
+        where: { id: organisationId },
+      }),
+      prisma.trip.findUnique({
+        select: {
+          approvalStatus: true,
+          destination: true,
+          endsAt: true,
+          id: true,
+          organisationId: true,
+          purpose: true,
+          startsAt: true,
+          status: true,
+          title: true,
+          _count: {
+            select: {
+              itineraryItems: true,
+              participants: true,
+              vehicleAllocations: true,
+            },
+          },
+        },
+        where: { id: tripId },
+      }),
+    ]);
+
+    if (!organisation || !trip) {
+      throw new Error("Organisation or trip was not found.");
+    }
+
+    const session = await getTenantGuardSessionForRequest(prisma);
+    const context = createOrganisationWriteContext({
+      organisationId: organisation.id,
+      relatedRecords: [{ label: "Trip", record: trip }],
+      session,
+    });
+    const transitionValidation = validateTripApprovalTransition({
+      targetApprovalStatus,
+      trip,
+    });
+
+    if (!transitionValidation.ok) {
+      await recordAuditLog(prisma, {
+        action: "REJECTED",
+        actorUserId: context.actorUserId,
+        entityId: trip.id,
+        entityType: "Trip",
+        metadata: {
+          currentApprovalStatus: trip.approvalStatus,
+          event: "trip_approval_transition_rejected",
+          reason: transitionValidation.reason,
+          targetApprovalStatus,
+          tripId: trip.id,
+          validationCounts: getTripApprovalValidationCounts(trip),
+        },
+        organisationId: context.organisationId,
+        summary: "Rejected trip approval workflow transition.",
+      });
+      redirectTo = `${fallbackPath}&approval=${transitionValidation.reason}`;
+    } else {
+      const updatedTrip = await prisma.trip.update({
+        data: getTripApprovalTransitionData(targetApprovalStatus),
+        where: {
+          id: trip.id,
+        },
+      });
+      await recordAuditLog(prisma, {
+        action: targetApprovalStatus === "APPROVED" ? "APPROVED" : "UPDATED",
+        actorUserId: context.actorUserId,
+        entityId: updatedTrip.id,
+        entityType: "Trip",
+        metadata: {
+          event: "trip_approval_transitioned",
+          fromApprovalStatus: trip.approvalStatus,
+          targetApprovalStatus,
+          tripId: updatedTrip.id,
+          validationCounts: getTripApprovalValidationCounts(trip),
+        },
+        organisationId: context.organisationId,
+        summary: "Updated trip approval workflow state.",
+      });
+      revalidatePath("/trips");
+      revalidatePath(`/trips/${updatedTrip.id}`);
+      revalidatePath(`/trips/${updatedTrip.id}/edit`);
+      redirectTo = `/trips/${updatedTrip.id}?org=${organisation.slug}&approval=updated`;
+    }
+  } catch (error) {
+    redirectTo = `${fallbackPath}&approval=${
+      isTenantGuardError(error) ? "tenant" : "error"
+    }`;
+  }
+
+  redirect(redirectTo);
+}
+
 function getTripFallbackPath(formData: FormData, organisationSlug: string) {
   const tripId = getOptionalString(formData, "tripId");
 
@@ -187,6 +300,135 @@ function getTripFallbackPath(formData: FormData, organisationSlug: string) {
   }
 
   return `/trips/new?org=${organisationSlug}`;
+}
+
+type TripApprovalTarget =
+  | "READY_FOR_REVIEW"
+  | "APPROVED"
+  | "CHANGES_REQUESTED"
+  | "CANCELLED";
+
+type TripApprovalValidationTrip = {
+  approvalStatus: string;
+  destination: string;
+  endsAt: Date;
+  purpose: string;
+  startsAt: Date;
+  status: string;
+  title: string;
+  _count: {
+    itineraryItems: number;
+    participants: number;
+    vehicleAllocations: number;
+  };
+};
+
+function getApprovalTarget(formData: FormData): TripApprovalTarget {
+  const target = getRequiredString(formData, "targetApprovalStatus");
+
+  if (
+    target === "READY_FOR_REVIEW" ||
+    target === "APPROVED" ||
+    target === "CHANGES_REQUESTED" ||
+    target === "CANCELLED"
+  ) {
+    return target;
+  }
+
+  throw new Error("Unsupported trip approval target.");
+}
+
+function validateTripApprovalTransition({
+  targetApprovalStatus,
+  trip,
+}: {
+  targetApprovalStatus: TripApprovalTarget;
+  trip: TripApprovalValidationTrip;
+}):
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | "invalid-transition"
+        | "missing-review-data"
+        | "already-cancelled";
+    } {
+  if (trip.approvalStatus === "CANCELLED" || trip.status === "CANCELLED") {
+    return {
+      ok: false,
+      reason: "already-cancelled",
+    };
+  }
+
+  const allowedTransitions: Record<string, TripApprovalTarget[]> = {
+    CHANGES_REQUESTED: ["READY_FOR_REVIEW"],
+    DRAFT: ["READY_FOR_REVIEW", "CANCELLED"],
+    READY_FOR_REVIEW: ["APPROVED", "CHANGES_REQUESTED", "CANCELLED"],
+  };
+  const allowedTargets = allowedTransitions[trip.approvalStatus] ?? [];
+
+  if (!allowedTargets.includes(targetApprovalStatus)) {
+    return {
+      ok: false,
+      reason: "invalid-transition",
+    };
+  }
+
+  if (
+    targetApprovalStatus === "READY_FOR_REVIEW" &&
+    !hasMinimumReviewData(trip)
+  ) {
+    return {
+      ok: false,
+      reason: "missing-review-data",
+    };
+  }
+
+  return {
+    ok: true,
+  };
+}
+
+function hasMinimumReviewData(trip: TripApprovalValidationTrip) {
+  return Boolean(
+    trip.title.trim() &&
+      trip.destination.trim() &&
+      trip.purpose.trim() &&
+      trip.startsAt < trip.endsAt &&
+      trip._count.participants > 0 &&
+      trip._count.itineraryItems > 0,
+  );
+}
+
+function getTripApprovalValidationCounts(trip: TripApprovalValidationTrip) {
+  return {
+    itineraryItemCount: trip._count.itineraryItems,
+    participantCount: trip._count.participants,
+    vehicleAllocationCount: trip._count.vehicleAllocations,
+  };
+}
+
+function getTripApprovalTransitionData(
+  targetApprovalStatus: TripApprovalTarget,
+) {
+  if (targetApprovalStatus === "APPROVED") {
+    return {
+      approvalStatus: targetApprovalStatus,
+      status: "PLANNED" as const,
+    };
+  }
+
+  if (targetApprovalStatus === "CANCELLED") {
+    return {
+      approvalStatus: targetApprovalStatus,
+      status: "CANCELLED" as const,
+    };
+  }
+
+  return {
+    approvalStatus: targetApprovalStatus,
+    status: "DRAFT" as const,
+  };
 }
 
 function getRequiredString(formData: FormData, key: string) {
