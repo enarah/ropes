@@ -15,8 +15,9 @@ milestones.
 - Initial Prisma schema and clearly fake seed data for organisations, users,
   memberships, roles, projects, ranger programs, trips, vehicles, bookings,
   Fulcrum placeholders and audit logs.
-- Trips MVP with demo list, detail pages, create/edit forms, participants,
-  vehicles, itinerary, approval status and placeholder export actions.
+- Trips MVP with demo list, detail pages, create/edit forms, structured
+  participant/vehicle/itinerary demo rows, approval status and placeholder
+  export actions.
 - Vehicles MVP with demo register, vehicle detail pages, booking calendar-style
   view, booking form, overlap warning and pre-start status placeholders.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
@@ -34,13 +35,12 @@ milestones.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
   call AI providers or Fulcrum APIs.
 - Maps and data health checks are static placeholders.
-- Server-side permission checks, tenant guards and audit logging for real
-  actions are still future work.
+- Server-side permission enforcement, tenant guard integration into real write
+  actions, and audit logging are still future work.
 
 ## Follow-up issues
 
 - #11 Add server-side tenant guards before real writes.
-- #12 Add structured trip form fields.
 - #13 Persist trips and vehicles.
 - #14 Add real authentication.
 - #15 Add Fulcrum encrypted connection setup.
