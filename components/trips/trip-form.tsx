@@ -6,8 +6,12 @@ import { Plus, Trash2 } from "lucide-react";
 import type { DemoTrip } from "@/lib/trips-data";
 
 type TripFormProps = {
+  action?: (formData: FormData) => void | Promise<void>;
   mode: "create" | "edit";
   organisationName: string;
+  organisationId?: string;
+  organisationSlug: string;
+  persistenceEnabled: boolean;
   trip: DemoTrip;
 };
 
@@ -24,7 +28,15 @@ const vehicleStatuses: Array<VehicleRow["status"]> = [
   "Requested",
 ];
 
-export function TripForm({ mode, organisationName, trip }: TripFormProps) {
+export function TripForm({
+  action,
+  mode,
+  organisationName,
+  organisationId,
+  organisationSlug,
+  persistenceEnabled,
+  trip,
+}: TripFormProps) {
   const [message, setMessage] = useState("");
   const [participants, setParticipants] = useState<ParticipantRow[]>(
     () => withRowIds(trip.participants, "participant"),
@@ -38,19 +50,32 @@ export function TripForm({ mode, organisationName, trip }: TripFormProps) {
 
   return (
     <form
+      action={action}
       className="space-y-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setMessage("Demo only: this trip form is not saved yet.");
-      }}
+      onSubmit={
+        action
+          ? undefined
+          : (event) => {
+              event.preventDefault();
+              setMessage("Demo only: this trip form is not saved yet.");
+            }
+      }
     >
+      <input name="mode" type="hidden" value={mode} />
+      <input name="organisationSlug" type="hidden" value={organisationSlug} />
+      <input name="tripId" type="hidden" value={mode === "edit" ? trip.id : ""} />
+      <input name="organisationId" type="hidden" value={organisationId ?? ""} />
+
       <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
         <p className="text-sm font-semibold text-charcoal-950">
           Organisation scoped
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
           This {mode === "create" ? "new" : "edit"} form is for{" "}
-          {organisationName}. It uses fake session data and does not persist.
+          {organisationName}. It uses fake session data and{" "}
+          {persistenceEnabled
+            ? "persists core trip details through tenant-guarded Prisma writes. Structured participants, vehicles and itinerary rows remain demo-only."
+            : "does not persist because a local database is not available."}
         </p>
       </div>
 
@@ -267,7 +292,7 @@ export function TripForm({ mode, organisationName, trip }: TripFormProps) {
           className="rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
           type="submit"
         >
-          Save demo draft
+          {persistenceEnabled ? "Save trip" : "Save demo draft"}
         </button>
         <button
           className="rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800"

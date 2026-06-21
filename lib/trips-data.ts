@@ -2,6 +2,7 @@ import {
   getSelectedOrganisation,
   type OrganisationSlug,
 } from "@/lib/dashboard-data";
+import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
 export type TripApprovalStatus =
   | "Draft"
@@ -11,6 +12,7 @@ export type TripApprovalStatus =
 
 export type DemoTrip = {
   id: string;
+  organisationId?: string;
   organisationSlug: OrganisationSlug;
   title: string;
   destination: string;
@@ -38,8 +40,43 @@ export type DemoTrip = {
   }>;
 };
 
+export type TripPersistenceState = {
+  isDatabaseConfigured: boolean;
+  isDatabaseAvailable: boolean;
+  organisationId?: string;
+};
+
+type PersistedTrip = {
+  id: string;
+  organisationId: string;
+  title: string;
+  destination: string;
+  purpose: string;
+  status: string;
+  startsAt: Date;
+  endsAt: Date;
+  leadUser: { name: string } | null;
+  vehicleBookings: Array<{
+    status: string;
+    vehicle: {
+      name: string;
+      registration: string;
+    };
+  }>;
+};
+
 export function getTripsForOrganisation(organisationSlug: OrganisationSlug) {
   return demoTrips.filter((trip) => trip.organisationSlug === organisationSlug);
+}
+
+export async function getTripsForOrganisationWithPersistence(
+  organisationSlug: OrganisationSlug,
+) {
+  const persistedTrips = await getPersistedTripsForOrganisation(
+    organisationSlug,
+  );
+
+  return persistedTrips ?? getTripsForOrganisation(organisationSlug);
 }
 
 export function getTripForOrganisation(
@@ -49,6 +86,15 @@ export function getTripForOrganisation(
   return getTripsForOrganisation(organisationSlug).find(
     (trip) => trip.id === tripId,
   );
+}
+
+export async function getTripForOrganisationWithPersistence(
+  organisationSlug: OrganisationSlug,
+  tripId: string,
+) {
+  const trips = await getTripsForOrganisationWithPersistence(organisationSlug);
+
+  return trips.find((trip) => trip.id === tripId);
 }
 
 export function getTripFormDefaults(
@@ -86,8 +132,162 @@ export function getTripFormDefaults(
   );
 }
 
+export async function getTripFormDefaultsWithPersistence(
+  organisationSlug: OrganisationSlug,
+  tripId?: string,
+) {
+  const existingTrip = tripId
+    ? await getTripForOrganisationWithPersistence(organisationSlug, tripId)
+    : undefined;
+
+  return existingTrip ?? getTripFormDefaults(organisationSlug);
+}
+
+export async function getTripPersistenceState(
+  organisationSlug: OrganisationSlug,
+): Promise<TripPersistenceState> {
+  if (!isDatabaseConfigured()) {
+    return {
+      isDatabaseAvailable: false,
+      isDatabaseConfigured: false,
+    };
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      select: { id: true },
+      where: { slug: organisationSlug },
+    });
+
+    return {
+      isDatabaseAvailable: Boolean(organisation),
+      isDatabaseConfigured: true,
+      organisationId: organisation?.id,
+    };
+  } catch {
+    return {
+      isDatabaseAvailable: false,
+      isDatabaseConfigured: true,
+    };
+  }
+}
+
 export function organisationHref(pathname: string, organisationSlug: string) {
   return `${pathname}?org=${organisationSlug}`;
+}
+
+async function getPersistedTripsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        trips: {
+          include: {
+            leadUser: true,
+            vehicleBookings: {
+              include: {
+                vehicle: true,
+              },
+              orderBy: {
+                startsAt: "asc",
+              },
+            },
+          },
+          orderBy: {
+            startsAt: "asc",
+          },
+        },
+      },
+      where: { slug: organisationSlug },
+    });
+
+    if (!organisation) {
+      return null;
+    }
+
+    return organisation.trips.map((trip) =>
+      mapPersistedTripToDemoTrip(organisationSlug, trip),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function mapPersistedTripToDemoTrip(
+  organisationSlug: OrganisationSlug,
+  trip: PersistedTrip,
+): DemoTrip {
+  const leadName = trip.leadUser?.name ?? "Demo Operations Manager";
+
+  return {
+    id: trip.id,
+    organisationId: trip.organisationId,
+    organisationSlug,
+    title: trip.title,
+    destination: trip.destination,
+    purpose: trip.purpose,
+    status: mapTripStatus(trip.status),
+    approvalStatus: mapTripApprovalStatus(trip.status),
+    startsAt: trip.startsAt.toISOString(),
+    endsAt: trip.endsAt.toISOString(),
+    lead: leadName,
+    emergencyContact: "Demo Operations Manager",
+    participants: [
+      {
+        name: leadName,
+        role: "Trip lead",
+        status: "Confirmed",
+      },
+    ],
+    vehicles: trip.vehicleBookings.map((booking) => ({
+      name: booking.vehicle.name,
+      registration: booking.vehicle.registration,
+      status: booking.status === "APPROVED" ? "Allocated" : "Requested",
+    })),
+    itinerary: [
+      {
+        day: "Day 1",
+        title: trip.destination,
+        description:
+          "Persisted trip core details are saved. Structured itinerary rows remain demo-only until a later data model update.",
+      },
+    ],
+  };
+}
+
+function mapTripStatus(status: string): DemoTrip["status"] {
+  if (status === "PLANNED") {
+    return "Planned";
+  }
+
+  if (status === "IN_PROGRESS") {
+    return "In progress";
+  }
+
+  if (status === "COMPLETED") {
+    return "Completed";
+  }
+
+  return "Draft";
+}
+
+function mapTripApprovalStatus(status: string): TripApprovalStatus {
+  if (status === "PLANNED" || status === "IN_PROGRESS" || status === "COMPLETED") {
+    return "Approved";
+  }
+
+  if (status === "CANCELLED") {
+    return "Changes requested";
+  }
+
+  return "Draft";
 }
 
 export const demoTrips: DemoTrip[] = [

@@ -6,6 +6,8 @@ import {
 } from "@/lib/dashboard-data";
 import {
   getTripsForOrganisation,
+  getTripsForOrganisationWithPersistence,
+  getTripPersistenceState,
   organisationHref,
 } from "@/lib/trips-data";
 
@@ -13,9 +15,12 @@ type TripsListProps = {
   selectedOrganisationSlug?: string;
 };
 
-export function TripsList({ selectedOrganisationSlug }: TripsListProps) {
+export async function TripsList({ selectedOrganisationSlug }: TripsListProps) {
   const organisation = getSelectedOrganisation(selectedOrganisationSlug);
-  const trips = getTripsForOrganisation(organisation.slug);
+  const [trips, persistence] = await Promise.all([
+    getTripsForOrganisationWithPersistence(organisation.slug),
+    getTripPersistenceState(organisation.slug),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -28,7 +33,7 @@ export function TripsList({ selectedOrganisationSlug }: TripsListProps) {
             Trips
           </h1>
           <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
-            Organisation-scoped demo trips for journey planning, approvals,
+            Organisation-scoped trips for journey planning, approvals,
             participants, vehicles and itinerary review.
           </p>
         </div>
@@ -55,8 +60,10 @@ export function TripsList({ selectedOrganisationSlug }: TripsListProps) {
           Selected organisation context
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
-          Showing {trips.length} fake trip{trips.length === 1 ? "" : "s"} for{" "}
-          {organisation.name}. No trips from another organisation are included.
+          Showing {trips.length}{" "}
+          {persistence.isDatabaseAvailable ? "persisted" : "fake demo"} trip
+          {trips.length === 1 ? "" : "s"} for {organisation.name}. No trips
+          from another organisation are included.
         </p>
       </section>
 
