@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
 import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
+import { testFulcrumApiToken } from "@/lib/fulcrum-connection-test";
 import {
   createFulcrumTokenHint,
+  decryptFulcrumApiToken,
   encryptFulcrumApiToken,
   isFulcrumEncryptionKeyError,
 } from "@/lib/fulcrum-token-encryption";
@@ -74,8 +76,9 @@ export async function saveFulcrumConnectionAction(formData: FormData) {
       encryptedApiToken,
       isDemo: false,
       lastCheckedAt: null,
+      lastTestMessage: null,
       name,
-      status: "CONNECTED" as const,
+      status: "READY_FOR_SETUP" as const,
       tokenHint,
     };
 
@@ -190,6 +193,126 @@ export async function disableFulcrumConnectionAction(formData: FormData) {
   redirect(redirectTo);
 }
 
+export async function testFulcrumConnectionAction(formData: FormData) {
+  const organisationSlug = getRequiredString(formData, "organisationSlug");
+  const fallbackPath = `/fulcrum/connections?org=${organisationSlug}`;
+
+  if (!isDatabaseConfigured()) {
+    redirect(`${fallbackPath}&saved=demo`);
+  }
+
+  let redirectTo = `${fallbackPath}&error=persistence`;
+
+  try {
+    const prisma = getPrismaClient();
+    const organisationId = getRequiredString(formData, "organisationId");
+    const connectionId = getRequiredString(formData, "connectionId");
+    const [organisation, connection] = await Promise.all([
+      prisma.organisation.findUnique({
+        select: { id: true, slug: true },
+        where: { id: organisationId },
+      }),
+      prisma.fulcrumConnection.findUnique({
+        select: {
+          encryptedApiToken: true,
+          id: true,
+          organisationId: true,
+        },
+        where: { id: connectionId },
+      }),
+    ]);
+
+    if (!organisation || !connection) {
+      throw new FulcrumConnectionValidationError(
+        "Organisation or Fulcrum connection was not found.",
+      );
+    }
+
+    const session = await getTenantGuardSessionForRequest(prisma);
+    const context = createOrganisationWriteContext({
+      organisationId: organisation.id,
+      relatedRecords: [{ label: "Fulcrum connection", record: connection }],
+      session,
+    });
+
+    if (!connection.encryptedApiToken) {
+      await recordFulcrumConnectionTestFailure({
+        actorUserId: context.actorUserId,
+        category: "missing_token",
+        connectionId: connection.id,
+        organisationId: context.organisationId,
+        prisma,
+      });
+      redirectTo = `/fulcrum/connections?org=${organisation.slug}&tested=missing-token`;
+    } else {
+      let apiToken: string | null = null;
+
+      try {
+        apiToken = decryptFulcrumApiToken(connection.encryptedApiToken);
+      } catch (error) {
+        const category = isFulcrumEncryptionKeyError(error)
+          ? "missing_encryption_key"
+          : "token_decryption_failed";
+        await recordFulcrumConnectionTestFailure({
+          actorUserId: context.actorUserId,
+          category,
+          connectionId: connection.id,
+          organisationId: context.organisationId,
+          prisma,
+        });
+        redirectTo = `/fulcrum/connections?org=${organisation.slug}&tested=${category}`;
+      }
+
+      if (apiToken) {
+        const testResult = await testFulcrumApiToken(apiToken);
+
+        if (testResult.ok) {
+          await prisma.fulcrumConnection.update({
+            data: {
+              accountLabel: testResult.accountLabel ?? undefined,
+              lastCheckedAt: new Date(),
+              lastTestMessage: testResult.category,
+              status: "CONNECTED",
+            },
+            where: {
+              id: connection.id,
+            },
+          });
+          await recordAuditLog(prisma, {
+            action: "UPDATED",
+            actorUserId: context.actorUserId,
+            entityId: connection.id,
+            entityType: "FulcrumConnection",
+            metadata: {
+              event: "fulcrum_connection_test_passed",
+              result: testResult.category,
+            },
+            organisationId: context.organisationId,
+            summary: "Tested Fulcrum connection credentials successfully.",
+          });
+          redirectTo = `/fulcrum/connections?org=${organisation.slug}&tested=passed`;
+        } else {
+          await recordFulcrumConnectionTestFailure({
+            actorUserId: context.actorUserId,
+            category: testResult.category,
+            connectionId: connection.id,
+            organisationId: context.organisationId,
+            prisma,
+          });
+          redirectTo = `/fulcrum/connections?org=${organisation.slug}&tested=${testResult.category}`;
+        }
+      }
+    }
+
+    revalidatePath("/fulcrum");
+    revalidatePath("/fulcrum/connections");
+  } catch (error) {
+    redirectTo = `${fallbackPath}&error=${getConnectionErrorCode(error)}`;
+  }
+
+  redirect(redirectTo);
+}
+
 function getConnectionErrorCode(error: unknown) {
   if (isTenantGuardError(error)) {
     return "tenant";
@@ -216,6 +339,43 @@ function getValidatedToken(formData: FormData) {
   }
 
   return token;
+}
+
+async function recordFulcrumConnectionTestFailure({
+  actorUserId,
+  category,
+  connectionId,
+  organisationId,
+  prisma,
+}: {
+  actorUserId: string;
+  category: string;
+  connectionId: string;
+  organisationId: string;
+  prisma: ReturnType<typeof getPrismaClient>;
+}) {
+  await prisma.fulcrumConnection.update({
+    data: {
+      lastCheckedAt: new Date(),
+      lastTestMessage: category,
+      status: "ERROR",
+    },
+    where: {
+      id: connectionId,
+    },
+  });
+  await recordAuditLog(prisma, {
+    action: "UPDATED",
+    actorUserId,
+    entityId: connectionId,
+    entityType: "FulcrumConnection",
+    metadata: {
+      event: "fulcrum_connection_test_failed",
+      result: category,
+    },
+    organisationId,
+    summary: "Tested Fulcrum connection credentials and recorded a safe failure category.",
+  });
 }
 
 function getRequiredString(formData: FormData, key: string) {

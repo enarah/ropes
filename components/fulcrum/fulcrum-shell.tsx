@@ -40,6 +40,7 @@ import { organisationHref } from "@/components/fulcrum/fulcrum-ui";
 type FulcrumShellProps = {
   connectionError?: string;
   connectionSaved?: string;
+  connectionTested?: string;
   organisation?: DashboardOrganisation;
   sectionSlug?: string;
   selectedOrganisationSlug?: string;
@@ -60,6 +61,7 @@ const sectionIcons = {
 export async function FulcrumShell({
   connectionError,
   connectionSaved,
+  connectionTested,
   organisation: resolvedOrganisation,
   sectionSlug,
   selectedOrganisationSlug,
@@ -142,8 +144,12 @@ export async function FulcrumShell({
         </p>
       </section>
 
-      {connectionError || connectionSaved ? (
-        <ConnectionStatusMessage error={connectionError} saved={connectionSaved} />
+      {connectionError || connectionSaved || connectionTested ? (
+        <ConnectionStatusMessage
+          error={connectionError}
+          saved={connectionSaved}
+          tested={connectionTested}
+        />
       ) : null}
 
       {activeSection.slug === "overview" ? (
@@ -186,23 +192,27 @@ export async function FulcrumShell({
 function ConnectionStatusMessage({
   error,
   saved,
+  tested,
 }: {
   error?: string;
   saved?: string;
+  tested?: string;
 }) {
   const title = error
     ? "Fulcrum connection was not saved"
-    : saved === "disabled"
-      ? "Fulcrum connection disabled"
-      : saved === "demo"
-        ? "Demo fallback"
-        : "Fulcrum connection saved";
+    : tested
+      ? getTestStatusTitle(tested)
+      : saved === "disabled"
+        ? "Fulcrum connection disabled"
+        : saved === "demo"
+          ? "Demo fallback"
+          : "Fulcrum connection saved";
 
   return (
     <section className="rounded-md border border-earth-200 bg-white p-4">
       <p className="text-sm font-semibold text-charcoal-950">{title}</p>
       <p className="mt-1 text-sm leading-6 text-charcoal-600">
-        {getConnectionStatusMessage({ error, saved })}
+        {getConnectionStatusMessage({ error, saved, tested })}
       </p>
     </section>
   );
@@ -211,10 +221,16 @@ function ConnectionStatusMessage({
 function getConnectionStatusMessage({
   error,
   saved,
+  tested,
 }: {
   error?: string;
   saved?: string;
+  tested?: string;
 }) {
+  if (tested) {
+    return getTestStatusMessage(tested);
+  }
+
   if (saved === "demo") {
     return "No local database is configured, so the Fulcrum setup form remains demo-only.";
   }
@@ -240,4 +256,47 @@ function getConnectionStatusMessage({
   }
 
   return "The database write was rejected before anything was saved.";
+}
+
+function getTestStatusTitle(tested: string) {
+  if (tested === "passed") {
+    return "Fulcrum connection test passed";
+  }
+
+  if (tested === "missing-token") {
+    return "Fulcrum connection is missing a token";
+  }
+
+  if (tested === "missing_encryption_key") {
+    return "Fulcrum encryption key is missing";
+  }
+
+  return "Fulcrum connection test failed";
+}
+
+function getTestStatusMessage(tested: string) {
+  const messages: Record<string, string> = {
+    forbidden:
+      "Fulcrum rejected the request because the token does not have access to the tested account.",
+    missing_encryption_key:
+      "FULCRUM_TOKEN_ENCRYPTION_KEY is required before saved tokens can be decrypted for testing.",
+    "missing-token":
+      "Save an encrypted Fulcrum API token before testing this connection.",
+    network_error:
+      "ROPES could not reach Fulcrum for the credential test. No record sync was attempted.",
+    passed:
+      "Fulcrum accepted the credential test. ROPES updated safe connection metadata only; no records were synced.",
+    rate_limited:
+      "Fulcrum rate-limited the credential test. Try again later; no records were synced.",
+    token_decryption_failed:
+      "ROPES could not decrypt the saved token. Save a new token before testing again.",
+    unauthorized:
+      "Fulcrum rejected the saved token. Save an updated token before testing again.",
+    unexpected_response:
+      "Fulcrum returned an unexpected response category. No response payload was stored.",
+    upstream_unavailable:
+      "Fulcrum appears unavailable. ROPES stored only the safe failure category.",
+  };
+
+  return messages[tested] ?? "ROPES stored a safe failure category only.";
 }

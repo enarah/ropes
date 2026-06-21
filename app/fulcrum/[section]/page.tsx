@@ -12,6 +12,7 @@ type FulcrumSectionPageProps = {
     error?: string;
     org?: string;
     saved?: string;
+    tested?: string;
   }>;
 };
 
@@ -43,6 +44,7 @@ export default async function FulcrumSectionPage({
     <FulcrumShell
       connectionError={resolvedSearchParams?.error}
       connectionSaved={resolvedSearchParams?.saved}
+      connectionTested={resolvedSearchParams?.tested}
       organisation={access.organisation}
       sectionSlug={section}
       selectedOrganisationSlug={selectedOrganisationSlug}

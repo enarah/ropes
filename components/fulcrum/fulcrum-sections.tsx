@@ -11,6 +11,7 @@ import {
 import {
   disableFulcrumConnectionAction,
   saveFulcrumConnectionAction,
+  testFulcrumConnectionAction,
 } from "@/app/fulcrum/actions";
 import {
   appBuilderPreviewFields,
@@ -128,6 +129,10 @@ export function Connections({
             </div>
             <dl className="mt-5 space-y-3 text-sm">
               <Fact label="Last checked" value={connection.lastChecked} />
+              <Fact
+                label="Test state"
+                value={getConnectionTestState(connection)}
+              />
               <Fact label="Token hint" value={connection.tokenHint ?? "None"} />
               <Fact
                 label="Security"
@@ -138,25 +143,54 @@ export function Connections({
               {connection.note}
             </p>
             {connection.organisationId && connection.id !== "new-fulcrum-connection" ? (
-              <form action={disableFulcrumConnectionAction} className="mt-4">
-                <input
-                  name="organisationId"
-                  type="hidden"
-                  value={connection.organisationId}
-                />
-                <input
-                  name="organisationSlug"
-                  type="hidden"
-                  value={organisationSlug}
-                />
-                <input name="connectionId" type="hidden" value={connection.id} />
-                <button
-                  className="rounded-md border border-earth-300 bg-white px-3 py-2 text-sm font-semibold text-charcoal-800"
-                  type="submit"
-                >
-                  Disable connection
-                </button>
-              </form>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <form action={testFulcrumConnectionAction}>
+                  <input
+                    name="organisationId"
+                    type="hidden"
+                    value={connection.organisationId}
+                  />
+                  <input
+                    name="organisationSlug"
+                    type="hidden"
+                    value={organisationSlug}
+                  />
+                  <input
+                    name="connectionId"
+                    type="hidden"
+                    value={connection.id}
+                  />
+                  <button
+                    className="rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+                    type="submit"
+                  >
+                    Test connection
+                  </button>
+                </form>
+                <form action={disableFulcrumConnectionAction}>
+                  <input
+                    name="organisationId"
+                    type="hidden"
+                    value={connection.organisationId}
+                  />
+                  <input
+                    name="organisationSlug"
+                    type="hidden"
+                    value={organisationSlug}
+                  />
+                  <input
+                    name="connectionId"
+                    type="hidden"
+                    value={connection.id}
+                  />
+                  <button
+                    className="rounded-md border border-earth-300 bg-white px-3 py-2 text-sm font-semibold text-charcoal-800"
+                    type="submit"
+                  >
+                    Disable connection
+                  </button>
+                </form>
+              </div>
             ) : null}
           </article>
         ))}
@@ -210,6 +244,35 @@ export function Connections({
       </Panel>
     </section>
   );
+}
+
+function getConnectionTestState(connection: DemoFulcrumConnection) {
+  if (connection.lastTestMessage) {
+    return getTestMessageLabel(connection.lastTestMessage);
+  }
+
+  if (!connection.tokenHint) {
+    return "Missing token";
+  }
+
+  return "Not tested";
+}
+
+function getTestMessageLabel(message: string) {
+  const labels: Record<string, string> = {
+    credentials_accepted: "Test passed",
+    forbidden: "Test failed - forbidden",
+    missing_encryption_key: "Missing encryption key",
+    missing_token: "Missing token",
+    network_error: "Test failed - network error",
+    rate_limited: "Test failed - rate limited",
+    token_decryption_failed: "Test failed - token could not be decrypted",
+    unauthorized: "Test failed - token rejected",
+    unexpected_response: "Test failed - unexpected response",
+    upstream_unavailable: "Test failed - Fulcrum unavailable",
+  };
+
+  return labels[message] ?? "Test failed";
 }
 
 function Field({

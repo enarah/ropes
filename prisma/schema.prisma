@@ -240,6 +240,7 @@ model FulcrumConnection {
   encryptedApiToken String?
   tokenHint         String?
   lastCheckedAt     DateTime?
+  lastTestMessage   String?
   lastSyncedAt      DateTime?
   disabledAt        DateTime?
   isDemo            Boolean                 @default(false)

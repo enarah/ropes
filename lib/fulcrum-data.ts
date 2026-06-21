@@ -71,6 +71,7 @@ export type DemoFulcrumConnection = {
   accountLabel: string;
   status: "Connected" | "Not connected" | "Ready for setup" | "Demo offline";
   lastChecked: string;
+  lastTestMessage?: string;
   note: string;
   tokenHint?: string;
 };
@@ -203,6 +204,7 @@ export async function getFulcrumConnectionState(
           lastChecked: connection.lastCheckedAt
             ? formatDateTime(connection.lastCheckedAt)
             : "Not checked",
+          lastTestMessage: connection.lastTestMessage ?? undefined,
           name: connection.name,
           note: connection.encryptedApiToken
             ? "Encrypted token is stored. Raw tokens are never displayed after save."
@@ -315,6 +317,10 @@ function mapConnectionStatus(status: string): DemoFulcrumConnection["status"] {
 
   if (status === "READY_FOR_SETUP") {
     return "Ready for setup";
+  }
+
+  if (status === "ERROR") {
+    return "Not connected";
   }
 
   return "Not connected";
