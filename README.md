@@ -104,11 +104,14 @@ The current app includes:
 - Demo organisation switcher with organisation-scoped mock data views
 - Trips MVP with in-memory demo list, detail, create/edit form, participants,
   vehicles, itinerary, approval status and placeholder export actions
+- Vehicles MVP with in-memory demo register, detail pages, booking list/calendar
+  view, booking form, overlap warning and pre-start status placeholders
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include authentication, real
-organisation switching, persisted trip reads or writes, Fulcrum API
-connections, API keys or external service credentials.
+organisation switching, persisted trip, vehicle or booking reads and writes,
+real pre-start checklists, Fulcrum API connections, API keys or external
+service credentials.
 
 ## Build principles
 
