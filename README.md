@@ -102,11 +102,13 @@ The current app includes:
 - Mobile-friendly dashboard layout
 - Navigation for all core ROPES modules
 - Demo organisation switcher with organisation-scoped mock data views
+- Trips MVP with demo list, detail, create/edit form, participants, vehicles,
+  itinerary, approval status and placeholder export actions
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include authentication, real
-organisation switching, Fulcrum API connections, API keys or external service
-credentials.
+organisation switching, persisted trip writes, Fulcrum API connections, API
+keys or external service credentials.
 
 ## Build principles
 
