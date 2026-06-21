@@ -298,6 +298,8 @@ model FulcrumApp {
   externalAppId       String?
   recordCount         Int                @default(0)
   lastSyncedAt        DateTime?
+  importedAt          DateTime?
+  rawJson             Json?
   isDemo              Boolean            @default(false)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -306,6 +308,7 @@ model FulcrumApp {
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   fulcrumRecords      FulcrumRecord[]
 
+  @@unique([organisationId, fulcrumConnectionId, externalAppId])
   @@index([organisationId])
   @@index([fulcrumConnectionId])
   @@index([projectId])
@@ -323,6 +326,8 @@ model FulcrumRecord {
   latitude            Float?
   longitude           Float?
   capturedAt          DateTime?
+  importedAt          DateTime?
+  dataHealthFlags     Json?
   rawJson             Json
   isDemo              Boolean            @default(false)
   createdAt           DateTime           @default(now())
@@ -333,6 +338,7 @@ model FulcrumRecord {
   project             Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
   trip                Trip?              @relation(fields: [tripId], references: [id], onDelete: SetNull)
 
+  @@unique([organisationId, fulcrumConnectionId, externalRecordId])
   @@index([organisationId])
   @@index([fulcrumConnectionId])
   @@index([fulcrumAppId])

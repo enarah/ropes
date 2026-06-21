@@ -41,9 +41,13 @@ Vehicles records, and the initial authentication foundation.
 - Fulcrum Sync Settings can queue organisation-scoped sync job placeholder
   records for tested connections, showing recent status without importing
   records.
+- Fulcrum Sync Settings can run a manual, capped import for selected Fulcrum
+  app IDs from a tested connection, importing app/form metadata before records
+  and storing organisation-scoped records with preserved external IDs.
 - Organisation-scoped audit entries for persisted trip create/update, vehicle
   booking create/overlap rejection, Fulcrum connection save/update/disable, and
-  Fulcrum connection test success/failure and sync job placeholder events.
+  Fulcrum connection test success/failure, sync job placeholder events and safe
+  Fulcrum import events.
 
 ## Still demo-only
 
@@ -60,10 +64,11 @@ Vehicles records, and the initial authentication foundation.
   are still demo-only and are not persisted yet.
 - Vehicle record create/edit forms are not implemented yet.
 - Broader calendar/scheduling features remain future work.
-- Fulcrum connection testing validates credentials only; real API sync and
-  record imports are not implemented.
-- Fulcrum sync jobs are status placeholders only; they do not import apps,
-  forms or records and do not run background workers or scheduled sync.
+- Fulcrum connection testing validates credentials only; record import requires
+  a separate manual action from Sync Settings.
+- Fulcrum import is a capped MVP for selected app IDs only. It does not import
+  media/photos, run background workers, schedule sync, perform broad app/form
+  sync or write back to Fulcrum.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
   call AI providers or Fulcrum APIs.
 - Maps and data health checks are static placeholders.

@@ -11,8 +11,8 @@ import {
 } from "lucide-react";
 import {
   disableFulcrumConnectionAction,
+  importFulcrumRecordsAction,
   saveFulcrumConnectionAction,
-  startFulcrumSyncJobAction,
   testFulcrumConnectionAction,
 } from "@/app/fulcrum/actions";
 import {
@@ -46,7 +46,12 @@ export function FulcrumOverview({
   organisationSlug: Parameters<typeof getFulcrumSummary>[0];
   records: DemoFulcrumRecord[];
 }) {
-  const summary = getFulcrumSummary(organisationSlug);
+  const summary = getFulcrumSummary(organisationSlug, {
+    appCount: apps.length,
+    healthReviewCount: healthChecks.filter((check) => check.status !== "Good")
+      .length,
+    recordCount: records.length,
+  });
 
   return (
     <div className="space-y-6">
@@ -581,15 +586,14 @@ export function SyncSettings({
       <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
         <Panel
           icon={<RefreshCw aria-hidden="true" size={18} />}
-          title="Manual sync placeholder"
+          title="Manual import MVP"
         >
           <p className="text-sm leading-6 text-charcoal-600">
-            Queue a safe sync job status record for a tested connection. This
-            does not call Fulcrum, import records, import forms or start a
-            background worker.
+            Import selected Fulcrum app/form metadata first, then a capped set
+            of records. This is a manual read-only MVP, not scheduled sync.
           </p>
           {testedConnection?.organisationId ? (
-            <form action={startFulcrumSyncJobAction} className="mt-4">
+            <form action={importFulcrumRecordsAction} className="mt-4 grid gap-4">
               <input
                 name="organisationId"
                 type="hidden"
@@ -605,17 +609,46 @@ export function SyncSettings({
                 type="hidden"
                 value={testedConnection.id}
               />
+              <label className="block">
+                <span className="text-sm font-semibold text-charcoal-800">
+                  Selected Fulcrum app IDs
+                </span>
+                <textarea
+                  className="mt-2 min-h-24 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
+                  name="selectedAppIds"
+                  placeholder="Paste one or more Fulcrum app/form IDs, separated by commas or spaces"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-charcoal-800">
+                  Record cap
+                </span>
+                <input
+                  className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
+                  defaultValue="100"
+                  max="100"
+                  min="1"
+                  name="recordLimit"
+                  type="number"
+                />
+              </label>
+              <p className="rounded-md bg-earth-50 px-3 py-2 text-sm leading-6 text-charcoal-600">
+                Imports stay organisation-scoped, preserve external Fulcrum IDs
+                and store safe summaries only. Media and full response payloads
+                are not imported in this MVP.
+              </p>
               <button
-                className="rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+                className="w-fit rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
                 type="submit"
               >
-                Start sync placeholder
+                Start capped import
               </button>
             </form>
           ) : (
             <p className="mt-4 rounded-md bg-earth-50 px-3 py-2 text-sm text-charcoal-600">
               Test a Fulcrum connection successfully before queueing a sync
-              placeholder.
+              import.
             </p>
           )}
         </Panel>
