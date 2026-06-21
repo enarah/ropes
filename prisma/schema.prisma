@@ -88,6 +88,7 @@ model Organisation {
   projects           Project[]
   rangerPrograms     RangerProgram[]
   trips              Trip[]
+  tripApprovalNotes  TripApprovalNote[]
   tripParticipants   TripParticipant[]
   tripVehicleAllocations TripVehicleAllocation[]
   tripItineraryItems TripItineraryItem[]
@@ -110,6 +111,7 @@ model User {
   memberships     Membership[]
   auditLogs       AuditLog[]
   tripsLed        Trip[]       @relation("TripLead")
+  tripApprovalNotes TripApprovalNote[]
   tripParticipants TripParticipant[]
   vehicleBookings VehicleBooking[]
   fulcrumSyncJobs FulcrumSyncJob[]
@@ -201,6 +203,7 @@ model Trip {
   project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   rangerProgram   RangerProgram? @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
   leadUser        User?          @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
+  approvalNotes   TripApprovalNote[]
   participants    TripParticipant[]
   vehicleAllocations TripVehicleAllocation[]
   itineraryItems  TripItineraryItem[]
@@ -212,6 +215,26 @@ model Trip {
   @@index([rangerProgramId])
   @@index([leadUserId])
   @@index([approvalStatus])
+}
+
+model TripApprovalNote {
+  id                 String            @id @default(cuid())
+  organisationId     String
+  tripId             String
+  actorUserId        String?
+  fromApprovalStatus TripApprovalState?
+  toApprovalStatus   TripApprovalState
+  note               String
+  isDemo             Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  organisation       Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trip               Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actor              User?             @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([tripId])
+  @@index([actorUserId])
+  @@index([organisationId, tripId, createdAt])
 }
 
 model TripParticipant {

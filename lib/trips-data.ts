@@ -22,6 +22,14 @@ export type DemoTrip = {
   purpose: string;
   status: "Draft" | "Planned" | "In progress" | "Completed" | "Cancelled";
   approvalStatus: TripApprovalStatus;
+  approvalNotes: Array<{
+    actorName: string;
+    createdAt: string;
+    fromApprovalStatus: TripApprovalStatus | null;
+    id: string;
+    note: string;
+    toApprovalStatus: TripApprovalStatus;
+  }>;
   startsAt: string;
   endsAt: string;
   lead: string;
@@ -60,6 +68,14 @@ type PersistedTrip = {
   startsAt: Date;
   endsAt: Date;
   leadUser: { name: string } | null;
+  approvalNotes: Array<{
+    actor: { name: string } | null;
+    createdAt: Date;
+    fromApprovalStatus: string | null;
+    id: string;
+    note: string;
+    toApprovalStatus: string;
+  }>;
   participants: Array<{
     name: string;
     role: string;
@@ -138,6 +154,7 @@ export function getTripFormDefaults(
       purpose: "",
       status: "Draft",
       approvalStatus: "Draft",
+      approvalNotes: [],
       startsAt: "",
       endsAt: "",
       lead: "",
@@ -217,6 +234,19 @@ async function getPersistedTripsForOrganisation(
         trips: {
           include: {
             leadUser: true,
+            approvalNotes: {
+              include: {
+                actor: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 5,
+            },
             participants: {
               orderBy: {
                 rowOrder: "asc",
@@ -288,6 +318,16 @@ function mapPersistedTripToDemoTrip(
     purpose: trip.purpose,
     status: mapTripStatus(trip.status),
     approvalStatus: mapTripApprovalStatus(trip.approvalStatus),
+    approvalNotes: trip.approvalNotes.map((note) => ({
+      actorName: note.actor?.name ?? "Unknown reviewer",
+      createdAt: note.createdAt.toISOString(),
+      fromApprovalStatus: note.fromApprovalStatus
+        ? mapTripApprovalStatus(note.fromApprovalStatus)
+        : null,
+      id: note.id,
+      note: note.note,
+      toApprovalStatus: mapTripApprovalStatus(note.toApprovalStatus),
+    })),
     startsAt: trip.startsAt.toISOString(),
     endsAt: trip.endsAt.toISOString(),
     lead: leadName,
@@ -394,6 +434,7 @@ export const demoTrips: DemoTrip[] = [
       "Inspect water points, record fake condition notes and confirm follow-up work.",
     status: "Planned",
     approvalStatus: "Approved",
+    approvalNotes: [],
     startsAt: "2026-08-10T22:30:00.000Z",
     endsAt: "2026-08-12T07:30:00.000Z",
     lead: "Demo Head Ranger",
@@ -452,6 +493,7 @@ export const demoTrips: DemoTrip[] = [
       "Review fake track access conditions before the next ranger activity.",
     status: "Draft",
     approvalStatus: "Ready for review",
+    approvalNotes: [],
     startsAt: "2026-08-18T23:00:00.000Z",
     endsAt: "2026-08-19T06:30:00.000Z",
     lead: "Demo Ranger",
@@ -493,6 +535,7 @@ export const demoTrips: DemoTrip[] = [
       "Plan a fake partner support visit without exposing partner ranger data.",
     status: "Draft",
     approvalStatus: "Draft",
+    approvalNotes: [],
     startsAt: "2026-08-22T00:30:00.000Z",
     endsAt: "2026-08-22T07:00:00.000Z",
     lead: "Demo Enarah Admin",

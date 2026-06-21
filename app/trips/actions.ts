@@ -195,6 +195,7 @@ export async function transitionTripApprovalAction(formData: FormData) {
     const prisma = getPrismaClient();
     const organisationId = getRequiredString(formData, "organisationId");
     const targetApprovalStatus = getApprovalTarget(formData);
+    const approvalNote = getApprovalNote(formData);
     const [organisation, trip] = await Promise.all([
       prisma.organisation.findUnique({
         select: { id: true, slug: true },
@@ -237,6 +238,10 @@ export async function transitionTripApprovalAction(formData: FormData) {
       targetApprovalStatus,
       trip,
     });
+    const noteValidation = validateTripApprovalNote({
+      note: approvalNote,
+      targetApprovalStatus,
+    });
 
     if (!transitionValidation.ok) {
       await recordAuditLog(prisma, {
@@ -247,6 +252,8 @@ export async function transitionTripApprovalAction(formData: FormData) {
         metadata: {
           currentApprovalStatus: trip.approvalStatus,
           event: "trip_approval_transition_rejected",
+          noteLength: approvalNote.length,
+          notePresent: Boolean(approvalNote),
           reason: transitionValidation.reason,
           targetApprovalStatus,
           tripId: trip.id,
@@ -256,13 +263,55 @@ export async function transitionTripApprovalAction(formData: FormData) {
         summary: "Rejected trip approval workflow transition.",
       });
       redirectTo = `${fallbackPath}&approval=${transitionValidation.reason}`;
-    } else {
-      const updatedTrip = await prisma.trip.update({
-        data: getTripApprovalTransitionData(targetApprovalStatus),
-        where: {
-          id: trip.id,
+    } else if (!noteValidation.ok) {
+      await recordAuditLog(prisma, {
+        action: "REJECTED",
+        actorUserId: context.actorUserId,
+        entityId: trip.id,
+        entityType: "Trip",
+        metadata: {
+          currentApprovalStatus: trip.approvalStatus,
+          event: "trip_approval_note_rejected",
+          noteLength: approvalNote.length,
+          notePresent: Boolean(approvalNote),
+          reason: noteValidation.reason,
+          targetApprovalStatus,
+          tripId: trip.id,
+          validationCounts: getTripApprovalValidationCounts(trip),
         },
+        organisationId: context.organisationId,
+        summary: "Rejected trip approval workflow note.",
       });
+      redirectTo = `${fallbackPath}&approval=${noteValidation.reason}`;
+    } else {
+      const { approvalNoteRecord, updatedTrip } = await prisma.$transaction(
+        async (tx) => {
+          const persistedTrip = await tx.trip.update({
+            data: getTripApprovalTransitionData(targetApprovalStatus),
+            where: {
+              id: trip.id,
+            },
+          });
+          const persistedNote = approvalNote
+            ? await tx.tripApprovalNote.create({
+                data: {
+                  actorUserId: context.actorUserId,
+                  fromApprovalStatus: trip.approvalStatus,
+                  isDemo: false,
+                  note: approvalNote,
+                  organisationId: context.organisationId,
+                  toApprovalStatus: targetApprovalStatus,
+                  tripId: trip.id,
+                },
+              })
+            : null;
+
+          return {
+            approvalNoteRecord: persistedNote,
+            updatedTrip: persistedTrip,
+          };
+        },
+      );
       await recordAuditLog(prisma, {
         action: targetApprovalStatus === "APPROVED" ? "APPROVED" : "UPDATED",
         actorUserId: context.actorUserId,
@@ -271,6 +320,9 @@ export async function transitionTripApprovalAction(formData: FormData) {
         metadata: {
           event: "trip_approval_transitioned",
           fromApprovalStatus: trip.approvalStatus,
+          noteId: approvalNoteRecord?.id,
+          noteLength: approvalNote.length,
+          notePresent: Boolean(approvalNoteRecord),
           targetApprovalStatus,
           tripId: updatedTrip.id,
           validationCounts: getTripApprovalValidationCounts(trip),
@@ -322,6 +374,8 @@ type TripApprovalValidationTrip = {
     vehicleAllocations: number;
   };
 };
+
+const TRIP_APPROVAL_NOTE_MAX_LENGTH = 500;
 
 function getApprovalTarget(formData: FormData): TripApprovalTarget {
   const target = getRequiredString(formData, "targetApprovalStatus");
@@ -387,6 +441,48 @@ function validateTripApprovalTransition({
   return {
     ok: true,
   };
+}
+
+function validateTripApprovalNote({
+  note,
+  targetApprovalStatus,
+}: {
+  note: string;
+  targetApprovalStatus: TripApprovalTarget;
+}):
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "missing-required-note" | "note-too-long";
+    } {
+  if (note.length > TRIP_APPROVAL_NOTE_MAX_LENGTH) {
+    return {
+      ok: false,
+      reason: "note-too-long",
+    };
+  }
+
+  if (isApprovalNoteRequired(targetApprovalStatus) && !note) {
+    return {
+      ok: false,
+      reason: "missing-required-note",
+    };
+  }
+
+  return {
+    ok: true,
+  };
+}
+
+function isApprovalNoteRequired(targetApprovalStatus: TripApprovalTarget) {
+  return (
+    targetApprovalStatus === "CHANGES_REQUESTED" ||
+    targetApprovalStatus === "CANCELLED"
+  );
+}
+
+function getApprovalNote(formData: FormData) {
+  return getOptionalString(formData, "approvalNote");
 }
 
 function hasMinimumReviewData(trip: TripApprovalValidationTrip) {

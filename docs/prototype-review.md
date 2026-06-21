@@ -29,6 +29,9 @@ Vehicles records, and the initial authentication foundation.
 - Structured trip participant/vehicle/itinerary rows, approval status,
   tenant-guarded approval workflow transitions and placeholder export actions
   in the UI.
+- Trip approval notes are persisted as organisation-scoped plain-text records
+  with safe author/timestamp display, required reasons for change requests and
+  cancellations, and server-side length limits.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted bookings,
   booking calendar-style view, client-side overlap warning and pre-start status
@@ -71,8 +74,8 @@ Vehicles records, and the initial authentication foundation.
 - Dashboard and Fulcrum UI data is in-memory demo data.
 - Trip participants are stored as free-text MVP rows; optional linkage to
   existing users remains future work.
-- Trip approval workflow comments, notifications and role-specific approval
-  permissions are still future work.
+- Trip approval workflow notifications and role-specific approval permissions
+  are still future work.
 - Vehicle record create/edit forms are not implemented yet.
 - Broader calendar/scheduling features remain future work.
 - Fulcrum connection testing validates credentials only; record import requires
