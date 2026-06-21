@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import {
+  getVehicleBookingTimingState,
   organisationHref,
   type DemoVehicle,
   type DemoVehicleBooking,
@@ -32,6 +33,7 @@ export function BookingCalendar({
       <div className="grid divide-y divide-earth-100">
         {sortedBookings.map((booking) => {
           const vehicle = vehicles.find((item) => item.id === booking.vehicleId);
+          const timingState = getVehicleBookingTimingState(booking);
 
           return (
             <article
@@ -59,16 +61,30 @@ export function BookingCalendar({
                 <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
                   {booking.status}
                 </span>
+                <span className="w-fit rounded-md bg-ochre-50 px-2.5 py-1 text-xs font-semibold text-ochre-800">
+                  {timingState.label}
+                </span>
                 {organisationSlug ? (
-                  <Link
-                    className="w-fit rounded-md border border-earth-300 bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-700"
-                    href={organisationHref(
-                      `/vehicles/bookings/${booking.id}`,
-                      organisationSlug,
-                    )}
-                  >
-                    View
-                  </Link>
+                  <>
+                    <Link
+                      className="w-fit rounded-md border border-earth-300 bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+                      href={organisationHref(
+                        `/vehicles/bookings/${booking.id}`,
+                        organisationSlug,
+                      )}
+                    >
+                      View
+                    </Link>
+                    <Link
+                      className="w-fit rounded-md bg-charcoal-900 px-2.5 py-1 text-xs font-semibold text-white"
+                      href={organisationHref(
+                        `/vehicles/bookings/${booking.id}/edit`,
+                        organisationSlug,
+                      )}
+                    >
+                      Edit
+                    </Link>
+                  </>
                 ) : null}
               </div>
             </article>

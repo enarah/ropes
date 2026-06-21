@@ -40,9 +40,10 @@ Vehicles records, and the initial authentication foundation.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   vehicle create/update forms, booking creation/update, server-side overlap
   enforcement for persisted bookings, vehicle booking detail/edit pages, vehicle
-  register status filters, compact fleet summary counts, booking count
-  visibility, booking calendar-style view, client-side overlap warning and
-  pre-start status placeholders.
+  register status filters, compact fleet summary counts, booking status/timing
+  filters, compact booking summary counts, booking count visibility, booking
+  calendar-style view, client-side overlap warning and pre-start status
+  placeholders.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
   Records, Maps, Data Health, AI Assistant, App Builder and Sync Settings pages.
 - Fulcrum connection setup can save an organisation-scoped API token encrypted

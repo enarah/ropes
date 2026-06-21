@@ -277,7 +277,8 @@ The current app includes:
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   vehicle create/update forms, booking creation/update, server-side overlap
   enforcement for persisted booking writes, vehicle booking detail/edit pages,
-  vehicle register status filters, compact fleet summary counts, booking count
+  vehicle register status filters, compact fleet summary counts, booking
+  status/timing filters, compact booking summary counts, booking count
   visibility, booking list/calendar view, client-side overlap warning and
   pre-start status placeholders
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
