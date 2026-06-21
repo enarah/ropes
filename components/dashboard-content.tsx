@@ -20,6 +20,7 @@ import {
   getSelectedOrganisation,
   isOperationalModule,
   modulePanels,
+  type DashboardOrganisation,
   type ModuleSlug,
 } from "@/lib/dashboard-data";
 import { getDashboardAuthContext } from "@/lib/auth-session";
@@ -42,17 +43,20 @@ const moduleIconMap = {
 
 type DashboardContentProps = {
   moduleSlug: ModuleSlug;
+  organisation?: DashboardOrganisation;
   selectedOrganisationSlug?: string;
 };
 
 export async function DashboardContent({
   moduleSlug,
+  organisation,
   selectedOrganisationSlug,
 }: DashboardContentProps) {
   const authContext = await getDashboardAuthContext(
     isDatabaseConfigured() ? getPrismaClient() : undefined,
   );
-  const selectedOrganisation = getSelectedOrganisation(selectedOrganisationSlug);
+  const selectedOrganisation =
+    organisation ?? getSelectedOrganisation(selectedOrganisationSlug);
   const activeModule = getModuleBySlug(moduleSlug, selectedOrganisation.slug);
   const ActiveIcon = moduleIconMap[moduleSlug];
   const isOverview = moduleSlug === "overview";

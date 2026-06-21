@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Download, Plus, Users, Truck } from "lucide-react";
 import {
   getSelectedOrganisation,
+  type DashboardOrganisation,
   type OrganisationSlug,
 } from "@/lib/dashboard-data";
 import {
@@ -12,11 +13,16 @@ import {
 } from "@/lib/trips-data";
 
 type TripsListProps = {
+  organisation?: DashboardOrganisation;
   selectedOrganisationSlug?: string;
 };
 
-export async function TripsList({ selectedOrganisationSlug }: TripsListProps) {
-  const organisation = getSelectedOrganisation(selectedOrganisationSlug);
+export async function TripsList({
+  organisation: resolvedOrganisation,
+  selectedOrganisationSlug,
+}: TripsListProps) {
+  const organisation =
+    resolvedOrganisation ?? getSelectedOrganisation(selectedOrganisationSlug);
   const [trips, persistence] = await Promise.all([
     getTripsForOrganisationWithPersistence(organisation.slug),
     getTripPersistenceState(organisation.slug),

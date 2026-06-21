@@ -4,6 +4,7 @@ import {
 } from "@/lib/dashboard-data";
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
+import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
 
 export type TripApprovalStatus =
   | "Draft"
@@ -160,11 +161,14 @@ export async function getTripPersistenceState(
       select: { id: true },
       where: { slug: organisationSlug },
     });
+    const hasAccess = organisation
+      ? await canReadOrganisation(prisma, organisation.id)
+      : false;
 
     return {
-      isDatabaseAvailable: Boolean(organisation),
+      isDatabaseAvailable: Boolean(organisation && hasAccess),
       isDatabaseConfigured: true,
-      organisationId: organisation?.id,
+      organisationId: hasAccess ? organisation?.id : undefined,
     };
   } catch {
     return {
@@ -210,7 +214,7 @@ async function getPersistedTripsForOrganisation(
     });
 
     if (!organisation) {
-      return null;
+      return isAuthenticatedDatabaseMode() ? [] : null;
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -221,7 +225,7 @@ async function getPersistedTripsForOrganisation(
       mapPersistedTripToDemoTrip(organisationSlug, trip),
     );
   } catch {
-    return null;
+    return isAuthenticatedDatabaseMode() ? [] : null;
   }
 }
 

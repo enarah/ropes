@@ -58,10 +58,18 @@ export function DashboardShell({
     : authContext.source === "demo-fallback"
       ? demoOrganisations
       : [];
-  const selectedOrganisation =
+  const selectedOrganisation = organisations.length
+    ? organisations.find(
+        (organisation) => organisation.slug === searchParams.get("org"),
+      ) ?? organisations[0]
+    : authContext.source === "demo-fallback"
+      ? getSelectedOrganisation(searchParams.get("org"))
+      : null;
+  const selectedOrganisationSlug = selectedOrganisation?.slug ?? "";
+  const selectedOrganisationForLinks =
     organisations.find(
       (organisation) => organisation.slug === searchParams.get("org"),
-    ) ?? organisations[0] ?? getSelectedOrganisation(searchParams.get("org"));
+    ) ?? organisations[0] ?? selectedOrganisation;
 
   function handleOrganisationChange(organisationSlug: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -79,16 +87,17 @@ export function DashboardShell({
               authContext={authContext}
               onChange={handleOrganisationChange}
               organisations={organisations}
-              selectedOrganisationSlug={
-                organisations.length ? selectedOrganisation.slug : ""
-              }
+              selectedOrganisationSlug={selectedOrganisationSlug}
               tone="dark"
             />
             <nav aria-label="Primary" className="flex-1 space-y-1 px-4 py-3">
               {navigationItems.map((item) => (
                 <NavItem
                   active={activeSlug === item.slug}
-                  href={withOrganisation(item.href, selectedOrganisation.slug)}
+                  href={withOrganisation(
+                    item.href,
+                    selectedOrganisationForLinks?.slug,
+                  )}
                   key={item.slug}
                   label={item.label}
                   slug={item.slug}
@@ -133,9 +142,7 @@ export function DashboardShell({
               authContext={authContext}
               onChange={handleOrganisationChange}
               organisations={organisations}
-              selectedOrganisationSlug={
-                organisations.length ? selectedOrganisation.slug : ""
-              }
+              selectedOrganisationSlug={selectedOrganisationSlug}
               tone="light"
             />
             <nav
@@ -153,7 +160,10 @@ export function DashboardShell({
                         ? "border-ochre-600 bg-ochre-600 text-white"
                         : "border-earth-200 bg-white text-charcoal-700"
                     }`}
-                    href={withOrganisation(item.href, selectedOrganisation.slug)}
+                    href={withOrganisation(
+                      item.href,
+                      selectedOrganisationForLinks?.slug,
+                    )}
                     key={item.slug}
                   >
                     <Icon aria-hidden="true" size={16} />
@@ -291,7 +301,11 @@ function NavItem({
   );
 }
 
-function withOrganisation(href: string, organisationSlug: string) {
+function withOrganisation(href: string, organisationSlug?: string) {
+  if (!organisationSlug) {
+    return href;
+  }
+
   return `${href}?org=${organisationSlug}`;
 }
 
