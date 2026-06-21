@@ -32,6 +32,9 @@ Vehicles records, and the initial authentication foundation.
 - Trip approval notes are persisted as organisation-scoped plain-text records
   with safe author/timestamp display, required reasons for change requests and
   cancellations, and server-side length limits.
+- Trips list filters can narrow by approval state, trip status, timing and
+  needs-action views, with visible workflow badges, count chips and short safe
+  latest-review-note previews.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted bookings,
   booking calendar-style view, client-side overlap warning and pre-start status

@@ -51,6 +51,39 @@ export type DemoTrip = {
   }>;
 };
 
+export type TripApprovalFilter =
+  | "all"
+  | "draft"
+  | "ready-for-review"
+  | "approved"
+  | "changes-requested"
+  | "cancelled";
+
+export type TripStatusFilter =
+  | "all"
+  | "draft"
+  | "planned"
+  | "in-progress"
+  | "completed"
+  | "cancelled";
+
+export type TripTimingFilter = "all" | "upcoming" | "past" | "cancelled";
+export type TripActionFilter = "all" | "needs-action";
+
+export type TripListFilters = {
+  action: TripActionFilter;
+  approval: TripApprovalFilter;
+  status: TripStatusFilter;
+  timing: TripTimingFilter;
+};
+
+export type TripListSearchParams = {
+  action?: string;
+  approval?: string;
+  status?: string;
+  timing?: string;
+};
+
 export type TripPersistenceState = {
   isDatabaseConfigured: boolean;
   isDatabaseAvailable: boolean;
@@ -218,6 +251,183 @@ export async function getTripPersistenceState(
 
 export function organisationHref(pathname: string, organisationSlug: string) {
   return `${pathname}?org=${organisationSlug}`;
+}
+
+export function getTripListFilters(
+  searchParams?: TripListSearchParams,
+): TripListFilters {
+  return {
+    action: getAllowedValue(searchParams?.action, [
+      "all",
+      "needs-action",
+    ] as const),
+    approval: getAllowedValue(searchParams?.approval, [
+      "all",
+      "draft",
+      "ready-for-review",
+      "approved",
+      "changes-requested",
+      "cancelled",
+    ] as const),
+    status: getAllowedValue(searchParams?.status, [
+      "all",
+      "draft",
+      "planned",
+      "in-progress",
+      "completed",
+      "cancelled",
+    ] as const),
+    timing: getAllowedValue(searchParams?.timing, [
+      "all",
+      "upcoming",
+      "past",
+      "cancelled",
+    ] as const),
+  };
+}
+
+export function filterTripsForList(
+  trips: DemoTrip[],
+  filters: TripListFilters,
+) {
+  return trips.filter((trip) => {
+    if (
+      filters.approval !== "all" &&
+      getApprovalFilterValue(trip.approvalStatus) !== filters.approval
+    ) {
+      return false;
+    }
+
+    if (
+      filters.status !== "all" &&
+      getStatusFilterValue(trip.status) !== filters.status
+    ) {
+      return false;
+    }
+
+    if (
+      filters.timing !== "all" &&
+      getTripTimingState(trip).value !== filters.timing
+    ) {
+      return false;
+    }
+
+    if (filters.action === "needs-action" && !tripNeedsAction(trip)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export function hasActiveTripListFilters(filters: TripListFilters) {
+  return (
+    filters.action !== "all" ||
+    filters.approval !== "all" ||
+    filters.status !== "all" ||
+    filters.timing !== "all"
+  );
+}
+
+export function getTripTimingState(trip: DemoTrip): {
+  label: "Upcoming" | "Past" | "Cancelled" | "In progress";
+  value: Exclude<TripTimingFilter, "all">;
+} {
+  if (trip.status === "Cancelled" || trip.approvalStatus === "Cancelled") {
+    return {
+      label: "Cancelled",
+      value: "cancelled",
+    };
+  }
+
+  const now = new Date();
+  const startsAt = new Date(trip.startsAt);
+  const endsAt = new Date(trip.endsAt);
+
+  if (Number.isFinite(endsAt.getTime()) && endsAt < now) {
+    return {
+      label: "Past",
+      value: "past",
+    };
+  }
+
+  if (Number.isFinite(startsAt.getTime()) && startsAt <= now) {
+    return {
+      label: "In progress",
+      value: "upcoming",
+    };
+  }
+
+  return {
+    label: "Upcoming",
+    value: "upcoming",
+  };
+}
+
+export function tripNeedsAction(trip: DemoTrip) {
+  return (
+    trip.approvalStatus === "Ready for review" ||
+    trip.approvalStatus === "Changes requested" ||
+    !hasMinimumTripReviewData(trip)
+  );
+}
+
+export function hasMinimumTripReviewData(trip: DemoTrip) {
+  const startsAt = new Date(trip.startsAt);
+  const endsAt = new Date(trip.endsAt);
+
+  return Boolean(
+    trip.title.trim() &&
+      trip.destination.trim() &&
+      trip.purpose.trim() &&
+      Number.isFinite(startsAt.getTime()) &&
+      Number.isFinite(endsAt.getTime()) &&
+      startsAt < endsAt &&
+      trip.participants.length > 0 &&
+      trip.itinerary.length > 0,
+  );
+}
+
+export function getLatestTripReviewNotePreview(trip: DemoTrip) {
+  const note = trip.approvalNotes[0]?.note.trim().replace(/\s+/g, " ");
+
+  if (!note) {
+    return "";
+  }
+
+  return note.length > 120 ? `${note.slice(0, 117)}...` : note;
+}
+
+function getAllowedValue<const T extends readonly [string, ...string[]]>(
+  value: string | undefined,
+  allowedValues: T,
+): T[number] {
+  return (
+    allowedValues.find((allowedValue) => allowedValue === value) ??
+    allowedValues[0]
+  );
+}
+
+function getApprovalFilterValue(
+  approvalStatus: DemoTrip["approvalStatus"],
+): TripApprovalFilter {
+  if (approvalStatus === "Ready for review") {
+    return "ready-for-review";
+  }
+
+  if (approvalStatus === "Changes requested") {
+    return "changes-requested";
+  }
+
+  return approvalStatus.toLowerCase() as TripApprovalFilter;
+}
+
+function getStatusFilterValue(status: DemoTrip["status"]): TripStatusFilter {
+  if (status === "In progress") {
+    return "in-progress";
+  }
+
+  return status.toLowerCase() as TripStatusFilter;
 }
 
 async function getPersistedTripsForOrganisation(
