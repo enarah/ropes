@@ -1,34 +1,50 @@
 import Link from "next/link";
-import { ClipboardCheck, Plus, Truck } from "lucide-react";
+import { ClipboardCheck, Gauge, ListFilter, Plus, Truck } from "lucide-react";
 import {
   getSelectedOrganisation,
   type DashboardOrganisation,
+  type OrganisationSlug,
 } from "@/lib/dashboard-data";
 import {
+  filterVehiclesForRegister,
+  getVehicleBookingCounts,
   getVehicleBookingsForOrganisationWithPersistence,
   getVehiclePersistenceState,
+  getVehicleRegisterFilters,
+  getVehicleSummaryCards,
   getVehiclesForOrganisationWithPersistence,
+  hasActiveVehicleRegisterFilters,
   organisationHref,
   type DemoVehicle,
+  type VehicleRegisterFilters,
+  type VehicleRegisterSearchParams,
+  type VehicleSummaryCard,
 } from "@/lib/vehicles-data";
 import { BookingCalendar } from "@/components/vehicles/booking-calendar";
 
 type VehiclesRegisterProps = {
   organisation?: DashboardOrganisation;
+  searchParams?: VehicleRegisterSearchParams;
   selectedOrganisationSlug?: string;
 };
 
 export async function VehiclesRegister({
   organisation: resolvedOrganisation,
+  searchParams,
   selectedOrganisationSlug,
 }: VehiclesRegisterProps) {
   const organisation =
     resolvedOrganisation ?? getSelectedOrganisation(selectedOrganisationSlug);
+  const filters = getVehicleRegisterFilters(searchParams);
   const [vehicles, bookings, persistence] = await Promise.all([
     getVehiclesForOrganisationWithPersistence(organisation.slug),
     getVehicleBookingsForOrganisationWithPersistence(organisation.slug),
     getVehiclePersistenceState(organisation.slug),
   ]);
+  const filteredVehicles = filterVehiclesForRegister(vehicles, filters);
+  const summaryCards = getVehicleSummaryCards(vehicles);
+  const bookingCounts = getVehicleBookingCounts(bookings);
+  const activeFilterCount = hasActiveVehicleRegisterFilters(filters) ? 1 : 0;
 
   return (
     <div className="space-y-6">
@@ -68,23 +84,45 @@ export async function VehiclesRegister({
           Selected organisation context
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
-          Showing {vehicles.length}{" "}
+          Showing {filteredVehicles.length}
+          {hasActiveVehicleRegisterFilters(filters)
+            ? ` of ${vehicles.length}`
+            : ""}{" "}
           {persistence.isDatabaseAvailable ? "persisted" : "fake demo"} vehicle
-          {vehicles.length === 1 ? "" : "s"} and {bookings.length}{" "}
+          {filteredVehicles.length === 1 ? "" : "s"} and {bookings.length}{" "}
           {persistence.isDatabaseAvailable ? "persisted" : "fake demo"} booking
           {bookings.length === 1 ? "" : "s"} for {organisation.name}. No
           vehicle data from another organisation is included.
+          {activeFilterCount ? " 1 register filter active." : ""}
         </p>
       </section>
 
+      <VehicleSummaryStrip
+        cards={summaryCards}
+        organisationSlug={organisation.slug}
+      />
+
+      <VehicleRegisterFiltersBar
+        filters={filters}
+        organisationSlug={organisation.slug}
+      />
+
       <section className="grid gap-4">
-        {vehicles.map((vehicle) => (
-          <VehicleRegisterCard
-            key={vehicle.id}
+        {filteredVehicles.length ? (
+          filteredVehicles.map((vehicle) => (
+            <VehicleRegisterCard
+              bookingCount={bookingCounts[vehicle.id] ?? 0}
+              key={vehicle.id}
+              organisationSlug={organisation.slug}
+              vehicle={vehicle}
+            />
+          ))
+        ) : (
+          <EmptyVehicleFilterState
+            filters={filters}
             organisationSlug={organisation.slug}
-            vehicle={vehicle}
           />
-        ))}
+        )}
       </section>
 
       <BookingCalendar bookings={bookings} vehicles={vehicles} />
@@ -92,10 +130,123 @@ export async function VehiclesRegister({
   );
 }
 
+function VehicleSummaryStrip({
+  cards,
+  organisationSlug,
+}: {
+  cards: VehicleSummaryCard[];
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {cards.map((card) => (
+        <Link
+          className="rounded-md border border-earth-200 bg-white p-4 shadow-sm transition hover:border-ochre-500"
+          href={vehicleFilterHref(
+            organisationSlug,
+            getVehicleRegisterFilters(),
+            card.filters,
+          )}
+          key={card.id}
+        >
+          <p className="text-sm font-semibold text-charcoal-600">
+            {card.label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-charcoal-950">
+            {card.count}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-charcoal-600">
+            {card.description}
+          </p>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+function VehicleRegisterFiltersBar({
+  filters,
+  organisationSlug,
+}: {
+  filters: VehicleRegisterFilters;
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <section className="rounded-md border border-earth-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex items-center gap-2 text-charcoal-950">
+        <ListFilter aria-hidden="true" size={18} />
+        <h2 className="text-lg font-semibold">Vehicle register filters</h2>
+      </div>
+      <FilterGroup
+        currentValue={filters.status}
+        filters={filters}
+        label="Fleet status"
+        name="status"
+        options={[
+          { label: "All", value: "all" },
+          { label: "Available", value: "available" },
+          { label: "Booked", value: "booked" },
+          { label: "Maintenance", value: "maintenance" },
+          { label: "Retired", value: "retired" },
+        ]}
+        organisationSlug={organisationSlug}
+      />
+    </section>
+  );
+}
+
+function FilterGroup({
+  currentValue,
+  filters,
+  label,
+  name,
+  options,
+  organisationSlug,
+}: {
+  currentValue: string;
+  filters: VehicleRegisterFilters;
+  label: string;
+  name: keyof VehicleRegisterFilters;
+  options: Array<{ label: string; value: string }>;
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase text-charcoal-600">
+        {label}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {options.map((option) => {
+          const active = currentValue === option.value;
+
+          return (
+            <Link
+              aria-current={active ? "page" : undefined}
+              className={
+                active
+                  ? "rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+                  : "rounded-md border border-earth-300 bg-earth-50 px-3 py-2 text-sm font-semibold text-charcoal-800"
+              }
+              href={vehicleFilterHref(organisationSlug, filters, {
+                [name]: option.value,
+              })}
+              key={option.value}
+            >
+              {option.label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function VehicleRegisterCard({
+  bookingCount,
   organisationSlug,
   vehicle,
 }: {
+  bookingCount: number;
   organisationSlug: string;
   vehicle: DemoVehicle;
 }) {
@@ -147,14 +298,19 @@ function VehicleRegisterCard({
         </div>
       </div>
 
-      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-5">
         <Fact
           icon={<Truck aria-hidden="true" size={15} />}
           label="Registration"
           value={vehicle.registration}
         />
-        <Fact label="Vehicle" value={`${vehicle.year} ${vehicle.make}`} />
-        <Fact label="Base" value={vehicle.homeBase} />
+        <Fact label="Vehicle" value={formatVehicleDescription(vehicle)} />
+        <Fact
+          icon={<Gauge aria-hidden="true" size={15} />}
+          label="Odometer"
+          value={formatOdometer(vehicle.odometerKm)}
+        />
+        <Fact label="Bookings" value={String(bookingCount)} />
         <Fact
           icon={<ClipboardCheck aria-hidden="true" size={15} />}
           label="Pre-start"
@@ -162,6 +318,39 @@ function VehicleRegisterCard({
         />
       </dl>
     </article>
+  );
+}
+
+function EmptyVehicleFilterState({
+  filters,
+  organisationSlug,
+}: {
+  filters: VehicleRegisterFilters;
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <section className="rounded-md border border-earth-200 bg-earth-50 p-6">
+      <div className="flex items-start gap-3">
+        <Truck aria-hidden="true" className="mt-1 text-ochre-700" size={20} />
+        <div>
+          <h2 className="text-lg font-semibold text-charcoal-950">
+            No vehicles match this filter
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-charcoal-600">
+            The selected organisation has no vehicles in this fleet status.
+            Clear the filter to return to the full register.
+          </p>
+          <Link
+            className="mt-4 inline-flex rounded-md bg-charcoal-900 px-4 py-2 text-sm font-semibold text-white"
+            href={vehicleFilterHref(organisationSlug, filters, {
+              status: "all",
+            })}
+          >
+            Clear filter
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -183,4 +372,34 @@ function Fact({
       <dd className="mt-1 font-semibold text-charcoal-950">{value}</dd>
     </div>
   );
+}
+
+function vehicleFilterHref(
+  organisationSlug: OrganisationSlug,
+  filters: VehicleRegisterFilters,
+  changes: Partial<Record<keyof VehicleRegisterFilters, string>>,
+) {
+  const nextFilters = {
+    ...filters,
+    ...changes,
+  };
+  const params = new URLSearchParams({ org: organisationSlug });
+
+  for (const [key, value] of Object.entries(nextFilters)) {
+    if (value !== "all") {
+      params.set(key, value);
+    }
+  }
+
+  return `/vehicles?${params.toString()}`;
+}
+
+function formatVehicleDescription(vehicle: DemoVehicle) {
+  return [vehicle.year || "Year not set", vehicle.make, vehicle.model]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function formatOdometer(odometerKm: number) {
+  return `${new Intl.NumberFormat("en-AU").format(odometerKm)} km`;
 }

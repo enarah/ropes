@@ -63,6 +63,7 @@ export default async function ModulePage({
     return (
       <VehiclesRegister
         organisation={access.organisation}
+        searchParams={resolvedSearchParams}
         selectedOrganisationSlug={selectedOrganisationSlug}
       />
     );

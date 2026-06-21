@@ -18,6 +18,25 @@ export type VehicleBookingStatus =
   | "Active"
   | "Completed"
   | "Cancelled";
+export type VehicleStatusFilter =
+  | "all"
+  | "available"
+  | "booked"
+  | "maintenance"
+  | "retired";
+export type VehicleRegisterFilters = {
+  status: VehicleStatusFilter;
+};
+export type VehicleRegisterSearchParams = {
+  status?: string;
+};
+export type VehicleSummaryCard = {
+  count: number;
+  description: string;
+  filters: Partial<VehicleRegisterFilters>;
+  id: string;
+  label: string;
+};
 
 export type DemoVehicle = {
   id: string;
@@ -94,6 +113,92 @@ export function getVehiclesForOrganisation(organisationSlug: OrganisationSlug) {
   return demoVehicles.filter(
     (vehicle) => vehicle.organisationSlug === organisationSlug,
   );
+}
+
+export function getVehicleRegisterFilters(
+  searchParams?: VehicleRegisterSearchParams,
+): VehicleRegisterFilters {
+  return {
+    status: getAllowedValue(searchParams?.status, [
+      "all",
+      "available",
+      "booked",
+      "maintenance",
+      "retired",
+    ] as const),
+  };
+}
+
+export function filterVehiclesForRegister(
+  vehicles: DemoVehicle[],
+  filters: VehicleRegisterFilters,
+) {
+  return vehicles.filter((vehicle) => {
+    if (
+      filters.status !== "all" &&
+      getVehicleStatusFilterValue(vehicle.status) !== filters.status
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export function hasActiveVehicleRegisterFilters(
+  filters: VehicleRegisterFilters,
+) {
+  return filters.status !== "all";
+}
+
+export function getVehicleSummaryCards(
+  vehicles: DemoVehicle[],
+): VehicleSummaryCard[] {
+  return [
+    {
+      count: vehicles.length,
+      description: "All vehicles in this organisation register.",
+      filters: { status: "all" },
+      id: "total",
+      label: "Total vehicles",
+    },
+    {
+      count: countVehiclesByStatus(vehicles, "Available"),
+      description: "Ready for allocation or booking review.",
+      filters: { status: "available" },
+      id: "available",
+      label: "Available",
+    },
+    {
+      count: countVehiclesByStatus(vehicles, "Booked"),
+      description: "Marked as booked in the register.",
+      filters: { status: "booked" },
+      id: "booked",
+      label: "Booked",
+    },
+    {
+      count: countVehiclesByStatus(vehicles, "Maintenance"),
+      description: "Held for maintenance or operational review.",
+      filters: { status: "maintenance" },
+      id: "maintenance",
+      label: "Maintenance",
+    },
+    {
+      count: countVehiclesByStatus(vehicles, "Retired"),
+      description: "Retained for history but not active allocation.",
+      filters: { status: "retired" },
+      id: "retired",
+      label: "Retired",
+    },
+  ];
+}
+
+export function getVehicleBookingCounts(bookings: DemoVehicleBooking[]) {
+  return bookings.reduce<Record<string, number>>((counts, booking) => {
+    counts[booking.vehicleId] = (counts[booking.vehicleId] ?? 0) + 1;
+
+    return counts;
+  }, {});
 }
 
 export async function getVehiclesForOrganisationWithPersistence(
@@ -393,6 +498,25 @@ function mapVehicleStatusToEnum(
   }
 
   return "AVAILABLE";
+}
+
+function getVehicleStatusFilterValue(
+  status: VehicleStatus,
+): Exclude<VehicleStatusFilter, "all"> {
+  return status.toLowerCase() as Exclude<VehicleStatusFilter, "all">;
+}
+
+function countVehiclesByStatus(vehicles: DemoVehicle[], status: VehicleStatus) {
+  return vehicles.filter((vehicle) => vehicle.status === status).length;
+}
+
+function getAllowedValue<const T extends readonly string[]>(
+  value: string | undefined,
+  allowedValues: T,
+): T[number] {
+  return allowedValues.includes(value ?? "")
+    ? (value as T[number])
+    : allowedValues[0];
 }
 
 function mapBookingStatus(status: string): VehicleBookingStatus {

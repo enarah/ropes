@@ -276,8 +276,9 @@ The current app includes:
   with links into the existing filtered Trips list
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   vehicle create/update forms, booking creation, server-side overlap
-  enforcement for persisted booking writes, booking list/calendar view,
-  client-side overlap warning and pre-start status placeholders
+  enforcement for persisted booking writes, vehicle register status filters,
+  compact fleet summary counts, booking count visibility, booking list/calendar
+  view, client-side overlap warning and pre-start status placeholders
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages, plus encrypted per-organisation token storage and server-side
