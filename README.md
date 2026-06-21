@@ -270,6 +270,8 @@ The current app includes:
 - Plain-text trip approval notes for approval transitions, including required
   change-request and cancellation reasons, safe author/timestamp display and
   server-side length limits
+- Trips list workflow filters for approval state, trip status, timing and
+  needs-action views, with count chips and short safe review-note previews
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted booking
   writes, booking list/calendar view, client-side overlap warning and pre-start
@@ -288,10 +290,11 @@ The current app includes:
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
 user-linked trip participants, approval notifications, vehicle
-record create/edit forms, full server-side booking calendar/scheduling
-features, real pre-start checklists, broad Fulcrum sync, media/photo import,
-Fulcrum app writes, background workers, scheduled sync, AI provider calls, API
-keys or external service credentials beyond local environment configuration.
+record create/edit forms, trip dashboards, reporting, full server-side booking
+calendar/scheduling features, real pre-start checklists, broad Fulcrum sync,
+media/photo import, Fulcrum app writes, background workers, scheduled sync, AI
+provider calls, API keys or external service credentials beyond local
+environment configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
 configured, or the clearly labelled fake/demo session fallback when auth is not
 configured for local development.

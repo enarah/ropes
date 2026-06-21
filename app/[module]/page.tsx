@@ -12,12 +12,16 @@ type ModulePageProps = {
     module: string;
   }>;
   searchParams?: Promise<{
+    action?: string;
+    approval?: string;
     error?: string;
     import?: string;
     org?: string;
     saved?: string;
     sync?: string;
+    status?: string;
     tested?: string;
+    timing?: string;
   }>;
 };
 
@@ -49,6 +53,7 @@ export default async function ModulePage({
     return (
       <TripsList
         organisation={access.organisation}
+        searchParams={resolvedSearchParams}
         selectedOrganisationSlug={selectedOrganisationSlug}
       />
     );
