@@ -74,7 +74,7 @@ export function TripForm({
           This {mode === "create" ? "new" : "edit"} form is for{" "}
           {organisationName}. It uses the resolved auth/session context and{" "}
           {persistenceEnabled
-            ? "persists core trip details through tenant-guarded Prisma writes. Structured participants, vehicles and itinerary rows remain demo-only."
+            ? "persists core trip details, participants, vehicle allocations and itinerary rows through tenant-guarded Prisma writes."
             : "does not persist because a local database is not available."}
         </p>
       </div>
@@ -118,7 +118,7 @@ export function TripForm({
 
       <RepeatableSection
         addLabel="Add participant"
-        description="Demo participant rows only. They are not saved yet."
+        description="Free-text participant rows are saved with this organisation-scoped trip."
         onAdd={() =>
           setParticipants((rows) => [
             ...rows,
@@ -137,6 +137,7 @@ export function TripForm({
             <Field
               label="Name"
               name={`participants[${index}][name]`}
+              required={false}
               value={participant.name}
               onChange={(value) =>
                 updateRow(setParticipants, participant.rowId, { name: value })
@@ -145,6 +146,7 @@ export function TripForm({
             <Field
               label="Role"
               name={`participants[${index}][role]`}
+              required={false}
               value={participant.role}
               onChange={(value) =>
                 updateRow(setParticipants, participant.rowId, { role: value })
@@ -176,7 +178,7 @@ export function TripForm({
 
       <RepeatableSection
         addLabel="Add vehicle"
-        description="Demo vehicle allocation rows only. They are not saved yet."
+        description="Vehicle allocation rows are saved and linked to matching organisation vehicles when the registration matches."
         onAdd={() =>
           setVehicles((rows) => [
             ...rows,
@@ -195,6 +197,7 @@ export function TripForm({
             <Field
               label="Vehicle"
               name={`vehicles[${index}][name]`}
+              required={false}
               value={vehicle.name}
               onChange={(value) =>
                 updateRow(setVehicles, vehicle.rowId, { name: value })
@@ -203,6 +206,7 @@ export function TripForm({
             <Field
               label="Registration"
               name={`vehicles[${index}][registration]`}
+              required={false}
               value={vehicle.registration}
               onChange={(value) =>
                 updateRow(setVehicles, vehicle.rowId, { registration: value })
@@ -234,7 +238,7 @@ export function TripForm({
 
       <RepeatableSection
         addLabel="Add itinerary item"
-        description="Demo itinerary rows only. They are not saved yet."
+        description="Itinerary rows are saved in this order for the selected organisation."
         onAdd={() =>
           setItinerary((rows) => [
             ...rows,
@@ -253,6 +257,7 @@ export function TripForm({
             <Field
               label="Day"
               name={`itinerary[${index}][day]`}
+              required={false}
               value={item.day}
               onChange={(value) =>
                 updateRow(setItinerary, item.rowId, { day: value })
@@ -261,6 +266,7 @@ export function TripForm({
             <Field
               label="Title"
               name={`itinerary[${index}][title]`}
+              required={false}
               value={item.title}
               onChange={(value) =>
                 updateRow(setItinerary, item.rowId, { title: value })
@@ -269,6 +275,7 @@ export function TripForm({
             <Field
               label="Description"
               name={`itinerary[${index}][description]`}
+              required={false}
               value={item.description}
               onChange={(value) =>
                 updateRow(setItinerary, item.rowId, { description: value })
@@ -350,6 +357,7 @@ function Field({
   label,
   name,
   onChange,
+  required = true,
   type = "text",
   value,
 }: {
@@ -357,6 +365,7 @@ function Field({
   label: string;
   name: string;
   onChange?: (value: string) => void;
+  required?: boolean;
   type?: string;
   value?: string;
 }) {
@@ -375,7 +384,7 @@ function Field({
       <input
         className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
         name={name}
-        required
+        required={required}
         type={type}
         {...inputProps}
       />

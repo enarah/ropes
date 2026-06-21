@@ -23,10 +23,11 @@ Vehicles records, and the initial authentication foundation.
   memberships, roles, projects, ranger programs, trips, vehicles, bookings,
   Fulcrum placeholders and audit logs.
 - Tenant guard foundation used by persisted trip and vehicle booking writes.
-- Trips MVP with Prisma-backed core trip reads/create/update when a local
-  database is configured, plus demo fallback when no database is available.
+- Trips MVP with Prisma-backed core trip reads/create/update and persisted
+  participant, vehicle allocation and itinerary rows when a local database is
+  configured, plus demo fallback when no database is available.
 - Structured trip participant/vehicle/itinerary rows, approval status and
-  placeholder export actions.
+  placeholder export actions in the UI.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted bookings,
   booking calendar-style view, client-side overlap warning and pre-start status
@@ -67,8 +68,9 @@ Vehicles records, and the initial authentication foundation.
 - Role-specific permission rules beyond active membership checks are not
   implemented yet.
 - Dashboard and Fulcrum UI data is in-memory demo data.
-- Trip participant rows, trip vehicle allocation rows and trip itinerary rows
-  are still demo-only and are not persisted yet.
+- Trip participants are stored as free-text MVP rows; optional linkage to
+  existing users remains future work.
+- Trip approval workflow state transitions are still placeholders.
 - Vehicle record create/edit forms are not implemented yet.
 - Broader calendar/scheduling features remain future work.
 - Fulcrum connection testing validates credentials only; record import requires

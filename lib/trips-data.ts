@@ -58,6 +58,25 @@ type PersistedTrip = {
   startsAt: Date;
   endsAt: Date;
   leadUser: { name: string } | null;
+  participants: Array<{
+    name: string;
+    role: string;
+    status: string;
+  }>;
+  vehicleAllocations: Array<{
+    name: string;
+    registration: string;
+    status: string;
+    vehicle: {
+      name: string;
+      registration: string;
+    } | null;
+  }>;
+  itineraryItems: Array<{
+    day: string;
+    description: string;
+    title: string;
+  }>;
   vehicleBookings: Array<{
     status: string;
     vehicle: {
@@ -196,6 +215,29 @@ async function getPersistedTripsForOrganisation(
         trips: {
           include: {
             leadUser: true,
+            participants: {
+              orderBy: {
+                rowOrder: "asc",
+              },
+            },
+            vehicleAllocations: {
+              include: {
+                vehicle: {
+                  select: {
+                    name: true,
+                    registration: true,
+                  },
+                },
+              },
+              orderBy: {
+                rowOrder: "asc",
+              },
+            },
+            itineraryItems: {
+              orderBy: {
+                rowOrder: "asc",
+              },
+            },
             vehicleBookings: {
               include: {
                 vehicle: true,
@@ -248,27 +290,56 @@ function mapPersistedTripToDemoTrip(
     endsAt: trip.endsAt.toISOString(),
     lead: leadName,
     emergencyContact: "Demo Operations Manager",
-    participants: [
-      {
-        name: leadName,
-        role: "Trip lead",
-        status: "Confirmed",
-      },
-    ],
-    vehicles: trip.vehicleBookings.map((booking) => ({
-      name: booking.vehicle.name,
-      registration: booking.vehicle.registration,
-      status: booking.status === "APPROVED" ? "Allocated" : "Requested",
-    })),
-    itinerary: [
-      {
-        day: "Day 1",
-        title: trip.destination,
-        description:
-          "Persisted trip core details are saved. Structured itinerary rows remain demo-only until a later data model update.",
-      },
-    ],
+    participants: trip.participants.length
+      ? trip.participants.map((participant) => ({
+          name: participant.name,
+          role: participant.role,
+          status: mapParticipantStatus(participant.status),
+        }))
+      : [
+          {
+            name: leadName,
+            role: "Trip lead",
+            status: "Confirmed",
+          },
+        ],
+    vehicles: trip.vehicleAllocations.length
+      ? trip.vehicleAllocations.map((allocation) => ({
+          name: allocation.vehicle?.name ?? allocation.name,
+          registration:
+            allocation.vehicle?.registration ?? allocation.registration,
+          status: mapVehicleAllocationStatus(allocation.status),
+        }))
+      : trip.vehicleBookings.map((booking) => ({
+          name: booking.vehicle.name,
+          registration: booking.vehicle.registration,
+          status: booking.status === "APPROVED" ? "Allocated" : "Requested",
+        })),
+    itinerary: trip.itineraryItems.length
+      ? trip.itineraryItems.map((item) => ({
+          day: item.day,
+          description: item.description,
+          title: item.title,
+        }))
+      : [
+          {
+            day: "Day 1",
+            title: trip.destination,
+            description:
+              "Persisted trip core details are saved. Add itinerary rows to persist structured schedule details.",
+          },
+        ],
   };
+}
+
+function mapParticipantStatus(status: string): DemoTrip["participants"][number]["status"] {
+  return status === "Confirmed" ? "Confirmed" : "Pending";
+}
+
+function mapVehicleAllocationStatus(
+  status: string,
+): DemoTrip["vehicles"][number]["status"] {
+  return status === "Allocated" ? "Allocated" : "Requested";
 }
 
 function mapTripStatus(status: string): DemoTrip["status"] {

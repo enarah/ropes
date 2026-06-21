@@ -52,8 +52,8 @@ export default async function EditTripPage({
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
           Edit the trip record for this selected organisation. Core trip
-          details persist when a local database is configured; structured rows
-          remain demo-only.
+          details, participants, vehicle allocations and itinerary rows persist
+          when a local database is configured.
         </p>
       </section>
       {resolvedSearchParams?.error ? (

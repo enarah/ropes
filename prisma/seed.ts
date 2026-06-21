@@ -17,6 +17,9 @@ async function main() {
   await prisma.fulcrumApp.deleteMany();
   await prisma.fulcrumSyncJob.deleteMany();
   await prisma.fulcrumConnection.deleteMany();
+  await prisma.tripItineraryItem.deleteMany();
+  await prisma.tripVehicleAllocation.deleteMany();
+  await prisma.tripParticipant.deleteMany();
   await prisma.vehicleBooking.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.vehicle.deleteMany();
@@ -177,6 +180,69 @@ async function main() {
       notes: "Fake booking linked to the demo inspection trip.",
       isDemo: true,
     },
+  });
+
+  await prisma.tripParticipant.createMany({
+    data: [
+      {
+        organisationId: partner.id,
+        tripId: trip.id,
+        userId: users.headRanger.id,
+        name: "Demo Head Ranger",
+        role: "Trip lead",
+        status: "Confirmed",
+        rowOrder: 0,
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        tripId: trip.id,
+        userId: users.ranger.id,
+        name: "Demo Ranger",
+        role: "Field staff",
+        status: "Confirmed",
+        rowOrder: 1,
+        isDemo: true,
+      },
+    ],
+  });
+
+  await prisma.tripVehicleAllocation.create({
+    data: {
+      organisationId: partner.id,
+      tripId: trip.id,
+      vehicleId: vehicles[0].id,
+      name: vehicles[0].name,
+      registration: vehicles[0].registration,
+      status: "Allocated",
+      rowOrder: 0,
+      isDemo: true,
+    },
+  });
+
+  await prisma.tripItineraryItem.createMany({
+    data: [
+      {
+        organisationId: partner.id,
+        tripId: trip.id,
+        day: "Day 1",
+        title: "Travel to Demo Water Point 7",
+        description:
+          "Fake itinerary item for departing depot and arriving at the demo inspection site.",
+        rowOrder: 0,
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        tripId: trip.id,
+        day: "Day 2",
+        title: "Inspect demo water points",
+        description:
+          "Fake itinerary item for capturing demo condition notes and follow-up actions.",
+        rowOrder: 1,
+        isDemo: true,
+      },
+    ],
   });
 
   const fulcrumConnection = await prisma.fulcrumConnection.create({
