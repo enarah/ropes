@@ -3,11 +3,45 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 const defaultFulcrumApiBaseUrl = "https://api.fulcrumapp.com/api/v2";
 const defaultRecordLimit = 100;
 const maxRecordLimit = 100;
+const maxSelectedAppIds = 10;
+const selectedAppIdPattern = /^[A-Za-z0-9_-]{8,80}$/;
+
+export const fulcrumImportRawJsonLimits = {
+  formValuePreviewFields: 25,
+  stringPreviewCharacters: 240,
+} as const;
+
+export const sensitiveFulcrumFieldTerms = [
+  "password",
+  "token",
+  "secret",
+  "api key",
+  "licence",
+  "license",
+  "medicare",
+  "passport",
+  "date of birth",
+  "dob",
+  "phone",
+  "email",
+  "address",
+  "bank",
+  "account",
+  "bsb",
+  "card",
+  "signature",
+  "photo",
+  "image",
+  "attachment",
+] as const;
 
 export type FulcrumImportFailureCategory =
   | "forbidden"
+  | "malformed_apps_payload"
+  | "malformed_records_payload"
   | "network_error"
   | "rate_limited"
+  | "selected_app_ids_invalid"
   | "selected_apps_not_found"
   | "unauthorized"
   | "unexpected_response"
@@ -16,10 +50,12 @@ export type FulcrumImportFailureCategory =
 export type FulcrumImportResult =
   | {
       appCount: number;
+      filteredSensitiveFieldCount: number;
       importedRecordCount: number;
       missingGpsCount: number;
       ok: true;
       selectedAppIds: string[];
+      skippedRecordCount: number;
       updatedRecordCount: number;
     }
   | {
@@ -49,6 +85,7 @@ type FulcrumRecordPayload = {
   capturedAt: Date | null;
   dataHealthFlags: Prisma.InputJsonArray;
   externalRecordId: string;
+  filteredSensitiveFieldCount: number;
   latitude: number | null;
   longitude: number | null;
   rawJson: Prisma.InputJsonObject;
@@ -124,7 +161,9 @@ export async function importFulcrumRecordsForConnection({
   }
 
   let importedRecordCount = 0;
+  let filteredSensitiveFieldCount = 0;
   let missingGpsCount = 0;
+  let skippedRecordCount = 0;
   let updatedRecordCount = 0;
 
   for (const externalAppId of selectedAppIds) {
@@ -147,6 +186,8 @@ export async function importFulcrumRecordsForConnection({
         selectedAppIds,
       };
     }
+
+    skippedRecordCount += recordResult.skippedRecordCount;
 
     for (const record of recordResult.records) {
       if (importedRecordCount >= cappedLimit) {
@@ -200,6 +241,7 @@ export async function importFulcrumRecordsForConnection({
       });
 
       importedRecordCount += 1;
+      filteredSensitiveFieldCount += record.filteredSensitiveFieldCount;
       missingGpsCount += record.dataHealthFlags.includes("missing_gps") ? 1 : 0;
       updatedRecordCount += existingRecord ? 1 : 0;
     }
@@ -232,15 +274,35 @@ export async function importFulcrumRecordsForConnection({
 
   return {
     appCount: persistedApps.size,
+    filteredSensitiveFieldCount,
     importedRecordCount,
     missingGpsCount,
     ok: true,
     selectedAppIds,
+    skippedRecordCount,
     updatedRecordCount,
   };
 }
 
 export function parseSelectedFulcrumAppIds(value: string | null | undefined) {
+  const uniqueIds = getUniqueSelectedFulcrumAppIds(value);
+
+  return uniqueIds.filter(isValidFulcrumAppId);
+}
+
+export function hasInvalidSelectedFulcrumAppIds(
+  value: string | null | undefined,
+) {
+  return getUniqueSelectedFulcrumAppIds(value).some(
+    (item) => !isValidFulcrumAppId(item),
+  );
+}
+
+export function isValidFulcrumAppId(value: string) {
+  return selectedAppIdPattern.test(value);
+}
+
+function getUniqueSelectedFulcrumAppIds(value: string | null | undefined) {
   if (!value) {
     return [];
   }
@@ -252,7 +314,7 @@ export function parseSelectedFulcrumAppIds(value: string | null | undefined) {
         .map((item) => item.trim())
         .filter(Boolean),
     ),
-  ).slice(0, 10);
+  ).slice(0, maxSelectedAppIds);
 }
 
 export function parseFulcrumImportLimit(value: string | null | undefined) {
@@ -272,10 +334,28 @@ async function fetchFulcrumApps(apiToken: string) {
     return response;
   }
 
+  const payloadArray = getArrayFromPayload(response.payload, "forms");
+
+  if (!payloadArray) {
+    return {
+      category: "malformed_apps_payload" as const,
+      ok: false as const,
+    };
+  }
+
+  const apps = payloadArray
+    .map(mapFulcrumAppPayload)
+    .filter((app): app is FulcrumAppPayload => Boolean(app));
+
+  if (payloadArray.length > 0 && !apps.length) {
+    return {
+      category: "malformed_apps_payload" as const,
+      ok: false as const,
+    };
+  }
+
   return {
-    apps: getArrayFromPayload(response.payload, "forms")
-      .map(mapFulcrumAppPayload)
-      .filter((app): app is FulcrumAppPayload => Boolean(app)),
+    apps,
     ok: true as const,
   };
 }
@@ -293,6 +373,7 @@ async function fetchFulcrumRecordsForApp({
     return {
       ok: true as const,
       records: [],
+      skippedRecordCount: 0,
     };
   }
 
@@ -306,11 +387,24 @@ async function fetchFulcrumRecordsForApp({
     return response;
   }
 
+  const payloadArray = getArrayFromPayload(response.payload, "records");
+
+  if (!payloadArray) {
+    return {
+      category: "malformed_records_payload" as const,
+      ok: false as const,
+    };
+  }
+
+  const mappedRecords = payloadArray.map((record) =>
+    mapFulcrumRecordPayload(record, externalAppId),
+  );
+
   return {
     ok: true as const,
-    records: getArrayFromPayload(response.payload, "records")
-      .map((record) => mapFulcrumRecordPayload(record, externalAppId))
+    records: mappedRecords
       .filter((record): record is FulcrumRecordPayload => Boolean(record)),
+    skippedRecordCount: mappedRecords.filter((record) => !record).length,
   };
 }
 
@@ -351,6 +445,11 @@ async function fetchFulcrumJson(url: string, apiToken: string) {
 
 function mapFulcrumAppPayload(payload: unknown): FulcrumAppPayload | null {
   const record = getRecord(payload);
+
+  if (!record) {
+    return null;
+  }
+
   const externalAppId = getString(record?.["id"]);
   const name = getString(record?.["name"]);
 
@@ -378,6 +477,11 @@ function mapFulcrumRecordPayload(
   externalAppId: string,
 ): FulcrumRecordPayload | null {
   const record = getRecord(payload);
+
+  if (!record) {
+    return null;
+  }
+
   const externalRecordId = getString(record?.["id"]);
 
   if (!externalRecordId) {
@@ -398,19 +502,24 @@ function mapFulcrumRecordPayload(
     dataHealthFlags.push("missing_gps");
   }
 
+  const preview = getSafeFormValuesPreview(record?.["form_values"]);
+
   return {
     capturedAt,
     dataHealthFlags: dataHealthFlags as Prisma.InputJsonArray,
     externalRecordId,
+    filteredSensitiveFieldCount: preview.filteredSensitiveFieldCount,
     latitude,
     longitude,
     rawJson: {
       capturedAt: capturedAt?.toISOString() ?? null,
       externalAppId,
       externalRecordId,
-      formValuesPreview: getSafeFormValuesPreview(record?.["form_values"]),
+      filteredSensitiveFieldCount: preview.filteredSensitiveFieldCount,
+      formValuesPreview: preview.formValuesPreview,
       latitude,
       longitude,
+      previewFieldCount: Object.keys(preview.formValuesPreview).length,
       status,
       updatedAt: getString(record?.["updated_at"]) ?? null,
       version: getNumber(record?.["version"]) ?? null,
@@ -470,20 +579,54 @@ function getArrayFromPayload(payload: unknown, key: string) {
   const record = getRecord(payload);
   const nested = record?.[key];
 
-  return Array.isArray(nested) ? nested : [];
+  return Array.isArray(nested) ? nested : null;
 }
 
-function getSafeFormValuesPreview(value: unknown): Prisma.InputJsonObject {
+function getSafeFormValuesPreview(value: unknown): {
+  filteredSensitiveFieldCount: number;
+  formValuesPreview: Prisma.InputJsonObject;
+} {
   const formValues = getRecord(value);
 
   if (!formValues) {
-    return {};
+    return {
+      filteredSensitiveFieldCount: 0,
+      formValuesPreview: {},
+    };
   }
 
-  return Object.fromEntries(
-    Object.entries(formValues)
-      .slice(0, 25)
-      .map(([key, item]) => [key, getSafeJsonPreviewValue(item)]),
+  let filteredSensitiveFieldCount = 0;
+  const previewEntries: Array<[string, Prisma.InputJsonValue]> = [];
+
+  for (const [key, item] of Object.entries(formValues)) {
+    if (isSensitiveFulcrumFieldKey(key)) {
+      filteredSensitiveFieldCount += 1;
+      continue;
+    }
+
+    previewEntries.push([key, getSafeJsonPreviewValue(item)]);
+
+    if (
+      previewEntries.length >= fulcrumImportRawJsonLimits.formValuePreviewFields
+    ) {
+      break;
+    }
+  }
+
+  return {
+    filteredSensitiveFieldCount,
+    formValuesPreview: Object.fromEntries(previewEntries),
+  };
+}
+
+export function isSensitiveFulcrumFieldKey(key: string) {
+  const normalisedKey = key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase();
+
+  return sensitiveFulcrumFieldTerms.some((term) =>
+    normalisedKey.includes(term),
   );
 }
 
@@ -499,7 +642,7 @@ function getSafeJsonPreviewValue(value: unknown): Prisma.InputJsonValue {
   }
 
   if (typeof value === "string") {
-    return value.slice(0, 240);
+    return value.slice(0, fulcrumImportRawJsonLimits.stringPreviewCharacters);
   }
 
   if (Array.isArray(value)) {

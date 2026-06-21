@@ -192,10 +192,21 @@ organisation, connection and external record ID scope. Records without GPS are
 stored with null coordinates and a safe `missing_gps` data-health flag. Project
 and trip links remain empty unless a later safe mapping step sets them.
 
-The import stores only deliberate safe record metadata and a small form-values
-preview for later mapping/debugging. It does not store raw or encrypted tokens,
-request headers, media blobs, full unfiltered Fulcrum API responses, or secret
-metadata in records, UI, audit logs or sync job metadata.
+The import stores only deliberate safe record metadata and a small filtered
+form-values preview for later mapping/debugging. It validates selected app IDs,
+checks app/form and record payload shape before writing, skips unsupported
+malformed records where possible, and reports safe skipped counts in sync job
+metadata.
+
+`rawJson.formValuesPreview` is capped at 25 fields, and string previews are
+capped at 240 characters. Likely sensitive form value keys are filtered before
+storage when they contain terms such as password, token, secret, api key,
+licence, license, medicare, passport, date of birth, dob, phone, email,
+address, bank, account, bsb, card, signature, photo, image or attachment.
+
+The import does not store raw or encrypted tokens, request headers, media
+blobs, full unfiltered Fulcrum API responses, clearly sensitive preview values
+or secret metadata in records, UI, audit logs or sync job metadata.
 
 The default read-only Fulcrum import endpoints can be overridden for local
 testing:
@@ -208,7 +219,9 @@ FULCRUM_RECORDS_IMPORT_URL="https://api.fulcrumapp.com/api/v2/records.json"
 
 Manual imports update Fulcrum sync job status through queued, running,
 succeeded or failed states and write safe audit events for import start,
-app/form metadata import, record import, failure and completion. This is not a
+app/form metadata import, record import, failure and completion. Recent job UI
+shows safe observability counts for records imported, records updated, records
+skipped, missing GPS and filtered sensitive field previews. This is not a
 background worker, scheduled sync system, media import, Fulcrum App Builder
 write path or broad sync engine.
 

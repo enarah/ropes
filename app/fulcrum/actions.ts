@@ -7,6 +7,7 @@ import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import { testFulcrumApiToken } from "@/lib/fulcrum-connection-test";
 import {
+  hasInvalidSelectedFulcrumAppIds,
   importFulcrumRecordsForConnection,
   parseFulcrumImportLimit,
   parseSelectedFulcrumAppIds,
@@ -437,16 +438,18 @@ export async function importFulcrumRecordsAction(formData: FormData) {
     const prisma = getPrismaClient();
     const organisationId = getRequiredString(formData, "organisationId");
     const connectionId = getRequiredString(formData, "connectionId");
-    const selectedAppIds = parseSelectedFulcrumAppIds(
-      getOptionalString(formData, "selectedAppIds"),
-    );
+    const selectedAppIdInput = getOptionalString(formData, "selectedAppIds");
+    const selectedAppIds = parseSelectedFulcrumAppIds(selectedAppIdInput);
     const limit = parseFulcrumImportLimit(
       getOptionalString(formData, "recordLimit"),
     );
 
-    if (!selectedAppIds.length) {
+    if (
+      !selectedAppIds.length ||
+      hasInvalidSelectedFulcrumAppIds(selectedAppIdInput)
+    ) {
       throw new FulcrumConnectionValidationError(
-        "At least one Fulcrum app ID is required.",
+        "Selected Fulcrum app IDs are missing or invalid.",
       );
     }
 
@@ -589,15 +592,18 @@ export async function importFulcrumRecordsAction(formData: FormData) {
               appCount: importResult.appCount,
               connectionId: connection.id,
               event: "manual_fulcrum_import_completed",
+              filteredSensitiveFieldCount:
+                importResult.filteredSensitiveFieldCount,
               importedRecordCount: importResult.importedRecordCount,
               missingGpsCount: importResult.missingGpsCount,
               recordLimit: limit,
               selectedAppCount: selectedAppIds.length,
+              skippedRecordCount: importResult.skippedRecordCount,
               status: "SUCCEEDED",
               updatedRecordCount: importResult.updatedRecordCount,
             },
             status: "SUCCEEDED",
-            summary: `Imported ${importResult.importedRecordCount} Fulcrum records from ${importResult.appCount} selected app(s).`,
+            summary: `Imported ${importResult.importedRecordCount} Fulcrum records, updated ${importResult.updatedRecordCount}, skipped ${importResult.skippedRecordCount} and filtered ${importResult.filteredSensitiveFieldCount} sensitive field preview(s).`,
           },
           where: {
             id: syncJob.id,
@@ -621,6 +627,7 @@ export async function importFulcrumRecordsAction(formData: FormData) {
             connectionId: connection.id,
             event: "fulcrum_import_app_metadata_imported",
             selectedAppCount: selectedAppIds.length,
+            skippedRecordCount: importResult.skippedRecordCount,
           },
           organisationId: context.organisationId,
           summary: "Imported Fulcrum app/form metadata for selected app IDs.",
@@ -633,8 +640,11 @@ export async function importFulcrumRecordsAction(formData: FormData) {
           metadata: {
             connectionId: connection.id,
             event: "fulcrum_import_records_imported",
+            filteredSensitiveFieldCount:
+              importResult.filteredSensitiveFieldCount,
             importedRecordCount: importResult.importedRecordCount,
             missingGpsCount: importResult.missingGpsCount,
+            skippedRecordCount: importResult.skippedRecordCount,
             updatedRecordCount: importResult.updatedRecordCount,
           },
           organisationId: context.organisationId,
@@ -649,8 +659,13 @@ export async function importFulcrumRecordsAction(formData: FormData) {
             appCount: importResult.appCount,
             connectionId: connection.id,
             event: "fulcrum_import_completed",
+            filteredSensitiveFieldCount:
+              importResult.filteredSensitiveFieldCount,
             importedRecordCount: importResult.importedRecordCount,
+            missingGpsCount: importResult.missingGpsCount,
+            skippedRecordCount: importResult.skippedRecordCount,
             status: "SUCCEEDED",
+            updatedRecordCount: importResult.updatedRecordCount,
           },
           organisationId: context.organisationId,
           summary: "Completed manual Fulcrum import MVP run.",

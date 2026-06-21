@@ -677,6 +677,32 @@ export function SyncSettings({
                   <p className="mt-2 text-xs font-semibold uppercase text-charcoal-500">
                     Requested {job.requestedAt} / {job.requestedBy}
                   </p>
+                  {job.importSummary ? (
+                    <dl className="mt-3 grid gap-2 rounded-md bg-earth-50 p-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
+                      <Fact
+                        label="Imported"
+                        value={String(job.importSummary.importedRecordCount)}
+                      />
+                      <Fact
+                        label="Updated"
+                        value={String(job.importSummary.updatedRecordCount)}
+                      />
+                      <Fact
+                        label="Skipped"
+                        value={String(job.importSummary.skippedRecordCount)}
+                      />
+                      <Fact
+                        label="Missing GPS"
+                        value={String(job.importSummary.missingGpsCount)}
+                      />
+                      <Fact
+                        label="Filtered"
+                        value={String(
+                          job.importSummary.filteredSensitiveFieldCount,
+                        )}
+                      />
+                    </dl>
+                  ) : null}
                   {job.safeErrorCategory ? (
                     <p className="mt-1 text-sm text-charcoal-600">
                       Safe error category: {job.safeErrorCategory}
