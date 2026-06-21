@@ -6,7 +6,7 @@ import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
 
-export type VehicleStatus = "Available" | "Booked" | "Maintenance";
+export type VehicleStatus = "Available" | "Booked" | "Maintenance" | "Retired";
 export type PreStartStatus =
   | "Ready"
   | "Due today"
@@ -53,6 +53,17 @@ export type VehiclePersistenceState = {
   isDatabaseConfigured: boolean;
   isDatabaseAvailable: boolean;
   organisationId?: string;
+};
+
+export type VehicleFormDefaults = {
+  id?: string;
+  make: string;
+  model: string;
+  name: string;
+  odometerKm: string;
+  registration: string;
+  status: "AVAILABLE" | "BOOKED" | "MAINTENANCE" | "RETIRED";
+  year: string;
 };
 
 type PersistedVehicle = {
@@ -176,6 +187,21 @@ export function getBookingFormDefaults(
     endsAt: "",
     status: "Requested" as VehicleBookingStatus,
     purpose: `Demo booking request for ${organisation.name}.`,
+  };
+}
+
+export function getVehicleFormDefaults(
+  vehicle?: DemoVehicle,
+): VehicleFormDefaults {
+  return {
+    id: vehicle?.id,
+    make: vehicle?.make ?? "",
+    model: vehicle?.model ?? "",
+    name: vehicle?.name ?? "",
+    odometerKm: vehicle?.odometerKm ? String(vehicle.odometerKm) : "",
+    registration: vehicle?.registration ?? "",
+    status: vehicle ? mapVehicleStatusToEnum(vehicle.status) : "AVAILABLE",
+    year: vehicle?.year ? String(vehicle.year) : "",
   };
 }
 
@@ -340,11 +366,33 @@ function mapVehicleStatus(status: string): VehicleStatus {
     return "Booked";
   }
 
-  if (status === "MAINTENANCE" || status === "RETIRED") {
+  if (status === "RETIRED") {
+    return "Retired";
+  }
+
+  if (status === "MAINTENANCE") {
     return "Maintenance";
   }
 
   return "Available";
+}
+
+function mapVehicleStatusToEnum(
+  status: VehicleStatus,
+): VehicleFormDefaults["status"] {
+  if (status === "Booked") {
+    return "BOOKED";
+  }
+
+  if (status === "Maintenance") {
+    return "MAINTENANCE";
+  }
+
+  if (status === "Retired") {
+    return "RETIRED";
+  }
+
+  return "AVAILABLE";
 }
 
 function mapBookingStatus(status: string): VehicleBookingStatus {
