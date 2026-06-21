@@ -106,12 +106,16 @@ The current app includes:
   vehicles, itinerary, approval status and placeholder export actions
 - Vehicles MVP with in-memory demo register, detail pages, booking list/calendar
   view, booking form, overlap warning and pre-start status placeholders
+- Fulcrum module shell with in-memory demo overview, connections, apps/forms,
+  field records, maps, data health, AI assistant, app builder and sync settings
+  pages
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include authentication, real
 organisation switching, persisted trip, vehicle or booking reads and writes,
-real pre-start checklists, Fulcrum API connections, API keys or external
-service credentials.
+real pre-start checklists, Fulcrum API calls, stored Fulcrum tokens, encrypted
+credential storage, AI provider calls, API keys or external service
+credentials.
 
 ## Build principles
 

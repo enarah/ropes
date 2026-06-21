@@ -175,7 +175,7 @@ export const modulePanels = [
     title: "Fulcrum companion",
     status: "Offline",
     summary:
-      "Module shell only. No Fulcrum API credentials, records or sync actions are connected.",
+      "Demo pages for connections, apps, records, maps, health, AI, builder and sync settings.",
   },
   {
     slug: "reports",
