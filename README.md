@@ -8,7 +8,9 @@ ROPES is a multi-organisation operations platform for Enarah and partner ranger 
 
 This repository now contains the first ROPES application foundation: a
 Next.js, TypeScript and Tailwind dashboard shell, placeholder module
-navigation, demo-only dashboard content and an initial Prisma data model.
+navigation, demo dashboard content, an initial Prisma data model and
+tenant-guarded persistence for core trip and vehicle booking workflows when a
+local database is configured.
 
 The first implementation stream will establish:
 
@@ -102,20 +104,26 @@ The current app includes:
 - Mobile-friendly dashboard layout
 - Navigation for all core ROPES modules
 - Demo organisation switcher with organisation-scoped mock data views
-- Trips MVP with in-memory demo list, detail, create/edit form, participants,
-  vehicles, itinerary, approval status and placeholder export actions
-- Vehicles MVP with in-memory demo register, detail pages, booking list/calendar
-  view, booking form, overlap warning and pre-start status placeholders
+- Trips MVP with Prisma-backed core trip reads/create/update when
+  `DATABASE_URL` is configured, plus demo fallback when no database is
+  available
+- Structured trip participant, vehicle and itinerary form rows that remain
+  demo-only until the data model is expanded
+- Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
+  booking creation, booking list/calendar view, client-side overlap warning and
+  pre-start status placeholders
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include authentication, real
-organisation switching, persisted trip, vehicle or booking reads and writes,
+organisation switching, persisted structured trip participants/itineraries,
+vehicle record create/edit forms, full server-side booking overlap enforcement,
 real pre-start checklists, Fulcrum API calls, stored Fulcrum tokens, encrypted
 credential storage, AI provider calls, API keys or external service
-credentials.
+credentials. The current persisted writes use fake/demo session data and the
+tenant guard foundation only.
 
 ## Build principles
 

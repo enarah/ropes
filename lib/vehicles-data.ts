@@ -2,6 +2,7 @@ import {
   getSelectedOrganisation,
   type OrganisationSlug,
 } from "@/lib/dashboard-data";
+import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
 export type VehicleStatus = "Available" | "Booked" | "Maintenance";
 export type PreStartStatus =
@@ -18,6 +19,7 @@ export type VehicleBookingStatus =
 
 export type DemoVehicle = {
   id: string;
+  organisationId?: string;
   organisationSlug: OrganisationSlug;
   name: string;
   registration: string;
@@ -34,6 +36,7 @@ export type DemoVehicle = {
 
 export type DemoVehicleBooking = {
   id: string;
+  organisationId?: string;
   organisationSlug: OrganisationSlug;
   vehicleId: string;
   tripTitle: string;
@@ -44,10 +47,50 @@ export type DemoVehicleBooking = {
   purpose: string;
 };
 
+export type VehiclePersistenceState = {
+  isDatabaseConfigured: boolean;
+  isDatabaseAvailable: boolean;
+  organisationId?: string;
+};
+
+type PersistedVehicle = {
+  id: string;
+  organisationId: string;
+  name: string;
+  registration: string;
+  make: string;
+  model: string;
+  year: number | null;
+  status: string;
+  odometerKm: number | null;
+};
+
+type PersistedVehicleBooking = {
+  id: string;
+  organisationId: string;
+  vehicleId: string;
+  status: string;
+  startsAt: Date;
+  endsAt: Date;
+  notes: string | null;
+  bookedBy: { name: string } | null;
+  trip: { title: string } | null;
+};
+
 export function getVehiclesForOrganisation(organisationSlug: OrganisationSlug) {
   return demoVehicles.filter(
     (vehicle) => vehicle.organisationSlug === organisationSlug,
   );
+}
+
+export async function getVehiclesForOrganisationWithPersistence(
+  organisationSlug: OrganisationSlug,
+) {
+  const persistedVehicles = await getPersistedVehiclesForOrganisation(
+    organisationSlug,
+  );
+
+  return persistedVehicles ?? getVehiclesForOrganisation(organisationSlug);
 }
 
 export function getVehicleForOrganisation(
@@ -59,11 +102,34 @@ export function getVehicleForOrganisation(
   );
 }
 
+export async function getVehicleForOrganisationWithPersistence(
+  organisationSlug: OrganisationSlug,
+  vehicleId: string,
+) {
+  const vehicles = await getVehiclesForOrganisationWithPersistence(
+    organisationSlug,
+  );
+
+  return vehicles.find((vehicle) => vehicle.id === vehicleId);
+}
+
 export function getVehicleBookingsForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
   return demoVehicleBookings.filter(
     (booking) => booking.organisationSlug === organisationSlug,
+  );
+}
+
+export async function getVehicleBookingsForOrganisationWithPersistence(
+  organisationSlug: OrganisationSlug,
+) {
+  const persistedBookings = await getPersistedVehicleBookingsForOrganisation(
+    organisationSlug,
+  );
+
+  return (
+    persistedBookings ?? getVehicleBookingsForOrganisation(organisationSlug)
   );
 }
 
@@ -74,6 +140,17 @@ export function getBookingsForVehicle(
   return getVehicleBookingsForOrganisation(organisationSlug).filter(
     (booking) => booking.vehicleId === vehicleId,
   );
+}
+
+export async function getBookingsForVehicleWithPersistence(
+  organisationSlug: OrganisationSlug,
+  vehicleId: string,
+) {
+  const bookings = await getVehicleBookingsForOrganisationWithPersistence(
+    organisationSlug,
+  );
+
+  return bookings.filter((booking) => booking.vehicleId === vehicleId);
 }
 
 export function getBookingFormDefaults(
@@ -102,6 +179,179 @@ export function getBookingFormDefaults(
 
 export function organisationHref(pathname: string, organisationSlug: string) {
   return `${pathname}?org=${organisationSlug}`;
+}
+
+export async function getVehiclePersistenceState(
+  organisationSlug: OrganisationSlug,
+): Promise<VehiclePersistenceState> {
+  if (!isDatabaseConfigured()) {
+    return {
+      isDatabaseAvailable: false,
+      isDatabaseConfigured: false,
+    };
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      select: { id: true },
+      where: { slug: organisationSlug },
+    });
+
+    return {
+      isDatabaseAvailable: Boolean(organisation),
+      isDatabaseConfigured: true,
+      organisationId: organisation?.id,
+    };
+  } catch {
+    return {
+      isDatabaseAvailable: false,
+      isDatabaseConfigured: true,
+    };
+  }
+}
+
+async function getPersistedVehiclesForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        vehicles: {
+          orderBy: {
+            name: "asc",
+          },
+        },
+      },
+      where: { slug: organisationSlug },
+    });
+
+    if (!organisation) {
+      return null;
+    }
+
+    return organisation.vehicles.map((vehicle) =>
+      mapPersistedVehicleToDemoVehicle(organisationSlug, vehicle),
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function getPersistedVehicleBookingsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        vehicleBookings: {
+          include: {
+            bookedBy: true,
+            trip: true,
+          },
+          orderBy: {
+            startsAt: "asc",
+          },
+        },
+      },
+      where: { slug: organisationSlug },
+    });
+
+    if (!organisation) {
+      return null;
+    }
+
+    return organisation.vehicleBookings.map((booking) =>
+      mapPersistedBookingToDemoBooking(organisationSlug, booking),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function mapPersistedVehicleToDemoVehicle(
+  organisationSlug: OrganisationSlug,
+  vehicle: PersistedVehicle,
+): DemoVehicle {
+  return {
+    id: vehicle.id,
+    organisationId: vehicle.organisationId,
+    organisationSlug,
+    name: vehicle.name,
+    registration: vehicle.registration,
+    make: vehicle.make,
+    model: vehicle.model,
+    year: vehicle.year ?? 0,
+    status: mapVehicleStatus(vehicle.status),
+    odometerKm: vehicle.odometerKm ?? 0,
+    homeBase: "Demo depot",
+    preStartStatus: "Not recorded",
+    equipmentStatus: "Persisted vehicle core details only.",
+    notes:
+      "Persisted vehicle record. Pre-starts, defects and equipment checks remain placeholders.",
+  };
+}
+
+function mapPersistedBookingToDemoBooking(
+  organisationSlug: OrganisationSlug,
+  booking: PersistedVehicleBooking,
+): DemoVehicleBooking {
+  return {
+    id: booking.id,
+    organisationId: booking.organisationId,
+    organisationSlug,
+    vehicleId: booking.vehicleId,
+    tripTitle: booking.trip?.title ?? "Persisted booking request",
+    requestedBy: booking.bookedBy?.name ?? "Demo Operations Manager",
+    startsAt: booking.startsAt.toISOString(),
+    endsAt: booking.endsAt.toISOString(),
+    status: mapBookingStatus(booking.status),
+    purpose:
+      booking.notes ??
+      "Persisted booking without linked trip details. Full booking workflow remains future work.",
+  };
+}
+
+function mapVehicleStatus(status: string): VehicleStatus {
+  if (status === "BOOKED") {
+    return "Booked";
+  }
+
+  if (status === "MAINTENANCE" || status === "RETIRED") {
+    return "Maintenance";
+  }
+
+  return "Available";
+}
+
+function mapBookingStatus(status: string): VehicleBookingStatus {
+  if (status === "APPROVED") {
+    return "Approved";
+  }
+
+  if (status === "ACTIVE") {
+    return "Active";
+  }
+
+  if (status === "COMPLETED") {
+    return "Completed";
+  }
+
+  if (status === "CANCELLED") {
+    return "Cancelled";
+  }
+
+  return "Requested";
 }
 
 export const demoVehicles: DemoVehicle[] = [

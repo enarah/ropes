@@ -14,16 +14,24 @@ type BookingDefaults = {
 };
 
 type VehicleBookingFormProps = {
+  action?: (formData: FormData) => void | Promise<void>;
   bookings: DemoVehicleBooking[];
   defaults: BookingDefaults;
   organisationName: string;
+  organisationId?: string;
+  organisationSlug: string;
+  persistenceEnabled: boolean;
   vehicles: DemoVehicle[];
 };
 
 export function VehicleBookingForm({
+  action,
   bookings,
   defaults,
   organisationName,
+  organisationId,
+  organisationSlug,
+  persistenceEnabled,
   vehicles,
 }: VehicleBookingFormProps) {
   const [vehicleId, setVehicleId] = useState(defaults.vehicleId);
@@ -38,24 +46,34 @@ export function VehicleBookingForm({
 
   return (
     <form
+      action={action}
       className="space-y-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setMessage(
-          overlaps.length
-            ? "Demo warning shown: this booking is not saved."
-            : "Demo only: this booking form is not saved yet.",
-        );
-      }}
+      onSubmit={
+        action
+          ? undefined
+          : (event) => {
+              event.preventDefault();
+              setMessage(
+                overlaps.length
+                  ? "Demo warning shown: this booking is not saved."
+                  : "Demo only: this booking form is not saved yet.",
+              );
+            }
+      }
     >
+      <input name="organisationSlug" type="hidden" value={organisationSlug} />
+      <input name="organisationId" type="hidden" value={organisationId ?? ""} />
+
       <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
         <p className="text-sm font-semibold text-charcoal-950">
           Organisation scoped
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
-          This fake booking request is for {organisationName}. It uses demo
-          vehicle data, checks overlaps only within this organisation context
-          and does not persist.
+          This booking request is for {organisationName}. It checks overlaps
+          only within this organisation context and{" "}
+          {persistenceEnabled
+            ? "persists a tenant-guarded booking request."
+            : "does not persist because a local database is not available."}
         </p>
       </div>
 
@@ -148,7 +166,7 @@ export function VehicleBookingForm({
           className="rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
           type="submit"
         >
-          Save demo booking
+          {persistenceEnabled ? "Save booking" : "Save demo booking"}
         </button>
         {message ? (
           <p className="text-sm font-medium text-ochre-800">{message}</p>

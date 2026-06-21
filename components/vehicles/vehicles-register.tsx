@@ -2,8 +2,9 @@ import Link from "next/link";
 import { ClipboardCheck, Plus, Truck } from "lucide-react";
 import { getSelectedOrganisation } from "@/lib/dashboard-data";
 import {
-  getVehicleBookingsForOrganisation,
-  getVehiclesForOrganisation,
+  getVehicleBookingsForOrganisationWithPersistence,
+  getVehiclePersistenceState,
+  getVehiclesForOrganisationWithPersistence,
   organisationHref,
   type DemoVehicle,
 } from "@/lib/vehicles-data";
@@ -13,12 +14,15 @@ type VehiclesRegisterProps = {
   selectedOrganisationSlug?: string;
 };
 
-export function VehiclesRegister({
+export async function VehiclesRegister({
   selectedOrganisationSlug,
 }: VehiclesRegisterProps) {
   const organisation = getSelectedOrganisation(selectedOrganisationSlug);
-  const vehicles = getVehiclesForOrganisation(organisation.slug);
-  const bookings = getVehicleBookingsForOrganisation(organisation.slug);
+  const [vehicles, bookings, persistence] = await Promise.all([
+    getVehiclesForOrganisationWithPersistence(organisation.slug),
+    getVehicleBookingsForOrganisationWithPersistence(organisation.slug),
+    getVehiclePersistenceState(organisation.slug),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -31,7 +35,7 @@ export function VehiclesRegister({
             Vehicle register
           </h1>
           <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
-            Organisation-scoped demo fleet records with bookings, basic overlap
+            Organisation-scoped fleet records with bookings, basic overlap
             checks and pre-start status placeholders.
           </p>
         </div>
@@ -49,8 +53,10 @@ export function VehiclesRegister({
           Selected organisation context
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
-          Showing {vehicles.length} fake vehicle
-          {vehicles.length === 1 ? "" : "s"} and {bookings.length} fake booking
+          Showing {vehicles.length}{" "}
+          {persistence.isDatabaseAvailable ? "persisted" : "fake demo"} vehicle
+          {vehicles.length === 1 ? "" : "s"} and {bookings.length}{" "}
+          {persistence.isDatabaseAvailable ? "persisted" : "fake demo"} booking
           {bookings.length === 1 ? "" : "s"} for {organisation.name}. No
           vehicle data from another organisation is included.
         </p>
