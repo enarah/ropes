@@ -259,8 +259,9 @@ The current app includes:
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
-- Structured trip participant, vehicle and itinerary form rows that remain
-  demo-only until the data model is expanded
+- Structured trip participant, vehicle allocation and itinerary rows persisted
+  as organisation-scoped records, with row order preserved and vehicle
+  allocations linked to matching organisation vehicles where practical
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted booking
   writes, booking list/calendar view, client-side overlap warning and pre-start
@@ -278,14 +279,14 @@ The current app includes:
 
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
-persisted structured trip participants/itineraries, vehicle record create/edit
-forms, full server-side booking calendar/scheduling features, real pre-start
-checklists, broad Fulcrum sync, media/photo import, Fulcrum app writes,
-background workers, scheduled sync, AI provider calls, API keys or external
-service credentials beyond local environment configuration. Persisted writes
-and manual Fulcrum imports use Auth.js sessions when configured, or the clearly
-labelled fake/demo session fallback when auth is not configured for local
-development.
+user-linked trip participants, structured trip approval workflows, vehicle
+record create/edit forms, full server-side booking calendar/scheduling
+features, real pre-start checklists, broad Fulcrum sync, media/photo import,
+Fulcrum app writes, background workers, scheduled sync, AI provider calls, API
+keys or external service credentials beyond local environment configuration.
+Persisted writes and manual Fulcrum imports use Auth.js sessions when
+configured, or the clearly labelled fake/demo session fallback when auth is not
+configured for local development.
 
 ## Build principles
 

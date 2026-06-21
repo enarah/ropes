@@ -39,9 +39,9 @@ export default async function NewTripPage({ searchParams }: NewTripPageProps) {
           New trip
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
-          Create an organisation-scoped trip draft. Core trip details persist
-          when a local database is configured; structured participant, vehicle
-          and itinerary rows remain demo-only.
+          Create an organisation-scoped trip draft. Core trip details,
+          participants, vehicle allocations and itinerary rows persist when a
+          local database is configured.
         </p>
       </section>
       {resolvedSearchParams?.error ? (

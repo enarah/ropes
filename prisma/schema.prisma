@@ -80,6 +80,9 @@ model Organisation {
   projects           Project[]
   rangerPrograms     RangerProgram[]
   trips              Trip[]
+  tripParticipants   TripParticipant[]
+  tripVehicleAllocations TripVehicleAllocation[]
+  tripItineraryItems TripItineraryItem[]
   vehicles           Vehicle[]
   vehicleBookings    VehicleBooking[]
   fulcrumConnections FulcrumConnection[]
@@ -99,6 +102,7 @@ model User {
   memberships     Membership[]
   auditLogs       AuditLog[]
   tripsLed        Trip[]       @relation("TripLead")
+  tripParticipants TripParticipant[]
   vehicleBookings VehicleBooking[]
   fulcrumSyncJobs FulcrumSyncJob[]
 }
@@ -188,6 +192,9 @@ model Trip {
   project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
   rangerProgram   RangerProgram? @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
   leadUser        User?          @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
+  participants    TripParticipant[]
+  vehicleAllocations TripVehicleAllocation[]
+  itineraryItems  TripItineraryItem[]
   vehicleBookings VehicleBooking[]
   fulcrumRecords  FulcrumRecord[]
 
@@ -195,6 +202,72 @@ model Trip {
   @@index([projectId])
   @@index([rangerProgramId])
   @@index([leadUserId])
+}
+
+model TripParticipant {
+  id             String       @id @default(cuid())
+  organisationId String
+  tripId         String
+  userId         String?
+  name           String
+  role           String
+  status         String
+  rowOrder       Int
+  isDemo         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trip           Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([tripId])
+  @@index([userId])
+  @@index([organisationId, tripId, rowOrder])
+}
+
+model TripVehicleAllocation {
+  id             String       @id @default(cuid())
+  organisationId String
+  tripId         String
+  vehicleId      String?
+  name           String
+  registration   String
+  status         String
+  rowOrder       Int
+  isDemo         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trip           Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([tripId])
+  @@index([vehicleId])
+  @@index([organisationId, tripId, rowOrder])
+}
+
+model TripItineraryItem {
+  id             String       @id @default(cuid())
+  organisationId String
+  tripId         String
+  day            String
+  title          String
+  description    String
+  rowOrder       Int
+  startsAt       DateTime?
+  endsAt         DateTime?
+  location       String?
+  isDemo         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trip           Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
+  @@index([tripId])
+  @@index([organisationId, tripId, rowOrder])
 }
 
 model Vehicle {
@@ -211,6 +284,7 @@ model Vehicle {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  tripVehicleAllocations TripVehicleAllocation[]
   vehicleBookings VehicleBooking[]
 
   @@unique([organisationId, registration])
