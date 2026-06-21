@@ -26,8 +26,9 @@ Vehicles records, and the initial authentication foundation.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
-- Structured trip participant/vehicle/itinerary rows, approval status and
-  placeholder export actions in the UI.
+- Structured trip participant/vehicle/itinerary rows, approval status,
+  tenant-guarded approval workflow transitions and placeholder export actions
+  in the UI.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted bookings,
   booking calendar-style view, client-side overlap warning and pre-start status
@@ -53,9 +54,9 @@ Vehicles records, and the initial authentication foundation.
   records updated, records skipped, missing GPS and filtered sensitive field
   previews.
 - Organisation-scoped audit entries for persisted trip create/update, vehicle
-  booking create/overlap rejection, Fulcrum connection save/update/disable, and
-  Fulcrum connection test success/failure, sync job placeholder events and safe
-  Fulcrum import events.
+  booking create/overlap rejection, trip approval workflow transitions, Fulcrum
+  connection save/update/disable, Fulcrum connection test success/failure, sync
+  job placeholder events and safe Fulcrum import events.
 
 ## Still demo-only
 
@@ -70,7 +71,8 @@ Vehicles records, and the initial authentication foundation.
 - Dashboard and Fulcrum UI data is in-memory demo data.
 - Trip participants are stored as free-text MVP rows; optional linkage to
   existing users remains future work.
-- Trip approval workflow state transitions are still placeholders.
+- Trip approval workflow comments, notifications and role-specific approval
+  permissions are still future work.
 - Vehicle record create/edit forms are not implemented yet.
 - Broader calendar/scheduling features remain future work.
 - Fulcrum connection testing validates credentials only; record import requires

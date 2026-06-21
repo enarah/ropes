@@ -262,6 +262,9 @@ The current app includes:
 - Structured trip participant, vehicle allocation and itinerary rows persisted
   as organisation-scoped records, with row order preserved and vehicle
   allocations linked to matching organisation vehicles where practical
+- Trip approval workflow foundation with tenant-guarded transitions from draft
+  to ready for review, approved, changes requested or cancelled, including
+  minimum review validation and safe audit entries
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted booking
   writes, booking list/calendar view, client-side overlap warning and pre-start
@@ -273,13 +276,13 @@ The current app includes:
 - Organisation-scoped Fulcrum sync job status placeholders for tested
   connections and capped manual Fulcrum app/form and record imports for
   selected app IDs, without background sync workers
-- Organisation-scoped audit logging for the first persisted trip, vehicle
-  booking and Fulcrum connection writes
+- Organisation-scoped audit logging for the first persisted trip, trip approval,
+  vehicle booking and Fulcrum connection writes
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
-user-linked trip participants, structured trip approval workflows, vehicle
+user-linked trip participants, approval comments, notifications, vehicle
 record create/edit forms, full server-side booking calendar/scheduling
 features, real pre-start checklists, broad Fulcrum sync, media/photo import,
 Fulcrum app writes, background workers, scheduled sync, AI provider calls, API
