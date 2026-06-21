@@ -206,7 +206,7 @@ export const demoVehicleBookings: DemoVehicleBooking[] = [
     organisationSlug: "demo-enarah-services",
     vehicleId: "demo-enarah-pool-vehicle",
     tripTitle: "Demo Partner Visit Planning",
-    requestedBy: "Daryl Clarke - Demo",
+    requestedBy: "Demo Enarah Admin",
     startsAt: "2026-08-22T00:30:00.000Z",
     endsAt: "2026-08-22T07:00:00.000Z",
     status: "Approved",

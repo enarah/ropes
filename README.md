@@ -109,9 +109,9 @@ The current app includes:
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include authentication, real
-organisation switching, persisted trip or vehicle reads or writes, real
-pre-start checklists, Fulcrum API connections, API keys or external service
-credentials.
+organisation switching, persisted trip, vehicle or booking reads and writes,
+real pre-start checklists, Fulcrum API connections, API keys or external
+service credentials.
 
 ## Build principles
 

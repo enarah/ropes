@@ -54,7 +54,8 @@ export function VehicleBookingForm({
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
           This fake booking request is for {organisationName}. It uses demo
-          vehicle data and does not persist.
+          vehicle data, checks overlaps only within this organisation context
+          and does not persist.
         </p>
       </div>
 
@@ -67,6 +68,7 @@ export function VehicleBookingForm({
             className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
             name="vehicleId"
             onChange={(event) => setVehicleId(event.target.value)}
+            required
             value={vehicleId}
           >
             {vehicles.map((vehicle) => (
@@ -108,6 +110,7 @@ export function VehicleBookingForm({
           className="mt-2 min-h-28 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
           defaultValue={defaults.purpose}
           name="purpose"
+          required
         />
       </label>
 
@@ -176,6 +179,7 @@ function Field({
         defaultValue={defaultValue}
         name={name}
         onChange={(event) => onChange?.(event.target.value)}
+        required
         type={type}
       />
     </label>
