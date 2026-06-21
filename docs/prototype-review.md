@@ -35,13 +35,12 @@ milestones.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
   call AI providers or Fulcrum APIs.
 - Maps and data health checks are static placeholders.
-- Server-side permission checks, tenant guards and audit logging for real
-  actions are still future work.
+- Server-side permission enforcement, tenant guard integration into real write
+  actions, and audit logging are still future work.
 
 ## Follow-up issues
 
 - #11 Add server-side tenant guards before real writes.
-- #12 Add structured trip form fields.
 - #13 Persist trips and vehicles.
 - #14 Add real authentication.
 - #15 Add Fulcrum encrypted connection setup.
