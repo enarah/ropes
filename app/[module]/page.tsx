@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { DashboardContent } from "@/components/dashboard-content";
+import { FulcrumShell } from "@/components/fulcrum/fulcrum-shell";
 import { TripsList } from "@/components/trips/trips-list";
 import { VehiclesRegister } from "@/components/vehicles/vehicles-register";
 import { isModuleSlug, moduleSlugs } from "@/lib/dashboard-data";
@@ -38,6 +39,10 @@ export default async function ModulePage({
     return (
       <VehiclesRegister selectedOrganisationSlug={selectedOrganisationSlug} />
     );
+  }
+
+  if (module === "fulcrum") {
+    return <FulcrumShell selectedOrganisationSlug={selectedOrganisationSlug} />;
   }
 
   return (
