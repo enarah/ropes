@@ -31,6 +31,8 @@ Vehicles records, and the initial authentication foundation.
   placeholders.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
   Records, Maps, Data Health, AI Assistant, App Builder and Sync Settings pages.
+- Fulcrum connection setup can save an organisation-scoped API token encrypted
+  at rest when database, auth and encryption key configuration are available.
 
 ## Still demo-only
 
@@ -46,14 +48,10 @@ Vehicles records, and the initial authentication foundation.
   are still demo-only and are not persisted yet.
 - Vehicle record create/edit forms are not implemented yet.
 - Broader calendar/scheduling features remain future work.
-- Fulcrum connection setup, encrypted token storage, connection testing and sync
-  actions are not implemented.
+- Fulcrum connection testing, real API sync and record imports are not
+  implemented.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
   call AI providers or Fulcrum APIs.
 - Maps and data health checks are static placeholders.
 - Broader server-side permission enforcement and audit logging are still future
   work.
-
-## Follow-up issues
-
-- #15 Add Fulcrum encrypted connection setup.

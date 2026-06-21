@@ -5,8 +5,13 @@ import {
   FileJson,
   Hammer,
   Map,
+  PlugZap,
   ShieldAlert,
 } from "lucide-react";
+import {
+  disableFulcrumConnectionAction,
+  saveFulcrumConnectionAction,
+} from "@/app/fulcrum/actions";
 import {
   appBuilderPreviewFields,
   assistantPrompts,
@@ -16,6 +21,7 @@ import {
   type DemoFulcrumRecord,
   type DemoHealthCheck,
   type DemoSyncSetting,
+  type FulcrumConnectionState,
 } from "@/lib/fulcrum-data";
 import {
   CompactList,
@@ -87,41 +93,167 @@ export function FulcrumOverview({
 }
 
 export function Connections({
+  connectionState,
   connections,
+  organisationName,
+  organisationSlug,
 }: {
+  connectionState: FulcrumConnectionState;
   connections: DemoFulcrumConnection[];
+  organisationName: string;
+  organisationSlug: string;
 }) {
+  const primaryConnection = connections[0];
+
   return (
-    <section className="grid gap-4 md:grid-cols-2">
-      {connections.map((connection) => (
-        <article
-          className="rounded-md border border-earth-200 bg-white p-5 shadow-sm"
-          key={connection.id}
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold text-charcoal-950">
-                {connection.name}
-              </h2>
-              <p className="mt-2 text-sm text-charcoal-600">
-                {connection.accountLabel}
-              </p>
+    <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4">
+        {connections.map((connection) => (
+          <article
+            className="rounded-md border border-earth-200 bg-white p-5 shadow-sm"
+            key={connection.id}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-charcoal-950">
+                  {connection.name}
+                </h2>
+                <p className="mt-2 text-sm text-charcoal-600">
+                  {connection.accountLabel}
+                </p>
+              </div>
+              <span className="rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                {connection.status}
+              </span>
             </div>
-            <span className="rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
-              {connection.status}
-            </span>
-          </div>
-          <dl className="mt-5 space-y-3 text-sm">
-            <Fact label="Last checked" value={connection.lastChecked} />
-            <Fact label="Security" value="No token fields in this shell" />
-          </dl>
-          <p className="mt-4 text-sm leading-6 text-charcoal-600">
-            {connection.note}
+            <dl className="mt-5 space-y-3 text-sm">
+              <Fact label="Last checked" value={connection.lastChecked} />
+              <Fact label="Token hint" value={connection.tokenHint ?? "None"} />
+              <Fact
+                label="Security"
+                value="Raw tokens are never displayed after save"
+              />
+            </dl>
+            <p className="mt-4 text-sm leading-6 text-charcoal-600">
+              {connection.note}
+            </p>
+            {connection.organisationId && connection.id !== "new-fulcrum-connection" ? (
+              <form action={disableFulcrumConnectionAction} className="mt-4">
+                <input
+                  name="organisationId"
+                  type="hidden"
+                  value={connection.organisationId}
+                />
+                <input
+                  name="organisationSlug"
+                  type="hidden"
+                  value={organisationSlug}
+                />
+                <input name="connectionId" type="hidden" value={connection.id} />
+                <button
+                  className="rounded-md border border-earth-300 bg-white px-3 py-2 text-sm font-semibold text-charcoal-800"
+                  type="submit"
+                >
+                  Disable connection
+                </button>
+              </form>
+            ) : null}
+          </article>
+        ))}
+      </div>
+
+      <Panel icon={<PlugZap aria-hidden="true" size={18} />} title="Connection setup">
+        <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+          <p className="text-sm font-semibold text-charcoal-950">
+            {organisationName}
           </p>
-        </article>
-      ))}
+          <p className="mt-2 text-sm leading-6 text-charcoal-600">
+            Save or replace an organisation-scoped Fulcrum API token. The token
+            is encrypted server-side before storage and is not shown again.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-charcoal-600">
+            {getSetupStatus(connectionState)}
+          </p>
+        </div>
+        <form action={saveFulcrumConnectionAction} className="mt-4 grid gap-4">
+          <input
+            name="organisationId"
+            type="hidden"
+            value={connectionState.organisationId ?? ""}
+          />
+          <input name="organisationSlug" type="hidden" value={organisationSlug} />
+          <Field
+            defaultValue={primaryConnection?.name ?? "Fulcrum API connection"}
+            label="Connection name"
+            name="connectionName"
+          />
+          <Field
+            defaultValue={primaryConnection?.accountLabel ?? ""}
+            label="Account label"
+            name="accountLabel"
+            placeholder="Example: Partner Fulcrum workspace"
+          />
+          <Field
+            label="Fulcrum API token"
+            name="apiToken"
+            placeholder="Paste token to save or replace"
+            type="password"
+          />
+          <button
+            className="w-fit rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!connectionState.isDatabaseAvailable}
+            type="submit"
+          >
+            Save encrypted token
+          </button>
+        </form>
+      </Panel>
     </section>
   );
+}
+
+function Field({
+  defaultValue,
+  label,
+  name,
+  placeholder,
+  type = "text",
+}: {
+  defaultValue?: string;
+  label: string;
+  name: string;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold text-charcoal-800">{label}</span>
+      <input
+        className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
+        defaultValue={defaultValue}
+        name={name}
+        placeholder={placeholder}
+        required
+        type={type}
+      />
+    </label>
+  );
+}
+
+function getSetupStatus(connectionState: FulcrumConnectionState) {
+  if (!connectionState.isDatabaseConfigured) {
+    return "Local demo fallback is active because DATABASE_URL is not configured.";
+  }
+
+  if (!connectionState.isDatabaseAvailable) {
+    return "The database is configured, but this organisation is not available.";
+  }
+
+  if (!connectionState.encryptionConfigured) {
+    return "FULCRUM_TOKEN_ENCRYPTION_KEY is required before a token can be saved.";
+  }
+
+  return "Encryption is configured. Saving will update encrypted token storage only; it will not call Fulcrum.";
 }
 
 export function AppsForms({ apps }: { apps: DemoFulcrumApp[] }) {

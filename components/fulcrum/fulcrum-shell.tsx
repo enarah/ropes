@@ -14,7 +14,7 @@ import { getSelectedOrganisation } from "@/lib/dashboard-data";
 import {
   fulcrumSections,
   getFulcrumAppsForOrganisation,
-  getFulcrumConnectionsForOrganisation,
+  getFulcrumConnectionState,
   getFulcrumRecordsForOrganisation,
   getFulcrumSection,
   getHealthChecksForOrganisation,
@@ -35,6 +35,8 @@ import {
 import { organisationHref } from "@/components/fulcrum/fulcrum-ui";
 
 type FulcrumShellProps = {
+  connectionError?: string;
+  connectionSaved?: string;
   sectionSlug?: string;
   selectedOrganisationSlug?: string;
 };
@@ -51,13 +53,16 @@ const sectionIcons = {
   "sync-settings": RefreshCw,
 } satisfies Record<FulcrumSectionSlug, typeof DatabaseZap>;
 
-export function FulcrumShell({
+export async function FulcrumShell({
+  connectionError,
+  connectionSaved,
   sectionSlug,
   selectedOrganisationSlug,
 }: FulcrumShellProps) {
   const organisation = getSelectedOrganisation(selectedOrganisationSlug);
   const activeSection = getFulcrumSection(sectionSlug);
-  const connections = getFulcrumConnectionsForOrganisation(organisation.slug);
+  const connectionState = await getFulcrumConnectionState(organisation.slug);
+  const connections = connectionState.connections;
   const apps = getFulcrumAppsForOrganisation(organisation.slug);
   const records = getFulcrumRecordsForOrganisation(organisation.slug);
   const healthChecks = getHealthChecksForOrganisation(organisation.slug);
@@ -88,7 +93,10 @@ export function FulcrumShell({
         </div>
         <div className="rounded-md border border-earth-200 bg-white px-4 py-3 text-sm">
           <p className="font-semibold text-charcoal-950">Fulcrum API</p>
-          <p className="text-charcoal-600">Not connected / no tokens stored</p>
+          <p className="text-charcoal-600">
+            {connections[0]?.status ?? "Not connected"} /{" "}
+            {connections[0]?.tokenHint ?? "no token saved"}
+          </p>
         </div>
       </section>
 
@@ -122,11 +130,15 @@ export function FulcrumShell({
           Selected organisation context
         </p>
         <p className="text-sm leading-6 text-charcoal-600">
-          Showing fake Fulcrum records for {organisation.name} only. No
-          cross-organisation Fulcrum data, credentials or API responses are
-          included.
+          Showing Fulcrum setup for {organisation.name} only. Raw API tokens are
+          never returned to the browser after save, and no Fulcrum sync or
+          import calls run in this setup flow.
         </p>
       </section>
+
+      {connectionError || connectionSaved ? (
+        <ConnectionStatusMessage error={connectionError} saved={connectionSaved} />
+      ) : null}
 
       {activeSection.slug === "overview" ? (
         <FulcrumOverview
@@ -137,7 +149,12 @@ export function FulcrumShell({
         />
       ) : null}
       {activeSection.slug === "connections" ? (
-        <Connections connections={connections} />
+        <Connections
+          connectionState={connectionState}
+          connections={connections}
+          organisationName={organisation.name}
+          organisationSlug={organisation.slug}
+        />
       ) : null}
       {activeSection.slug === "apps-forms" ? <AppsForms apps={apps} /> : null}
       {activeSection.slug === "field-records" ? (
@@ -158,4 +175,63 @@ export function FulcrumShell({
       ) : null}
     </div>
   );
+}
+
+function ConnectionStatusMessage({
+  error,
+  saved,
+}: {
+  error?: string;
+  saved?: string;
+}) {
+  const title = error
+    ? "Fulcrum connection was not saved"
+    : saved === "disabled"
+      ? "Fulcrum connection disabled"
+      : saved === "demo"
+        ? "Demo fallback"
+        : "Fulcrum connection saved";
+
+  return (
+    <section className="rounded-md border border-earth-200 bg-white p-4">
+      <p className="text-sm font-semibold text-charcoal-950">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-charcoal-600">
+        {getConnectionStatusMessage({ error, saved })}
+      </p>
+    </section>
+  );
+}
+
+function getConnectionStatusMessage({
+  error,
+  saved,
+}: {
+  error?: string;
+  saved?: string;
+}) {
+  if (saved === "demo") {
+    return "No local database is configured, so the Fulcrum setup form remains demo-only.";
+  }
+
+  if (saved === "disabled") {
+    return "Encrypted token storage was cleared for this organisation. No Fulcrum API call was made.";
+  }
+
+  if (!error) {
+    return "The token was encrypted and stored server-side. The raw token is not displayed again.";
+  }
+
+  if (error === "encryption") {
+    return "FULCRUM_TOKEN_ENCRYPTION_KEY is required before a token can be saved.";
+  }
+
+  if (error === "tenant") {
+    return "The signed-in user does not have an active membership for this organisation.";
+  }
+
+  if (error === "validation") {
+    return "The organisation, connection or token input was missing or invalid.";
+  }
+
+  return "The database write was rejected before anything was saved.";
 }
