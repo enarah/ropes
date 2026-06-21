@@ -6,11 +6,13 @@ import {
   Hammer,
   Map,
   PlugZap,
+  RefreshCw,
   ShieldAlert,
 } from "lucide-react";
 import {
   disableFulcrumConnectionAction,
   saveFulcrumConnectionAction,
+  startFulcrumSyncJobAction,
   testFulcrumConnectionAction,
 } from "@/app/fulcrum/actions";
 import {
@@ -20,6 +22,7 @@ import {
   type DemoFulcrumApp,
   type DemoFulcrumConnection,
   type DemoFulcrumRecord,
+  type DemoFulcrumSyncJob,
   type DemoHealthCheck,
   type DemoSyncSetting,
   type FulcrumConnectionState,
@@ -536,25 +539,126 @@ export function AppBuilder() {
   );
 }
 
-export function SyncSettings({ settings }: { settings: DemoSyncSetting[] }) {
+export function SyncSettings({
+  connectionState,
+  organisationSlug,
+  settings,
+  syncJobs,
+}: {
+  connectionState: FulcrumConnectionState;
+  organisationSlug: string;
+  settings: DemoSyncSetting[];
+  syncJobs: DemoFulcrumSyncJob[];
+}) {
+  const testedConnection = connectionState.connections.find(
+    (connection) =>
+      connection.organisationId &&
+      connection.status === "Connected" &&
+      connection.lastTestMessage === "credentials_accepted",
+  );
+
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {settings.map((setting) => (
-        <article
-          className="rounded-md border border-earth-200 bg-white p-5 shadow-sm"
-          key={setting.id}
+    <div className="grid gap-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {settings.map((setting) => (
+          <article
+            className="rounded-md border border-earth-200 bg-white p-5 shadow-sm"
+            key={setting.id}
+          >
+            <p className="text-sm font-medium text-charcoal-600">
+              {setting.label}
+            </p>
+            <p className="mt-2 text-xl font-semibold text-charcoal-950">
+              {setting.value}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-charcoal-600">
+              {setting.note}
+            </p>
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+        <Panel
+          icon={<RefreshCw aria-hidden="true" size={18} />}
+          title="Manual sync placeholder"
         >
-          <p className="text-sm font-medium text-charcoal-600">
-            {setting.label}
+          <p className="text-sm leading-6 text-charcoal-600">
+            Queue a safe sync job status record for a tested connection. This
+            does not call Fulcrum, import records, import forms or start a
+            background worker.
           </p>
-          <p className="mt-2 text-xl font-semibold text-charcoal-950">
-            {setting.value}
-          </p>
-          <p className="mt-3 text-sm leading-6 text-charcoal-600">
-            {setting.note}
-          </p>
-        </article>
-      ))}
-    </section>
+          {testedConnection?.organisationId ? (
+            <form action={startFulcrumSyncJobAction} className="mt-4">
+              <input
+                name="organisationId"
+                type="hidden"
+                value={testedConnection.organisationId}
+              />
+              <input
+                name="organisationSlug"
+                type="hidden"
+                value={organisationSlug}
+              />
+              <input
+                name="connectionId"
+                type="hidden"
+                value={testedConnection.id}
+              />
+              <button
+                className="rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+                type="submit"
+              >
+                Start sync placeholder
+              </button>
+            </form>
+          ) : (
+            <p className="mt-4 rounded-md bg-earth-50 px-3 py-2 text-sm text-charcoal-600">
+              Test a Fulcrum connection successfully before queueing a sync
+              placeholder.
+            </p>
+          )}
+        </Panel>
+
+        <Panel
+          icon={<DatabaseZap aria-hidden="true" size={18} />}
+          title="Recent sync job status"
+        >
+          {syncJobs.length ? (
+            <div className="divide-y divide-earth-100">
+              {syncJobs.map((job) => (
+                <div className="py-3" key={job.id}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-medium text-charcoal-950">
+                        {job.connectionName}
+                      </p>
+                      <p className="text-sm leading-6 text-charcoal-600">
+                        {job.summary}
+                      </p>
+                    </div>
+                    <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                      {job.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs font-semibold uppercase text-charcoal-500">
+                    Requested {job.requestedAt} / {job.requestedBy}
+                  </p>
+                  {job.safeErrorCategory ? (
+                    <p className="mt-1 text-sm text-charcoal-600">
+                      Safe error category: {job.safeErrorCategory}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm leading-6 text-charcoal-600">
+              No sync job placeholders have been queued for this organisation.
+            </p>
+          )}
+        </Panel>
+      </section>
+    </div>
   );
 }

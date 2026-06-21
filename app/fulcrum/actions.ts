@@ -313,6 +313,111 @@ export async function testFulcrumConnectionAction(formData: FormData) {
   redirect(redirectTo);
 }
 
+export async function startFulcrumSyncJobAction(formData: FormData) {
+  const organisationSlug = getRequiredString(formData, "organisationSlug");
+  const fallbackPath = `/fulcrum/sync-settings?org=${organisationSlug}`;
+
+  if (!isDatabaseConfigured()) {
+    redirect(`${fallbackPath}&sync=demo`);
+  }
+
+  let redirectTo = `${fallbackPath}&error=persistence`;
+
+  try {
+    const prisma = getPrismaClient();
+    const organisationId = getRequiredString(formData, "organisationId");
+    const connectionId = getRequiredString(formData, "connectionId");
+    const [organisation, connection] = await Promise.all([
+      prisma.organisation.findUnique({
+        select: { id: true, slug: true },
+        where: { id: organisationId },
+      }),
+      prisma.fulcrumConnection.findUnique({
+        select: {
+          id: true,
+          lastTestMessage: true,
+          organisationId: true,
+          status: true,
+        },
+        where: { id: connectionId },
+      }),
+    ]);
+
+    if (!organisation || !connection) {
+      throw new FulcrumConnectionValidationError(
+        "Organisation or Fulcrum connection was not found.",
+      );
+    }
+
+    const session = await getTenantGuardSessionForRequest(prisma);
+    const context = createOrganisationWriteContext({
+      organisationId: organisation.id,
+      relatedRecords: [{ label: "Fulcrum connection", record: connection }],
+      session,
+    });
+
+    if (
+      connection.status !== "CONNECTED" ||
+      connection.lastTestMessage !== "credentials_accepted"
+    ) {
+      await recordAuditLog(prisma, {
+        action: "REJECTED",
+        actorUserId: context.actorUserId,
+        entityId: null,
+        entityType: "FulcrumSyncJob",
+        metadata: {
+          connectionId: connection.id,
+          event: "fulcrum_sync_job_rejected",
+          reason: "connection_not_tested",
+        },
+        organisationId: context.organisationId,
+        summary:
+          "Rejected Fulcrum sync job placeholder because the connection was not tested successfully.",
+      });
+      redirectTo = `/fulcrum/sync-settings?org=${organisation.slug}&sync=connection-not-tested`;
+    } else {
+      const syncJob = await prisma.fulcrumSyncJob.create({
+        data: {
+          fulcrumConnectionId: connection.id,
+          metadata: {
+            connectionId: connection.id,
+            event: "manual_sync_placeholder_queued",
+            status: "QUEUED",
+          },
+          organisationId: context.organisationId,
+          requestedByUserId: context.actorUserId,
+          status: "QUEUED",
+          summary:
+            "Manual Fulcrum sync placeholder queued. No records, apps or forms were imported.",
+        },
+      });
+      await recordAuditLog(prisma, {
+        action: "SYNC_STARTED",
+        actorUserId: context.actorUserId,
+        entityId: syncJob.id,
+        entityType: "FulcrumSyncJob",
+        metadata: {
+          connectionId: connection.id,
+          event: "fulcrum_sync_job_queued",
+          status: "QUEUED",
+        },
+        organisationId: context.organisationId,
+        summary:
+          "Queued Fulcrum sync job placeholder without importing records.",
+      });
+      redirectTo = `/fulcrum/sync-settings?org=${organisation.slug}&sync=queued`;
+    }
+
+    revalidatePath("/fulcrum");
+    revalidatePath("/fulcrum/connections");
+    revalidatePath("/fulcrum/sync-settings");
+  } catch (error) {
+    redirectTo = `${fallbackPath}&error=${getConnectionErrorCode(error)}`;
+  }
+
+  redirect(redirectTo);
+}
+
 function getConnectionErrorCode(error: unknown) {
   if (isTenantGuardError(error)) {
     return "tenant";

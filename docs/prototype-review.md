@@ -38,9 +38,12 @@ Vehicles records, and the initial authentication foundation.
 - Fulcrum connections can run a server-side credential test that decrypts the
   token only on the server, stores safe status metadata and does not sync
   records.
+- Fulcrum Sync Settings can queue organisation-scoped sync job placeholder
+  records for tested connections, showing recent status without importing
+  records.
 - Organisation-scoped audit entries for persisted trip create/update, vehicle
   booking create/overlap rejection, Fulcrum connection save/update/disable, and
-  Fulcrum connection test success/failure.
+  Fulcrum connection test success/failure and sync job placeholder events.
 
 ## Still demo-only
 
@@ -59,6 +62,8 @@ Vehicles records, and the initial authentication foundation.
 - Broader calendar/scheduling features remain future work.
 - Fulcrum connection testing validates credentials only; real API sync and
   record imports are not implemented.
+- Fulcrum sync jobs are status placeholders only; they do not import apps,
+  forms or records and do not run background workers or scheduled sync.
 - Fulcrum AI Assistant and App Builder are non-functional demo shells and do not
   call AI providers or Fulcrum APIs.
 - Maps and data health checks are static placeholders.

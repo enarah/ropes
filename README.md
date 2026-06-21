@@ -166,14 +166,27 @@ tokens. Failed tests store safe categories such as missing token, missing
 encryption key, token rejected, rate limited, network error or upstream
 unavailable. Audit entries record safe success/failure categories only.
 
+## Fulcrum sync job placeholders
+
+Tested Fulcrum connections can queue organisation-scoped sync job status
+records from the Sync Settings page. This is a status framework only: the
+placeholder action creates a queued job linked to the organisation, Fulcrum
+connection and requesting user, then records safe audit metadata.
+
+Sync job placeholders do not call Fulcrum, import records, import apps/forms,
+store Fulcrum response payloads, run background workers or schedule cron jobs.
+Recent job status is shown in the Fulcrum UI with safe timestamps, status and
+summary metadata only.
+
 ## Audit logging
 
 Persisted trip create/update, vehicle booking create, server-side vehicle
 booking overlap rejection, Fulcrum connection save/update/disable, and Fulcrum
-connection test success/failure actions write organisation-scoped audit entries
-after tenant access has been confirmed. Audit entries record the organisation,
-actor user when available, action, target record type, target record ID when
-available, timestamp and safe metadata.
+connection test success/failure actions, and manual Fulcrum sync job placeholder
+creation/rejection write organisation-scoped audit entries after tenant access
+has been confirmed. Audit entries record the organisation, actor user when
+available, action, target record type, target record ID when available,
+timestamp and safe metadata.
 
 Audit metadata deliberately avoids raw Fulcrum API tokens, encrypted token
 values, auth/provider tokens, API keys, environment variables and full request
@@ -209,6 +222,8 @@ The current app includes:
   field records, maps, data health, AI assistant, app builder and sync settings
   pages, plus encrypted per-organisation token storage and server-side
   credential testing for connection setup
+- Organisation-scoped Fulcrum sync job status placeholders for tested
+  connections, without record imports or background sync workers
 - Organisation-scoped audit logging for the first persisted trip, vehicle
   booking and Fulcrum connection writes
 - Placeholder summary cards and module panels using clearly fake demo content
@@ -217,11 +232,11 @@ This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
 persisted structured trip participants/itineraries, vehicle record create/edit
 forms, full server-side booking calendar/scheduling features, real pre-start
-checklists, Fulcrum API sync jobs, Fulcrum record imports, Fulcrum app writes,
-AI provider calls, API keys or external service credentials beyond local
-environment configuration. Persisted writes use Auth.js sessions when
-configured, or the clearly labelled fake/demo session fallback when auth is not
-configured for local development.
+checklists, Fulcrum record import jobs, Fulcrum app/form sync, Fulcrum app
+writes, background workers, scheduled sync, AI provider calls, API keys or
+external service credentials beyond local environment configuration. Persisted
+writes use Auth.js sessions when configured, or the clearly labelled fake/demo
+session fallback when auth is not configured for local development.
 
 ## Build principles
 

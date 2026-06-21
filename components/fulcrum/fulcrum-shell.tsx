@@ -41,6 +41,7 @@ type FulcrumShellProps = {
   connectionError?: string;
   connectionSaved?: string;
   connectionTested?: string;
+  syncStatus?: string;
   organisation?: DashboardOrganisation;
   sectionSlug?: string;
   selectedOrganisationSlug?: string;
@@ -62,6 +63,7 @@ export async function FulcrumShell({
   connectionError,
   connectionSaved,
   connectionTested,
+  syncStatus,
   organisation: resolvedOrganisation,
   sectionSlug,
   selectedOrganisationSlug,
@@ -75,6 +77,7 @@ export async function FulcrumShell({
   const records = getFulcrumRecordsForOrganisation(organisation.slug);
   const healthChecks = getHealthChecksForOrganisation(organisation.slug);
   const syncSettings = getSyncSettingsForOrganisation(organisation.slug);
+  const syncJobs = connectionState.syncJobs;
   const ActiveIcon = sectionIcons[activeSection.slug];
 
   return (
@@ -144,10 +147,11 @@ export async function FulcrumShell({
         </p>
       </section>
 
-      {connectionError || connectionSaved || connectionTested ? (
+      {connectionError || connectionSaved || connectionTested || syncStatus ? (
         <ConnectionStatusMessage
           error={connectionError}
           saved={connectionSaved}
+          syncStatus={syncStatus}
           tested={connectionTested}
         />
       ) : null}
@@ -183,7 +187,12 @@ export async function FulcrumShell({
       ) : null}
       {activeSection.slug === "app-builder" ? <AppBuilder /> : null}
       {activeSection.slug === "sync-settings" ? (
-        <SyncSettings settings={syncSettings} />
+        <SyncSettings
+          connectionState={connectionState}
+          organisationSlug={organisation.slug}
+          settings={syncSettings}
+          syncJobs={syncJobs}
+        />
       ) : null}
     </div>
   );
@@ -192,27 +201,31 @@ export async function FulcrumShell({
 function ConnectionStatusMessage({
   error,
   saved,
+  syncStatus,
   tested,
 }: {
   error?: string;
   saved?: string;
+  syncStatus?: string;
   tested?: string;
 }) {
   const title = error
     ? "Fulcrum connection was not saved"
-    : tested
-      ? getTestStatusTitle(tested)
-      : saved === "disabled"
-        ? "Fulcrum connection disabled"
-        : saved === "demo"
-          ? "Demo fallback"
-          : "Fulcrum connection saved";
+    : syncStatus
+      ? getSyncStatusTitle(syncStatus)
+      : tested
+        ? getTestStatusTitle(tested)
+        : saved === "disabled"
+          ? "Fulcrum connection disabled"
+          : saved === "demo"
+            ? "Demo fallback"
+            : "Fulcrum connection saved";
 
   return (
     <section className="rounded-md border border-earth-200 bg-white p-4">
       <p className="text-sm font-semibold text-charcoal-950">{title}</p>
       <p className="mt-1 text-sm leading-6 text-charcoal-600">
-        {getConnectionStatusMessage({ error, saved, tested })}
+        {getConnectionStatusMessage({ error, saved, syncStatus, tested })}
       </p>
     </section>
   );
@@ -221,12 +234,18 @@ function ConnectionStatusMessage({
 function getConnectionStatusMessage({
   error,
   saved,
+  syncStatus,
   tested,
 }: {
   error?: string;
   saved?: string;
+  syncStatus?: string;
   tested?: string;
 }) {
+  if (syncStatus) {
+    return getSyncStatusMessage(syncStatus);
+  }
+
   if (tested) {
     return getTestStatusMessage(tested);
   }
@@ -256,6 +275,38 @@ function getConnectionStatusMessage({
   }
 
   return "The database write was rejected before anything was saved.";
+}
+
+function getSyncStatusTitle(syncStatus: string) {
+  if (syncStatus === "queued") {
+    return "Fulcrum sync placeholder queued";
+  }
+
+  if (syncStatus === "connection-not-tested") {
+    return "Fulcrum connection must be tested first";
+  }
+
+  if (syncStatus === "demo") {
+    return "Demo fallback";
+  }
+
+  return "Fulcrum sync placeholder was not queued";
+}
+
+function getSyncStatusMessage(syncStatus: string) {
+  if (syncStatus === "queued") {
+    return "ROPES created a safe sync job status record only. No Fulcrum records, apps or forms were imported.";
+  }
+
+  if (syncStatus === "connection-not-tested") {
+    return "Test the Fulcrum connection successfully before queueing a sync placeholder.";
+  }
+
+  if (syncStatus === "demo") {
+    return "No local database is configured, so sync job records remain demo-only.";
+  }
+
+  return "The sync placeholder was rejected before any job was created.";
 }
 
 function getTestStatusTitle(tested: string) {
