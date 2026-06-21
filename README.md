@@ -272,6 +272,8 @@ The current app includes:
   server-side length limits
 - Trips list workflow filters for approval state, trip status, timing and
   needs-action views, with count chips and short safe review-note previews
+- Lightweight Trips summary cards for organisation-scoped operational counts
+  with links into the existing filtered Trips list
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted booking
   writes, booking list/calendar view, client-side overlap warning and pre-start

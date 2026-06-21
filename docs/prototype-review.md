@@ -35,6 +35,8 @@ Vehicles records, and the initial authentication foundation.
 - Trips list filters can narrow by approval state, trip status, timing and
   needs-action views, with visible workflow badges, count chips and short safe
   latest-review-note previews.
+- Trips summary cards show lightweight organisation-scoped operational counts
+  and link into the filtered Trips list without adding full reporting.
 - Vehicles MVP with Prisma-backed vehicle and booking reads, tenant-guarded
   booking creation, server-side overlap enforcement for persisted bookings,
   booking calendar-style view, client-side overlap warning and pre-start status

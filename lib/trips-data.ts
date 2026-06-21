@@ -84,6 +84,14 @@ export type TripListSearchParams = {
   timing?: string;
 };
 
+export type TripSummaryCard = {
+  count: number;
+  description: string;
+  filters: Partial<TripListFilters>;
+  id: string;
+  label: string;
+};
+
 export type TripPersistenceState = {
   isDatabaseConfigured: boolean;
   isDatabaseAvailable: boolean;
@@ -327,6 +335,92 @@ export function hasActiveTripListFilters(filters: TripListFilters) {
     filters.status !== "all" ||
     filters.timing !== "all"
   );
+}
+
+export function getTripSummaryCards(trips: DemoTrip[]): TripSummaryCard[] {
+  return [
+    {
+      count: trips.length,
+      description: "All trips for this organisation.",
+      filters: {
+        action: "all",
+        approval: "all",
+        status: "all",
+        timing: "all",
+      },
+      id: "total",
+      label: "Total trips",
+    },
+    {
+      count: filterTripsForList(trips, {
+        ...getTripListFilters(),
+        timing: "upcoming",
+      }).length,
+      description: "Trips still ahead or underway.",
+      filters: {
+        timing: "upcoming",
+      },
+      id: "upcoming",
+      label: "Upcoming",
+    },
+    {
+      count: filterTripsForList(trips, {
+        ...getTripListFilters(),
+        approval: "ready-for-review",
+      }).length,
+      description: "Waiting for coordinator review.",
+      filters: {
+        approval: "ready-for-review",
+      },
+      id: "ready-for-review",
+      label: "Ready for review",
+    },
+    {
+      count: filterTripsForList(trips, {
+        ...getTripListFilters(),
+        approval: "changes-requested",
+      }).length,
+      description: "Returned for updates.",
+      filters: {
+        approval: "changes-requested",
+      },
+      id: "changes-requested",
+      label: "Changes requested",
+    },
+    {
+      count: trips.filter((trip) => !hasMinimumTripReviewData(trip)).length,
+      description: "Missing review-ready details.",
+      filters: {
+        action: "needs-action",
+      },
+      id: "missing-review-data",
+      label: "Missing data",
+    },
+    {
+      count: filterTripsForList(trips, {
+        ...getTripListFilters(),
+        status: "planned",
+      }).length,
+      description: "Approved or planned for operations.",
+      filters: {
+        status: "planned",
+      },
+      id: "planned",
+      label: "Approved / planned",
+    },
+    {
+      count: filterTripsForList(trips, {
+        ...getTripListFilters(),
+        timing: "cancelled",
+      }).length,
+      description: "Cancelled trips kept for visibility.",
+      filters: {
+        timing: "cancelled",
+      },
+      id: "cancelled",
+      label: "Cancelled",
+    },
+  ];
 }
 
 export function getTripTimingState(trip: DemoTrip): {

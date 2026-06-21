@@ -20,6 +20,7 @@ import {
   getTripsForOrganisationWithPersistence,
   getTripListFilters,
   getTripPersistenceState,
+  getTripSummaryCards,
   getTripTimingState,
   hasActiveTripListFilters,
   hasMinimumTripReviewData,
@@ -28,6 +29,7 @@ import {
   type DemoTrip,
   type TripListFilters,
   type TripListSearchParams,
+  type TripSummaryCard,
 } from "@/lib/trips-data";
 
 type TripsListProps = {
@@ -49,6 +51,7 @@ export async function TripsList({
     getTripPersistenceState(organisation.slug),
   ]);
   const trips = filterTripsForList(allTrips, filters);
+  const summaryCards = getTripSummaryCards(allTrips);
   const activeFilterCount = getActiveFilterCount(filters);
 
   return (
@@ -102,6 +105,11 @@ export async function TripsList({
         </p>
       </section>
 
+      <TripSummaryStrip
+        cards={summaryCards}
+        organisationSlug={organisation.slug}
+      />
+
       <TripListFiltersBar
         filters={filters}
         organisationSlug={organisation.slug}
@@ -124,6 +132,40 @@ export async function TripsList({
         )}
       </section>
     </div>
+  );
+}
+
+function TripSummaryStrip({
+  cards,
+  organisationSlug,
+}: {
+  cards: TripSummaryCard[];
+  organisationSlug: OrganisationSlug;
+}) {
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => (
+        <Link
+          className="rounded-md border border-earth-200 bg-white p-4 shadow-sm transition hover:border-ochre-500"
+          href={tripFilterHref(
+            organisationSlug,
+            getTripListFilters(),
+            card.filters,
+          )}
+          key={card.id}
+        >
+          <p className="text-sm font-semibold text-charcoal-600">
+            {card.label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-charcoal-950">
+            {card.count}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-charcoal-600">
+            {card.description}
+          </p>
+        </Link>
+      ))}
+    </section>
   );
 }
 
