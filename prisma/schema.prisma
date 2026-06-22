@@ -73,6 +73,22 @@ enum VehicleDefectStatus {
   RESOLVED
 }
 
+enum VehicleMaintenanceType {
+  SERVICE
+  REPAIR
+  INSPECTION
+  TYRES
+  REGISTRATION
+  CLEANING
+  OTHER
+}
+
+enum VehicleMaintenanceStatus {
+  COMPLETED
+  SCHEDULED
+  DEFERRED
+}
+
 enum FulcrumConnectionStatus {
   NOT_CONNECTED
   READY_FOR_SETUP
@@ -119,6 +135,7 @@ model Organisation {
   vehicles           Vehicle[]
   vehicleBookings    VehicleBooking[]
   vehicleDefects     VehicleDefect[]
+  vehicleMaintenanceRecords VehicleMaintenanceRecord[]
   vehiclePreStartChecklists VehiclePreStartChecklist[]
   fulcrumConnections FulcrumConnection[]
   fulcrumSyncJobs     FulcrumSyncJob[]
@@ -141,6 +158,7 @@ model User {
   tripParticipants TripParticipant[]
   vehicleBookings VehicleBooking[]
   vehicleDefects  VehicleDefect[]
+  vehicleMaintenanceRecords VehicleMaintenanceRecord[]
   vehiclePreStartChecklists VehiclePreStartChecklist[]
   fulcrumSyncJobs FulcrumSyncJob[]
 }
@@ -348,6 +366,7 @@ model Vehicle {
   tripVehicleAllocations TripVehicleAllocation[]
   vehicleBookings VehicleBooking[]
   vehicleDefects  VehicleDefect[]
+  maintenanceRecords VehicleMaintenanceRecord[]
   preStartChecklists VehiclePreStartChecklist[]
 
   @@unique([organisationId, registration])
@@ -400,6 +419,7 @@ model VehicleDefect {
   vehicle               Vehicle               @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   preStartChecklist     VehiclePreStartChecklist? @relation(fields: [preStartChecklistId], references: [id], onDelete: SetNull)
   reportedBy            User?                 @relation(fields: [reportedByUserId], references: [id], onDelete: SetNull)
+  maintenanceRecords    VehicleMaintenanceRecord[]
 
   @@index([organisationId])
   @@index([vehicleId])
@@ -407,6 +427,36 @@ model VehicleDefect {
   @@index([reportedByUserId])
   @@index([status])
   @@index([organisationId, vehicleId, status, reportedAt])
+}
+
+model VehicleMaintenanceRecord {
+  id             String                   @id @default(cuid())
+  organisationId String
+  vehicleId      String
+  defectId       String?
+  recordedByUserId String?
+  type           VehicleMaintenanceType
+  status         VehicleMaintenanceStatus @default(COMPLETED)
+  provider       String?
+  maintenanceDate DateTime
+  odometerKm     Int?
+  costCents      Int?
+  notes          String?
+  nextDueDate    DateTime?
+  isDemo         Boolean                  @default(false)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  organisation   Organisation             @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle                  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  defect         VehicleDefect?           @relation(fields: [defectId], references: [id], onDelete: SetNull)
+  recordedBy     User?                    @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([vehicleId])
+  @@index([defectId])
+  @@index([recordedByUserId])
+  @@index([status])
+  @@index([organisationId, vehicleId, maintenanceDate])
 }
 
 model VehicleBooking {

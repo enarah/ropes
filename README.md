@@ -86,7 +86,7 @@ npm run db:seed
 
 The seed creates fake organisations, users, memberships, roles, projects,
 ranger programs, trips, vehicles, bookings, vehicle pre-starts, vehicle
-defects, Fulcrum placeholders and audit
+defects, vehicle maintenance records, Fulcrum placeholders and audit
 logs. It does not create authentication accounts, store Fulcrum tokens or call
 external APIs.
 
@@ -230,9 +230,10 @@ write path or broad sync engine.
 
 Persisted trip create/update, trip approval transitions, vehicle booking
 create, server-side vehicle booking overlap rejection, vehicle pre-start
-submission, vehicle defect submission, Fulcrum connection save/update/disable,
-Fulcrum connection test success/failure actions, and manual Fulcrum sync job
-placeholder creation/rejection write
+submission, vehicle defect submission, vehicle maintenance record creation,
+Fulcrum connection save/update/disable, Fulcrum connection test
+success/failure actions, and manual Fulcrum sync job placeholder
+creation/rejection write
 organisation-scoped audit entries after tenant access has been confirmed.
 Audit entries record the organisation, actor user when available, action,
 target record type, target record ID when available, timestamp and safe
@@ -241,6 +242,8 @@ metadata.
 Audit metadata deliberately avoids raw Fulcrum API tokens, encrypted token
 values, auth/provider tokens, API keys, environment variables, full request
 payloads, full trip approval note text and full vehicle defect descriptions.
+Vehicle maintenance audit metadata stores safe counts, flags and selected enum
+values, not full free-text notes.
 Audit writes are best-effort for this prototype: if an audit insert fails after
 the primary operational write succeeds, the user workflow continues.
 
@@ -288,6 +291,10 @@ The current app includes:
   action, tenant-guarded status update action, optional pre-start link, short
   description validation, short status note validation, safe audit metadata and
   open/latest defect count/status visibility on register and detail screens
+- Vehicle maintenance record foundation with a persisted organisation-scoped
+  `VehicleMaintenanceRecord` model, vehicle-scoped create form, optional defect
+  link, short note validation, safe audit metadata and latest/recent
+  maintenance visibility on register and detail screens
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages, plus encrypted per-organisation token storage and server-side
@@ -296,20 +303,20 @@ The current app includes:
   connections and capped manual Fulcrum app/form and record imports for
   selected app IDs, without background sync workers
 - Organisation-scoped audit logging for the first persisted trip, trip approval,
-  vehicle booking, vehicle pre-start, vehicle defect and Fulcrum connection
-  writes
+  vehicle booking, vehicle pre-start, vehicle defect, vehicle maintenance and
+  Fulcrum connection writes
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
 user-linked trip participants, approval notifications, vehicle
-maintenance records, maintenance work orders, maintenance scheduling,
-decommission workflows, vehicle booking approval workflow, automatic booking
-blocking from defects, trip dashboards, reporting, full server-side booking
-calendar/scheduling features, full defect timelines or persisted resolution
-notes, broad Fulcrum sync, media/photo import, Fulcrum app writes, background
-workers, scheduled sync, AI provider calls, API keys or external service
-credentials beyond local environment configuration.
+maintenance work orders, maintenance scheduling, decommission workflows,
+vehicle booking approval workflow, automatic booking blocking from defects or
+maintenance, trip dashboards, reporting, full server-side booking
+calendar/scheduling features, full maintenance planning, full defect timelines
+or persisted resolution notes, broad Fulcrum sync, media/photo import, Fulcrum
+app writes, background workers, scheduled sync, AI provider calls, API keys or
+external service credentials beyond local environment configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
 configured, or the clearly labelled fake/demo session fallback when auth is not
 configured for local development.

@@ -22,6 +22,7 @@ async function main() {
   await prisma.tripParticipant.deleteMany();
   await prisma.tripApprovalNote.deleteMany();
   await prisma.vehicleBooking.deleteMany();
+  await prisma.vehicleMaintenanceRecord.deleteMany();
   await prisma.vehicleDefect.deleteMany();
   await prisma.vehiclePreStartChecklist.deleteMany();
   await prisma.trip.deleteMany();
@@ -218,7 +219,7 @@ async function main() {
     ],
   });
 
-  await prisma.vehicleDefect.create({
+  const demoTroopyDefect = await prisma.vehicleDefect.create({
     data: {
       organisationId: partner.id,
       vehicleId: vehicles[2].id,
@@ -231,6 +232,50 @@ async function main() {
         "Fake demo defect: lights need workshop review before remote travel.",
       isDemo: true,
     },
+  });
+
+  await prisma.vehicleMaintenanceRecord.createMany({
+    data: [
+      {
+        organisationId: partner.id,
+        vehicleId: vehicles[0].id,
+        recordedByUserId: users.operationsManager.id,
+        type: "SERVICE",
+        status: "COMPLETED",
+        provider: "Demo regional workshop",
+        maintenanceDate: new Date("2026-07-22T01:00:00.000Z"),
+        odometerKm: 48120,
+        notes: "Fake demo service record for maintenance history visibility.",
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        vehicleId: vehicles[1].id,
+        recordedByUserId: users.headRanger.id,
+        type: "INSPECTION",
+        status: "COMPLETED",
+        provider: "Demo depot",
+        maintenanceDate: new Date("2026-07-08T02:00:00.000Z"),
+        odometerKm: 61240,
+        notes: "Fake demo inspection record for a depot check.",
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        vehicleId: vehicles[2].id,
+        defectId: demoTroopyDefect.id,
+        recordedByUserId: users.ranger.id,
+        type: "REPAIR",
+        status: "DEFERRED",
+        provider: "Demo regional auto electrician",
+        maintenanceDate: new Date("2026-08-05T03:00:00.000Z"),
+        nextDueDate: new Date("2026-08-16T00:00:00.000Z"),
+        odometerKm: 73450,
+        costCents: 185000,
+        notes: "Fake demo repair record linked to the lights defect.",
+        isDemo: true,
+      },
+    ],
   });
 
   await prisma.tripParticipant.createMany({

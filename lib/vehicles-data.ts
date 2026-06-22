@@ -39,6 +39,18 @@ export type VehicleDefectSeverityValue =
   | "HIGH"
   | "CRITICAL";
 export type VehicleDefectStatusValue = "OPEN" | "MONITORING" | "RESOLVED";
+export type VehicleMaintenanceTypeValue =
+  | "SERVICE"
+  | "REPAIR"
+  | "INSPECTION"
+  | "TYRES"
+  | "REGISTRATION"
+  | "CLEANING"
+  | "OTHER";
+export type VehicleMaintenanceStatusValue =
+  | "COMPLETED"
+  | "SCHEDULED"
+  | "DEFERRED";
 export type VehicleDefectCategory =
   | "Mechanical"
   | "Safety"
@@ -50,6 +62,15 @@ export type VehicleDefectCategory =
   | "Other";
 export type VehicleDefectSeverity = "Low" | "Medium" | "High" | "Critical";
 export type VehicleDefectStatus = "Open" | "Monitoring" | "Resolved";
+export type VehicleMaintenanceType =
+  | "Service"
+  | "Repair"
+  | "Inspection"
+  | "Tyres"
+  | "Registration"
+  | "Cleaning"
+  | "Other";
+export type VehicleMaintenanceStatus = "Completed" | "Scheduled" | "Deferred";
 export type VehicleStatusFilter =
   | "all"
   | "available"
@@ -113,6 +134,10 @@ export type DemoVehicle = {
   latestDefectReportedAt?: string;
   latestDefectSeverity?: VehicleDefectSeverity;
   latestDefectStatus?: VehicleDefectStatus;
+  latestMaintenanceDate?: string;
+  latestMaintenanceStatus?: VehicleMaintenanceStatus;
+  latestMaintenanceType?: VehicleMaintenanceType;
+  maintenanceRecordCount?: number;
   openDefectCount?: number;
 };
 
@@ -159,6 +184,23 @@ export type DemoVehicleDefect = {
   statusValue: VehicleDefectStatusValue;
   vehicleId: string;
 };
+export type DemoVehicleMaintenanceRecord = {
+  costCents?: number;
+  defectId?: string;
+  id: string;
+  maintenanceDate: string;
+  nextDueDate?: string;
+  odometerKm?: number;
+  organisationId?: string;
+  organisationSlug: OrganisationSlug;
+  provider?: string;
+  recordedBy: string;
+  status: VehicleMaintenanceStatus;
+  statusValue: VehicleMaintenanceStatusValue;
+  type: VehicleMaintenanceType;
+  typeValue: VehicleMaintenanceTypeValue;
+  vehicleId: string;
+};
 
 export type VehiclePersistenceState = {
   isDatabaseConfigured: boolean;
@@ -199,6 +241,7 @@ type PersistedVehicle = {
   odometerKm: number | null;
   preStartChecklists: PersistedVehiclePreStartChecklist[];
   vehicleDefects: PersistedVehicleDefect[];
+  maintenanceRecords: PersistedVehicleMaintenanceRecord[];
 };
 
 type PersistedVehicleBooking = {
@@ -241,6 +284,21 @@ type PersistedVehicleDefect = {
   vehicleId: string;
 };
 
+type PersistedVehicleMaintenanceRecord = {
+  costCents: number | null;
+  defectId: string | null;
+  id: string;
+  maintenanceDate: Date;
+  nextDueDate: Date | null;
+  odometerKm: number | null;
+  organisationId: string;
+  provider: string | null;
+  recordedBy: { name: string } | null;
+  status: string;
+  type: string;
+  vehicleId: string;
+};
+
 export const vehicleDefectCategoryOptions: Array<{
   label: VehicleDefectCategory;
   value: VehicleDefectCategoryValue;
@@ -272,6 +330,28 @@ export const vehicleDefectStatusOptions: Array<{
   { label: "Open", value: "OPEN" },
   { label: "Monitoring", value: "MONITORING" },
   { label: "Resolved", value: "RESOLVED" },
+];
+
+export const vehicleMaintenanceTypeOptions: Array<{
+  label: VehicleMaintenanceType;
+  value: VehicleMaintenanceTypeValue;
+}> = [
+  { label: "Service", value: "SERVICE" },
+  { label: "Repair", value: "REPAIR" },
+  { label: "Inspection", value: "INSPECTION" },
+  { label: "Tyres", value: "TYRES" },
+  { label: "Registration", value: "REGISTRATION" },
+  { label: "Cleaning", value: "CLEANING" },
+  { label: "Other", value: "OTHER" },
+];
+
+export const vehicleMaintenanceStatusOptions: Array<{
+  label: VehicleMaintenanceStatus;
+  value: VehicleMaintenanceStatusValue;
+}> = [
+  { label: "Completed", value: "COMPLETED" },
+  { label: "Scheduled", value: "SCHEDULED" },
+  { label: "Deferred", value: "DEFERRED" },
 ];
 
 export function getVehiclesForOrganisation(organisationSlug: OrganisationSlug) {
@@ -618,6 +698,31 @@ export function getVehicleDefectsForOrganisation(
   );
 }
 
+export async function getVehicleMaintenanceRecordsForVehicleWithPersistence(
+  organisationSlug: OrganisationSlug,
+  vehicleId: string,
+) {
+  const persistedRecords = await getPersistedVehicleMaintenanceRecordsForOrganisation(
+    organisationSlug,
+  );
+
+  if (persistedRecords) {
+    return persistedRecords.filter((record) => record.vehicleId === vehicleId);
+  }
+
+  return getVehicleMaintenanceRecordsForOrganisation(organisationSlug).filter(
+    (record) => record.vehicleId === vehicleId,
+  );
+}
+
+export function getVehicleMaintenanceRecordsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  return demoVehicleMaintenanceRecords.filter(
+    (record) => record.organisationSlug === organisationSlug,
+  );
+}
+
 export function getBookingFormDefaults(
   organisationSlug: OrganisationSlug,
   vehicleId?: string,
@@ -733,6 +838,15 @@ async function getPersistedVehiclesForOrganisation(
                 },
               },
             },
+            maintenanceRecords: {
+              include: {
+                recordedBy: true,
+              },
+              orderBy: {
+                maintenanceDate: "desc",
+              },
+              take: 1,
+            },
           },
           orderBy: {
             name: "asc",
@@ -752,6 +866,48 @@ async function getPersistedVehiclesForOrganisation(
 
     return organisation.vehicles.map((vehicle) =>
       mapPersistedVehicleToDemoVehicle(organisationSlug, vehicle),
+    );
+  } catch {
+    return isAuthenticatedDatabaseMode() ? [] : null;
+  }
+}
+
+async function getPersistedVehicleMaintenanceRecordsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        vehicleMaintenanceRecords: {
+          include: {
+            recordedBy: true,
+          },
+          orderBy: {
+            maintenanceDate: "desc",
+          },
+        },
+      },
+      where: { slug: organisationSlug },
+    });
+
+    if (!organisation) {
+      return isAuthenticatedDatabaseMode() ? [] : null;
+    }
+
+    if (!(await canReadOrganisation(prisma, organisation.id))) {
+      return [];
+    }
+
+    return organisation.vehicleMaintenanceRecords.map((record) =>
+      mapPersistedMaintenanceRecordToDemoMaintenanceRecord(
+        organisationSlug,
+        record,
+      ),
     );
   } catch {
     return isAuthenticatedDatabaseMode() ? [] : null;
@@ -882,6 +1038,7 @@ function mapPersistedVehicleToDemoVehicle(
 ): DemoVehicle {
   const latestPreStart = vehicle.preStartChecklists[0];
   const latestDefect = vehicle.vehicleDefects[0];
+  const latestMaintenanceRecord = vehicle.maintenanceRecords[0];
 
   return {
     id: vehicle.id,
@@ -911,6 +1068,14 @@ function mapPersistedVehicleToDemoVehicle(
     latestDefectStatus: latestDefect
       ? mapDefectStatus(latestDefect.status)
       : undefined,
+    latestMaintenanceDate: latestMaintenanceRecord?.maintenanceDate.toISOString(),
+    latestMaintenanceStatus: latestMaintenanceRecord
+      ? mapMaintenanceStatus(latestMaintenanceRecord.status)
+      : undefined,
+    latestMaintenanceType: latestMaintenanceRecord
+      ? mapMaintenanceType(latestMaintenanceRecord.type)
+      : undefined,
+    maintenanceRecordCount: vehicle.maintenanceRecords.length,
     openDefectCount: vehicle.vehicleDefects.length,
   };
 }
@@ -955,6 +1120,29 @@ function mapPersistedDefectToDemoDefect(
     status: mapDefectStatus(defect.status),
     statusValue: mapDefectStatusValue(defect.status),
     vehicleId: defect.vehicleId,
+  };
+}
+
+function mapPersistedMaintenanceRecordToDemoMaintenanceRecord(
+  organisationSlug: OrganisationSlug,
+  record: PersistedVehicleMaintenanceRecord,
+): DemoVehicleMaintenanceRecord {
+  return {
+    costCents: record.costCents ?? undefined,
+    defectId: record.defectId ?? undefined,
+    id: record.id,
+    maintenanceDate: record.maintenanceDate.toISOString(),
+    nextDueDate: record.nextDueDate?.toISOString(),
+    odometerKm: record.odometerKm ?? undefined,
+    organisationId: record.organisationId,
+    organisationSlug,
+    provider: record.provider ?? undefined,
+    recordedBy: record.recordedBy?.name ?? "Demo Operations Manager",
+    status: mapMaintenanceStatus(record.status),
+    statusValue: mapMaintenanceStatusValue(record.status),
+    type: mapMaintenanceType(record.type),
+    typeValue: mapMaintenanceTypeValue(record.type),
+    vehicleId: record.vehicleId,
   };
 }
 
@@ -1084,6 +1272,38 @@ function mapDefectStatus(status: string): VehicleDefectStatus {
   );
 }
 
+function mapMaintenanceTypeValue(type: string): VehicleMaintenanceTypeValue {
+  return vehicleMaintenanceTypeOptions.some((option) => option.value === type)
+    ? (type as VehicleMaintenanceTypeValue)
+    : "OTHER";
+}
+
+function mapMaintenanceType(type: string): VehicleMaintenanceType {
+  return (
+    vehicleMaintenanceTypeOptions.find(
+      (option) => option.value === mapMaintenanceTypeValue(type),
+    )?.label ?? "Other"
+  );
+}
+
+function mapMaintenanceStatusValue(
+  status: string,
+): VehicleMaintenanceStatusValue {
+  return vehicleMaintenanceStatusOptions.some(
+    (option) => option.value === status,
+  )
+    ? (status as VehicleMaintenanceStatusValue)
+    : "COMPLETED";
+}
+
+function mapMaintenanceStatus(status: string): VehicleMaintenanceStatus {
+  return (
+    vehicleMaintenanceStatusOptions.find(
+      (option) => option.value === mapMaintenanceStatusValue(status),
+    )?.label ?? "Completed"
+  );
+}
+
 function getVehicleStatusFilterValue(
   status: VehicleStatus,
 ): Exclude<VehicleStatusFilter, "all"> {
@@ -1189,6 +1409,10 @@ export const demoVehicles: DemoVehicle[] = [
     homeBase: "Demo Ranger Depot",
     preStartStatus: "Due today",
     equipmentStatus: "Satellite phone placeholder assigned",
+    latestMaintenanceDate: "2026-07-22T01:00:00.000Z",
+    latestMaintenanceStatus: "Completed",
+    latestMaintenanceType: "Service",
+    maintenanceRecordCount: 1,
     notes: "Fake vehicle record for journey planning demos only.",
     openDefectCount: 0,
   },
@@ -1205,6 +1429,10 @@ export const demoVehicles: DemoVehicle[] = [
     homeBase: "Demo Ranger Depot",
     preStartStatus: "Ready",
     equipmentStatus: "Recovery kit placeholder checked",
+    latestMaintenanceDate: "2026-07-08T02:00:00.000Z",
+    latestMaintenanceStatus: "Completed",
+    latestMaintenanceType: "Inspection",
+    maintenanceRecordCount: 1,
     notes: "Fake ute available for local operations in the selected tenant.",
     openDefectCount: 0,
   },
@@ -1226,6 +1454,10 @@ export const demoVehicles: DemoVehicle[] = [
     latestDefectReportedAt: "2026-08-04T01:30:00.000Z",
     latestDefectSeverity: "High",
     latestDefectStatus: "Open",
+    latestMaintenanceDate: "2026-08-05T03:00:00.000Z",
+    latestMaintenanceStatus: "Deferred",
+    latestMaintenanceType: "Repair",
+    maintenanceRecordCount: 1,
     openDefectCount: 1,
   },
   {
@@ -1241,6 +1473,7 @@ export const demoVehicles: DemoVehicle[] = [
     homeBase: "Demo Enarah Office",
     preStartStatus: "Not recorded",
     equipmentStatus: "Office travel kit placeholder",
+    maintenanceRecordCount: 0,
     notes: "Fake internal pool vehicle separate from partner ranger data.",
     openDefectCount: 0,
   },
@@ -1258,6 +1491,51 @@ export const demoVehicleDefects: DemoVehicleDefect[] = [
     severityValue: "HIGH",
     status: "Open",
     statusValue: "OPEN",
+    vehicleId: "demo-troopy",
+  },
+];
+
+export const demoVehicleMaintenanceRecords: DemoVehicleMaintenanceRecord[] = [
+  {
+    id: "maintenance-demo-landcruiser-service",
+    maintenanceDate: "2026-07-22T01:00:00.000Z",
+    odometerKm: 67220,
+    organisationSlug: "ropes-demo-aboriginal-corporation",
+    provider: "Demo regional workshop",
+    recordedBy: "Demo Operations Manager",
+    status: "Completed",
+    statusValue: "COMPLETED",
+    type: "Service",
+    typeValue: "SERVICE",
+    vehicleId: "demo-landcruiser-1",
+  },
+  {
+    id: "maintenance-demo-ranger-ute-inspection",
+    maintenanceDate: "2026-07-08T02:00:00.000Z",
+    odometerKm: 50910,
+    organisationSlug: "ropes-demo-aboriginal-corporation",
+    provider: "Demo depot",
+    recordedBy: "Demo Head Ranger",
+    status: "Completed",
+    statusValue: "COMPLETED",
+    type: "Inspection",
+    typeValue: "INSPECTION",
+    vehicleId: "demo-ranger-ute",
+  },
+  {
+    costCents: 185000,
+    defectId: "defect-demo-troopy-lights",
+    id: "maintenance-demo-troopy-lights",
+    maintenanceDate: "2026-08-05T03:00:00.000Z",
+    nextDueDate: "2026-08-16T00:00:00.000Z",
+    odometerKm: 90240,
+    organisationSlug: "ropes-demo-aboriginal-corporation",
+    provider: "Demo regional auto electrician",
+    recordedBy: "Demo Ranger",
+    status: "Deferred",
+    statusValue: "DEFERRED",
+    type: "Repair",
+    typeValue: "REPAIR",
     vehicleId: "demo-troopy",
   },
 ];

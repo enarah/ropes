@@ -441,10 +441,19 @@ function VehicleRegisterCard({
           >
             Report defect
           </Link>
+          <Link
+            className="rounded-md border border-earth-300 bg-earth-50 px-3 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/maintenance`,
+              organisationSlug,
+            )}
+          >
+            Maintenance
+          </Link>
         </div>
       </div>
 
-      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-6">
+      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-7">
         <Fact
           icon={<Truck aria-hidden="true" size={15} />}
           label="Registration"
@@ -466,6 +475,11 @@ function VehicleRegisterCard({
           icon={<Wrench aria-hidden="true" size={15} />}
           label="Defects"
           value={formatDefectSummary(vehicle)}
+        />
+        <Fact
+          icon={<Wrench aria-hidden="true" size={15} />}
+          label="Maintenance"
+          value={formatMaintenanceSummary(vehicle)}
         />
       </dl>
     </article>
@@ -607,6 +621,26 @@ function formatDefectSummary(vehicle: DemoVehicle) {
     .join(" / ");
 
   return latest ? `${vehicle.openDefectCount} open - ${latest}` : "Open";
+}
+
+function formatMaintenanceSummary(vehicle: DemoVehicle) {
+  if (!vehicle.maintenanceRecordCount || !vehicle.latestMaintenanceDate) {
+    return "Not recorded";
+  }
+
+  return [
+    vehicle.latestMaintenanceType,
+    vehicle.latestMaintenanceStatus,
+    formatDate(vehicle.latestMaintenanceDate),
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "medium",
+  }).format(new Date(value));
 }
 
 function getActiveFilterCount(filters: VehicleRegisterFilters) {
