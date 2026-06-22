@@ -45,9 +45,10 @@ Vehicles records, and the initial authentication foundation.
   calendar-style view, client-side overlap warning and tenant-guarded pre-start
   checklist submissions with latest status display.
 - Vehicle defect reporting foundation with a persisted organisation-scoped
-  defect model, vehicle-scoped report form, tenant-guarded create action,
-  short description validation, safe audit metadata, optional pre-start link
-  and open/latest count/status visibility on vehicle register and detail pages.
+  defect model, vehicle-scoped report form, tenant-guarded create and status
+  update actions, short description and status-note validation, safe audit
+  metadata, optional pre-start link and open/latest count/status visibility on
+  vehicle register and detail pages.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
   Records, Maps, Data Health, AI Assistant, App Builder and Sync Settings pages.
 - Fulcrum connection setup can save an organisation-scoped API token encrypted
@@ -70,8 +71,8 @@ Vehicles records, and the initial authentication foundation.
   previews.
 - Organisation-scoped audit entries for persisted trip create/update, vehicle
   booking create/update/overlap rejection, vehicle pre-start submission,
-  vehicle defect submission, trip approval workflow transitions, Fulcrum
-  connection save/update/disable, Fulcrum connection test
+  vehicle defect submission and status changes, trip approval workflow
+  transitions, Fulcrum connection save/update/disable, Fulcrum connection test
   success/failure, sync job placeholder events and safe Fulcrum import events.
 
 ## Still demo-only
@@ -91,8 +92,8 @@ Vehicles records, and the initial authentication foundation.
   are still future work.
 - Vehicle maintenance records, maintenance work orders, maintenance scheduling
   and decommission workflows are not implemented yet.
-- Vehicle defect resolution workflows, defect-triggered booking blocks and
-  pre-start history reporting are not implemented yet.
+- Full vehicle defect timelines, persisted resolution notes, defect-triggered
+  booking blocks and pre-start history reporting are not implemented yet.
 - Vehicle booking approval workflows and advanced scheduling are not implemented
   yet.
 - Broader calendar/scheduling features remain future work.

@@ -285,9 +285,9 @@ The current app includes:
   tenant-guarded pre-start checklist submissions with latest status display
 - Vehicle defect reporting foundation with a persisted organisation-scoped
   `VehicleDefect` model, vehicle-scoped report form, tenant-guarded create
-  action, optional pre-start link, short description validation, safe audit
-  metadata and open/latest defect count/status visibility on register and
-  detail screens
+  action, tenant-guarded status update action, optional pre-start link, short
+  description validation, short status note validation, safe audit metadata and
+  open/latest defect count/status visibility on register and detail screens
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages, plus encrypted per-organisation token storage and server-side
@@ -306,10 +306,10 @@ user-linked trip participants, approval notifications, vehicle
 maintenance records, maintenance work orders, maintenance scheduling,
 decommission workflows, vehicle booking approval workflow, automatic booking
 blocking from defects, trip dashboards, reporting, full server-side booking
-calendar/scheduling features, vehicle defect resolution workflows, broad
-Fulcrum sync, media/photo import, Fulcrum app writes, background workers,
-scheduled sync, AI provider calls, API keys or external service credentials
-beyond local environment configuration.
+calendar/scheduling features, full defect timelines or persisted resolution
+notes, broad Fulcrum sync, media/photo import, Fulcrum app writes, background
+workers, scheduled sync, AI provider calls, API keys or external service
+credentials beyond local environment configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
 configured, or the clearly labelled fake/demo session fallback when auth is not
 configured for local development.

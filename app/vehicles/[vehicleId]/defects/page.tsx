@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
-import { createVehicleDefectAction } from "@/app/vehicles/[vehicleId]/defects/actions";
+import {
+  createVehicleDefectAction,
+  updateVehicleDefectStatusAction,
+} from "@/app/vehicles/[vehicleId]/defects/actions";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { VehicleDefectForm } from "@/components/vehicles/vehicle-defect-form";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
@@ -67,9 +70,9 @@ export default async function VehicleDefectsPage({
           {vehicle.name}
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
-          Report a short organisation-scoped defect for this vehicle. This
-          foundation records defect visibility only and does not change
-          bookings, scheduling or maintenance work orders.
+          Report, review and update organisation-scoped defects for this
+          vehicle. This foundation records defect status only and does not
+          change bookings, scheduling or maintenance work orders.
         </p>
       </section>
 
@@ -87,6 +90,7 @@ export default async function VehicleDefectsPage({
         organisationName={selectedOrganisation.name}
         organisationSlug={selectedOrganisation.slug}
         persistenceEnabled={persistence.isDatabaseAvailable}
+        statusAction={updateVehicleDefectStatusAction}
         vehicle={vehicle}
       />
     </div>
@@ -126,6 +130,20 @@ function getStatusMessage(
     };
   }
 
+  if (tone === "saved" && saved === "demo-status") {
+    return {
+      body: "No local database is configured, so the status change kept the demo-only behaviour.",
+      title: "Demo fallback",
+    };
+  }
+
+  if (tone === "saved" && saved === "status") {
+    return {
+      body: "The defect status was updated for this organisation-scoped vehicle. Booking behaviour was not changed.",
+      title: "Defect status updated",
+    };
+  }
+
   if (tone === "saved") {
     return {
       body: "The defect report was saved for this organisation-scoped vehicle.",
@@ -142,7 +160,7 @@ function getStatusMessage(
 
   if (error === "validation") {
     return {
-      body: "Check category, severity, status, reported date and description length before submitting again.",
+      body: "Check category, severity, status, reported date, note length and description length before submitting again.",
       title: "Defect details need review",
     };
   }
