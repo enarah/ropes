@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type {
   DemoVehicle,
   DemoVehicleDefect,
@@ -257,56 +258,68 @@ function DefectReviewCard({
       ) : null}
 
       {transitionOptions.length ? (
-        <form action={action} className="mt-4 space-y-3">
-          <input name="organisationSlug" type="hidden" value={organisationSlug} />
-          <input
-            name="organisationId"
-            type="hidden"
-            value={organisationId ?? ""}
-          />
-          <input name="vehicleId" type="hidden" value={vehicle.id} />
-          <input name="defectId" type="hidden" value={defect.id} />
+        <div className="mt-4 space-y-3">
+          <form action={action} className="space-y-3">
+            <input
+              name="organisationSlug"
+              type="hidden"
+              value={organisationSlug}
+            />
+            <input
+              name="organisationId"
+              type="hidden"
+              value={organisationId ?? ""}
+            />
+            <input name="vehicleId" type="hidden" value={vehicle.id} />
+            <input name="defectId" type="hidden" value={defect.id} />
 
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase text-charcoal-600">
+                  New status
+                </span>
+                <select
+                  className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
+                  name="status"
+                  required
+                >
+                  {transitionOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="h-fit self-end rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+                type="submit"
+              >
+                {persistenceEnabled ? "Update status" : "Update demo status"}
+              </button>
+            </div>
+
             <label className="block">
               <span className="text-xs font-semibold uppercase text-charcoal-600">
-                New status
+                Safe note
               </span>
-              <select
-                className="mt-2 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
-                name="status"
-                required
-              >
-                {transitionOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <textarea
+                className="mt-2 min-h-20 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
+                maxLength={240}
+                name="statusNote"
+                placeholder="Optional short resolution or monitoring note."
+              />
+              <span className="mt-1 block text-xs font-medium text-charcoal-500">
+                240 characters maximum
+              </span>
             </label>
-            <button
-              className="h-fit self-end rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
-              type="submit"
-            >
-              {persistenceEnabled ? "Update status" : "Update demo status"}
-            </button>
-          </div>
-
-          <label className="block">
-            <span className="text-xs font-semibold uppercase text-charcoal-600">
-              Safe note
-            </span>
-            <textarea
-              className="mt-2 min-h-20 w-full rounded-md border border-earth-200 bg-white px-3 py-2 text-sm outline-none focus:border-ochre-600"
-              maxLength={240}
-              name="statusNote"
-              placeholder="Optional short resolution or monitoring note."
-            />
-            <span className="mt-1 block text-xs font-medium text-charcoal-500">
-              240 characters maximum
-            </span>
-          </label>
-        </form>
+          </form>
+          <Link
+            className="inline-flex w-fit rounded-md border border-earth-300 bg-earth-50 px-3 py-2 text-sm font-semibold text-charcoal-800"
+            href={`/vehicles/${vehicle.id}/maintenance?org=${organisationSlug}&defect=${defect.id}`}
+          >
+            Record maintenance
+          </Link>
+        </div>
       ) : null}
     </article>
   );

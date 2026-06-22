@@ -80,6 +80,16 @@ export function VehicleDetail({
             <Wrench aria-hidden="true" size={16} />
             Report defect
           </Link>
+          <Link
+            className="inline-flex w-fit items-center gap-2 rounded-md border border-earth-300 bg-earth-50 px-4 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/maintenance`,
+              organisationSlug,
+            )}
+          >
+            <Wrench aria-hidden="true" size={16} />
+            Maintenance
+          </Link>
         </div>
       </section>
 
@@ -95,7 +105,7 @@ export function VehicleDetail({
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <SummaryCard label="Status" value={vehicle.status} />
         <SummaryCard label="Registration" value={vehicle.registration} />
         <SummaryCard
@@ -105,6 +115,14 @@ export function VehicleDetail({
         <SummaryCard
           label="Open defects"
           value={String(vehicle.openDefectCount ?? 0)}
+        />
+        <SummaryCard
+          label="Maintenance"
+          value={
+            vehicle.latestMaintenanceDate
+              ? formatDate(vehicle.latestMaintenanceDate)
+              : "Not recorded"
+          }
         />
         <SummaryCard label="Base" value={vehicle.homeBase} />
       </section>
@@ -166,6 +184,36 @@ export function VehicleDetail({
               )}
             >
               Report defect
+            </Link>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel
+        icon={<Wrench aria-hidden="true" size={18} />}
+        title="Maintenance"
+      >
+        <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-lg font-semibold text-charcoal-950">
+                {vehicle.latestMaintenanceDate
+                  ? formatMaintenanceDetailSummary(vehicle)
+                  : "Not recorded"}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                Recent maintenance visibility only. Work orders, scheduling and
+                booking blocks remain outside this foundation.
+              </p>
+            </div>
+            <Link
+              className="inline-flex w-fit rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+              href={organisationHref(
+                `/vehicles/${vehicle.id}/maintenance`,
+                organisationSlug,
+              )}
+            >
+              Add record
             </Link>
           </div>
         </div>
@@ -293,4 +341,22 @@ function formatDefectDetailSummary(vehicle: DemoVehicle) {
   return latest
     ? `Latest open defect: ${latest}.`
     : "Open defect metadata is visible for this vehicle.";
+}
+
+function formatMaintenanceDetailSummary(vehicle: DemoVehicle) {
+  return [
+    vehicle.latestMaintenanceType,
+    vehicle.latestMaintenanceStatus,
+    vehicle.latestMaintenanceDate
+      ? formatDate(vehicle.latestMaintenanceDate)
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "medium",
+  }).format(new Date(value));
 }
