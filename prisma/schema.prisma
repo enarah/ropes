@@ -94,6 +94,7 @@ model Organisation {
   tripItineraryItems TripItineraryItem[]
   vehicles           Vehicle[]
   vehicleBookings    VehicleBooking[]
+  vehiclePreStartChecklists VehiclePreStartChecklist[]
   fulcrumConnections FulcrumConnection[]
   fulcrumSyncJobs     FulcrumSyncJob[]
   fulcrumApps        FulcrumApp[]
@@ -114,6 +115,7 @@ model User {
   tripApprovalNotes TripApprovalNote[]
   tripParticipants TripParticipant[]
   vehicleBookings VehicleBooking[]
+  vehiclePreStartChecklists VehiclePreStartChecklist[]
   fulcrumSyncJobs FulcrumSyncJob[]
 }
 
@@ -319,9 +321,37 @@ model Vehicle {
   organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   tripVehicleAllocations TripVehicleAllocation[]
   vehicleBookings VehicleBooking[]
+  preStartChecklists VehiclePreStartChecklist[]
 
   @@unique([organisationId, registration])
   @@index([organisationId])
+}
+
+model VehiclePreStartChecklist {
+  id                  String       @id @default(cuid())
+  organisationId      String
+  vehicleId           String
+  submittedByUserId   String?
+  odometerKm          Int
+  tyresOk             Boolean
+  lightsOk            Boolean
+  fluidsOk            Boolean
+  communicationsOk    Boolean
+  recoveryGearOk      Boolean
+  generalConditionOk  Boolean
+  issueNotes          String?
+  isDemo              Boolean      @default(false)
+  checkedAt           DateTime     @default(now())
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  organisation        Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicle             Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  submittedBy         User?        @relation(fields: [submittedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([vehicleId])
+  @@index([submittedByUserId])
+  @@index([organisationId, vehicleId, checkedAt])
 }
 
 model VehicleBooking {

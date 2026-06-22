@@ -22,6 +22,7 @@ async function main() {
   await prisma.tripParticipant.deleteMany();
   await prisma.tripApprovalNote.deleteMany();
   await prisma.vehicleBooking.deleteMany();
+  await prisma.vehiclePreStartChecklist.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.vehicle.deleteMany();
   await prisma.rangerProgram.deleteMany();
@@ -182,6 +183,38 @@ async function main() {
       notes: "Fake booking linked to the demo inspection trip.",
       isDemo: true,
     },
+  });
+
+  await prisma.vehiclePreStartChecklist.createMany({
+    data: [
+      {
+        organisationId: partner.id,
+        vehicleId: vehicles[0].id,
+        submittedByUserId: users.operationsManager.id,
+        odometerKm: 48250,
+        tyresOk: true,
+        lightsOk: true,
+        fluidsOk: true,
+        communicationsOk: true,
+        recoveryGearOk: true,
+        generalConditionOk: true,
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        vehicleId: vehicles[2].id,
+        submittedByUserId: users.ranger.id,
+        odometerKm: 73430,
+        tyresOk: true,
+        lightsOk: false,
+        fluidsOk: true,
+        communicationsOk: true,
+        recoveryGearOk: true,
+        generalConditionOk: false,
+        issueNotes: "Fake demo note: lights and general condition need review.",
+        isDemo: true,
+      },
+    ],
   });
 
   await prisma.tripParticipant.createMany({

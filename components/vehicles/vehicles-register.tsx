@@ -407,6 +407,15 @@ function VehicleRegisterCard({
           >
             Book
           </Link>
+          <Link
+            className="rounded-md border border-earth-300 bg-earth-50 px-3 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/pre-start`,
+              organisationSlug,
+            )}
+          >
+            Pre-start
+          </Link>
         </div>
       </div>
 

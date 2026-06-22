@@ -97,6 +97,22 @@ export type DemoVehicleBooking = {
   status: VehicleBookingStatus;
   purpose: string;
 };
+export type DemoVehiclePreStartChecklist = {
+  checkedAt: string;
+  communicationsOk: boolean;
+  fluidsOk: boolean;
+  generalConditionOk: boolean;
+  id: string;
+  issueNotes?: string;
+  lightsOk: boolean;
+  odometerKm: number;
+  organisationId?: string;
+  organisationSlug: OrganisationSlug;
+  recoveryGearOk: boolean;
+  submittedBy: string;
+  tyresOk: boolean;
+  vehicleId: string;
+};
 
 export type VehiclePersistenceState = {
   isDatabaseConfigured: boolean;
@@ -135,6 +151,7 @@ type PersistedVehicle = {
   year: number | null;
   status: string;
   odometerKm: number | null;
+  preStartChecklists: PersistedVehiclePreStartChecklist[];
 };
 
 type PersistedVehicleBooking = {
@@ -147,6 +164,22 @@ type PersistedVehicleBooking = {
   notes: string | null;
   bookedBy: { name: string } | null;
   trip: { title: string } | null;
+};
+
+type PersistedVehiclePreStartChecklist = {
+  checkedAt: Date;
+  communicationsOk: boolean;
+  fluidsOk: boolean;
+  generalConditionOk: boolean;
+  id: string;
+  issueNotes: string | null;
+  lightsOk: boolean;
+  odometerKm: number;
+  organisationId: string;
+  recoveryGearOk: boolean;
+  submittedBy: { name: string } | null;
+  tyresOk: boolean;
+  vehicleId: string;
 };
 
 export function getVehiclesForOrganisation(organisationSlug: OrganisationSlug) {
@@ -453,6 +486,21 @@ export async function getVehicleBookingForOrganisationWithPersistence(
   return bookings.find((booking) => booking.id === bookingId);
 }
 
+export async function getLatestVehiclePreStartForOrganisationWithPersistence(
+  organisationSlug: OrganisationSlug,
+  vehicleId: string,
+) {
+  const preStarts = await getPersistedVehiclePreStartsForOrganisation(
+    organisationSlug,
+  );
+
+  if (!preStarts) {
+    return null;
+  }
+
+  return preStarts.find((preStart) => preStart.vehicleId === vehicleId) ?? null;
+}
+
 export function getBookingFormDefaults(
   organisationSlug: OrganisationSlug,
   vehicleId?: string,
@@ -545,6 +593,17 @@ async function getPersistedVehiclesForOrganisation(
     const organisation = await prisma.organisation.findUnique({
       include: {
         vehicles: {
+          include: {
+            preStartChecklists: {
+              include: {
+                submittedBy: true,
+              },
+              orderBy: {
+                checkedAt: "desc",
+              },
+              take: 1,
+            },
+          },
           orderBy: {
             name: "asc",
           },
@@ -563,6 +622,45 @@ async function getPersistedVehiclesForOrganisation(
 
     return organisation.vehicles.map((vehicle) =>
       mapPersistedVehicleToDemoVehicle(organisationSlug, vehicle),
+    );
+  } catch {
+    return isAuthenticatedDatabaseMode() ? [] : null;
+  }
+}
+
+async function getPersistedVehiclePreStartsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        vehiclePreStartChecklists: {
+          include: {
+            submittedBy: true,
+          },
+          orderBy: {
+            checkedAt: "desc",
+          },
+        },
+      },
+      where: { slug: organisationSlug },
+    });
+
+    if (!organisation) {
+      return isAuthenticatedDatabaseMode() ? [] : null;
+    }
+
+    if (!(await canReadOrganisation(prisma, organisation.id))) {
+      return [];
+    }
+
+    return organisation.vehiclePreStartChecklists.map((preStart) =>
+      mapPersistedPreStartToDemoPreStart(organisationSlug, preStart),
     );
   } catch {
     return isAuthenticatedDatabaseMode() ? [] : null;
@@ -613,6 +711,8 @@ function mapPersistedVehicleToDemoVehicle(
   organisationSlug: OrganisationSlug,
   vehicle: PersistedVehicle,
 ): DemoVehicle {
+  const latestPreStart = vehicle.preStartChecklists[0];
+
   return {
     id: vehicle.id,
     organisationId: vehicle.organisationId,
@@ -625,11 +725,62 @@ function mapPersistedVehicleToDemoVehicle(
     status: mapVehicleStatus(vehicle.status),
     odometerKm: vehicle.odometerKm ?? 0,
     homeBase: "Demo depot",
-    preStartStatus: "Not recorded",
+    preStartStatus: latestPreStart
+      ? getPreStartStatusFromChecklist(latestPreStart)
+      : "Not recorded",
     equipmentStatus: "Persisted vehicle core details only.",
     notes:
-      "Persisted vehicle record. Pre-starts, defects and equipment checks remain placeholders.",
+      "Persisted vehicle record. Defects and equipment checks remain future work.",
   };
+}
+
+function mapPersistedPreStartToDemoPreStart(
+  organisationSlug: OrganisationSlug,
+  preStart: PersistedVehiclePreStartChecklist,
+): DemoVehiclePreStartChecklist {
+  return {
+    checkedAt: preStart.checkedAt.toISOString(),
+    communicationsOk: preStart.communicationsOk,
+    fluidsOk: preStart.fluidsOk,
+    generalConditionOk: preStart.generalConditionOk,
+    id: preStart.id,
+    issueNotes: preStart.issueNotes ?? undefined,
+    lightsOk: preStart.lightsOk,
+    odometerKm: preStart.odometerKm,
+    organisationId: preStart.organisationId,
+    organisationSlug,
+    recoveryGearOk: preStart.recoveryGearOk,
+    submittedBy: preStart.submittedBy?.name ?? "Demo Operations Manager",
+    tyresOk: preStart.tyresOk,
+    vehicleId: preStart.vehicleId,
+  };
+}
+
+function getPreStartStatusFromChecklist(
+  preStart: Pick<
+    PersistedVehiclePreStartChecklist,
+    | "communicationsOk"
+    | "fluidsOk"
+    | "generalConditionOk"
+    | "issueNotes"
+    | "lightsOk"
+    | "recoveryGearOk"
+    | "tyresOk"
+  >,
+): PreStartStatus {
+  if (
+    !preStart.tyresOk ||
+    !preStart.lightsOk ||
+    !preStart.fluidsOk ||
+    !preStart.communicationsOk ||
+    !preStart.recoveryGearOk ||
+    !preStart.generalConditionOk ||
+    Boolean(preStart.issueNotes?.trim())
+  ) {
+    return "Issue reported";
+  }
+
+  return "Ready";
 }
 
 function mapPersistedBookingToDemoBooking(

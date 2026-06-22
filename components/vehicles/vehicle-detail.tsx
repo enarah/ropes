@@ -60,6 +60,16 @@ export function VehicleDetail({
             <CalendarPlus aria-hidden="true" size={16} />
             New booking
           </Link>
+          <Link
+            className="inline-flex w-fit items-center gap-2 rounded-md border border-earth-300 bg-earth-50 px-4 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/pre-start`,
+              organisationSlug,
+            )}
+          >
+            <ClipboardCheck aria-hidden="true" size={16} />
+            Pre-start
+          </Link>
         </div>
       </section>
 
@@ -104,9 +114,19 @@ export function VehicleDetail({
               {vehicle.preStartStatus}
             </p>
             <p className="mt-2 text-sm leading-6 text-charcoal-600">
-              Pre-start capture is a placeholder in this MVP. Real checklists,
-              defects and sign-off workflow will be added later.
+              Latest persisted checklist status when a local database is
+              configured. Maintenance records, defects and sign-off workflow
+              remain future work.
             </p>
+            <Link
+              className="mt-4 inline-flex rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+              href={organisationHref(
+                `/vehicles/${vehicle.id}/pre-start`,
+                organisationSlug,
+              )}
+            >
+              Open checklist
+            </Link>
           </div>
         </Panel>
       </section>
