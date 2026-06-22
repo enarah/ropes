@@ -2,7 +2,7 @@
 
 APP&B reporting is planned as an optional Reporting / Grants capability. It must be enabled per organisation and must not become a global default.
 
-This foundation covers Annual Project Plan and Budget templates used by major funders such as National Indigenous Australians Agency (NIAA) and Department of Climate Change, Energy, the Environment and Water (DCCEEW). It now includes a lightweight persisted Grants and APP&B report structure, but it does not parse, store or generate XLSX workbooks yet.
+This foundation covers Annual Project Plan and Budget templates used by major funders such as National Indigenous Australians Agency (NIAA) and Department of Climate Change, Energy, the Environment and Water (DCCEEW). It now includes a lightweight persisted Grants and APP&B report structure plus code-level template mapping metadata, but it does not parse, store or generate XLSX workbooks yet.
 
 ## Product Shape
 
@@ -28,6 +28,8 @@ The source-process references are:
 - `2025-26 Annual Report July-June Raukkan EA ALT - 4-IQXOB1V.xlsx`
 
 Future template inspection should identify major sheets, annual-planning tabs, mid-year/progress tabs, annual report/acquittal tabs, funder-standard fields, organisation-specific fields, grant/program-specific fields, reporting-period fields and stable cell/range mapping identifiers.
+
+The current metadata is conservative. The source workbook files are treated as business-process references by filename; the app does not claim exact sheet names, cell addresses, formulas or protected ranges until the workbooks are inspected in a later scoped task.
 
 ## Capability Model
 
@@ -64,6 +66,32 @@ Capability checks remain separate from tenant guards:
 
 Missing future data includes budgets, milestones, outputs, acquittals, detailed report-specific manual fields and template mapping records.
 
+## Template Mapping Metadata
+
+The code-level metadata in `lib/appb-reporting.ts` describes:
+
+- `AppbTemplateProfile`: funder/program/cycle family such as NIAA IRP/IPA/MDBIRR.
+- `AppbTemplateVersion`: one source workbook version for a profile and reporting cycle.
+- `AppbWorkbookSheet`: expected sheet inventory with source confidence.
+- `AppbTemplateSection`: logical section within a sheet.
+- `AppbTemplateField`: required, manual, derived, structured or formula-protected field.
+- `AppbTemplateMapping`: future stable connection between ROPES data and workbook cells/ranges.
+- `AppbRepeatableTable`: future repeatable rows such as activities, outputs or evidence.
+- `AppbManualField`: field that must remain manually entered until ROPES owns the data.
+- `AppbExportReadinessCheck`: blocker or review check before export can be enabled.
+- `AppbGeneratedWorkbook`: disabled placeholder for future safe export metadata.
+
+Cell and range references support a `needs-workbook-inspection` discovery state. This lets ROPES represent a mapping target without pretending to know a final A1 cell, named range, locked cell or protected formula.
+
+Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
+
+- the actual workbook tabs are inventoried
+- named sections and repeatable tables are confirmed
+- required cells and ranges are mapped
+- formulas and protected/manual cells are identified
+- manual-only finance/acquittal fields are reviewed
+- mappings are checked against selected organisation, grant and reporting period scope
+
 ## Future Data Concepts
 
 The first persisted concepts are:
@@ -78,12 +106,18 @@ Likely future concepts:
 - `GrantProgramType`
 - `FunderTemplateProfile`
 - `FunderTemplateVersion`
+- `AppbWorkbookSheet`
+- `AppbTemplateSection`
+- `AppbTemplateField`
 - `AppbReportSection`
 - `AppbReportField`
 - `AppbTemplateMapping`
+- `AppbRepeatableTable`
+- `AppbManualField`
+- `AppbExportReadinessCheck`
 - `AppbGeneratedWorkbook`
 
-This PR intentionally does not add workbook sections, fields, mappings, generated workbook metadata, budget/acquittal records or finance logic.
+This PR intentionally does not add database schema for workbook sections, fields, mappings, generated workbook metadata, budget/acquittal records or finance logic.
 
 ## Future Workflow
 
@@ -97,8 +131,9 @@ Future behaviour should follow this shape:
 6. ROPES shows a mapping checklist of required fields.
 7. ROPES pre-fills available fields from structured Projects, Ranger Programs, Trips, Fulcrum records and future Grants data.
 8. User fills manual values where ROPES does not own structured data yet.
-9. ROPES generates a draft workbook for review in a later export milestone.
-10. ROPES records safe audit metadata for generation/export.
+9. ROPES blocks export until mapping readiness checks pass.
+10. ROPES generates a draft workbook for review in a later export milestone.
+11. ROPES records safe audit metadata for generation/export.
 
 Future exports must not overwrite original templates. Generated reports must include only data for the selected organisation, grant and reporting period.
 

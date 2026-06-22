@@ -6,9 +6,12 @@ import { organisationHasCapability } from "@/lib/capability-registry";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   appbFutureConcepts,
+  appbGeneratedWorkbookPlaceholder,
   appbRopesDataSources,
   appbSourceTemplates,
+  appbTemplateMappingSummary,
   appbTemplateProfiles,
+  appbTemplateVersions,
 } from "@/lib/appb-reporting";
 import { getGrantsAppbOverview } from "@/lib/grants-appb-data";
 
@@ -102,7 +105,10 @@ export default async function AppbReportingPage({
         <SummaryCard label="Grants" value={String(overview.grants.length)} />
         <SummaryCard label="Reporting periods" value={String(reportingPeriodCount)} />
         <SummaryCard label="APP&B reports" value={String(appbReportCount)} />
-        <SummaryCard label="Template profiles" value={String(appbTemplateProfiles.length)} />
+        <SummaryCard
+          label="Template versions"
+          value={String(appbTemplateMappingSummary.versionCount)}
+        />
       </section>
 
       <Panel title="Grant APP&B records">
@@ -223,6 +229,71 @@ export default async function AppbReportingPage({
         </div>
       </Panel>
 
+      <Panel title="Template mapping metadata">
+        <div className="grid gap-3 md:grid-cols-4">
+          <SummaryChip
+            label="Fields"
+            value={String(appbTemplateMappingSummary.fieldCount)}
+          />
+          <SummaryChip
+            label="Mappings"
+            value={String(appbTemplateMappingSummary.mappingCount)}
+          />
+          <SummaryChip
+            label="Repeatable tables"
+            value={String(appbTemplateMappingSummary.repeatableTableCount)}
+          />
+          <SummaryChip
+            label="Blocked checks"
+            value={String(appbTemplateMappingSummary.blockedReadinessChecks)}
+          />
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {appbTemplateVersions.map((version) => (
+            <article
+              className="rounded-md border border-earth-200 bg-earth-50 p-4"
+              key={version.id}
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-charcoal-950">
+                    {version.label}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold uppercase text-ochre-700">
+                    {formatCycle(version.reportingCycle)} / {version.profileId}
+                  </p>
+                </div>
+                <span className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-charcoal-700">
+                  {version.fields.length} fields
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                {version.sourceTemplateFileName}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                {version.discoveryNotes}
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {version.exportReadinessChecks.map((check) => (
+                  <div
+                    className="rounded-md bg-white p-3"
+                    key={`${version.id}-${check.id}`}
+                  >
+                    <p className="text-xs font-semibold uppercase text-charcoal-600">
+                      {check.status}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-charcoal-950">
+                      {check.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </Panel>
+
       <section className="grid gap-4 lg:grid-cols-2">
         <Panel title="Template profile placeholders">
           <div className="space-y-3">
@@ -294,6 +365,10 @@ export default async function AppbReportingPage({
           capability-gated planning surface only; future implementation must
           keep reports scoped by organisation, grant and reporting period.
         </p>
+        <p className="mt-2 text-sm leading-6 text-sand-100">
+          {appbGeneratedWorkbookPlaceholder.description}{" "}
+          {appbGeneratedWorkbookPlaceholder.reason}
+        </p>
       </section>
     </div>
   );
@@ -312,6 +387,17 @@ function EmptyState({ message }: { message: string }) {
   return (
     <div className="rounded-md border border-dashed border-earth-300 bg-earth-50 p-4">
       <p className="text-sm leading-6 text-charcoal-600">{message}</p>
+    </div>
+  );
+}
+
+function SummaryChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+      <p className="text-xs font-semibold uppercase text-charcoal-500">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-semibold text-charcoal-950">{value}</p>
     </div>
   );
 }
