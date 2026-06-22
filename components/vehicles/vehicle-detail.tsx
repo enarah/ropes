@@ -6,6 +6,10 @@ import {
   Pencil,
   Wrench,
 } from "lucide-react";
+import {
+  organisationHasCapability,
+  type OrganisationCapabilityKey,
+} from "@/lib/capability-registry";
 import type { DemoVehicle, DemoVehicleBooking } from "@/lib/vehicles-data";
 import { organisationHref } from "@/lib/vehicles-data";
 import {
@@ -15,6 +19,7 @@ import {
 
 type VehicleDetailProps = {
   bookings: DemoVehicleBooking[];
+  capabilityKeys?: OrganisationCapabilityKey[];
   organisationName: string;
   organisationSlug: string;
   saved?: string;
@@ -23,11 +28,17 @@ type VehicleDetailProps = {
 
 export function VehicleDetail({
   bookings,
+  capabilityKeys,
   organisationName,
   organisationSlug,
   saved,
   vehicle,
 }: VehicleDetailProps) {
+  const maintenanceEnabled = organisationHasCapability(
+    capabilityKeys,
+    "vehicles.maintenance",
+  );
+
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 border-b border-earth-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -80,16 +91,18 @@ export function VehicleDetail({
             <Wrench aria-hidden="true" size={16} />
             Report defect
           </Link>
-          <Link
-            className="inline-flex w-fit items-center gap-2 rounded-md border border-earth-300 bg-earth-50 px-4 py-2 text-sm font-semibold text-charcoal-800"
-            href={organisationHref(
-              `/vehicles/${vehicle.id}/maintenance`,
-              organisationSlug,
-            )}
-          >
-            <Wrench aria-hidden="true" size={16} />
-            Maintenance
-          </Link>
+          {maintenanceEnabled ? (
+            <Link
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-earth-300 bg-earth-50 px-4 py-2 text-sm font-semibold text-charcoal-800"
+              href={organisationHref(
+                `/vehicles/${vehicle.id}/maintenance`,
+                organisationSlug,
+              )}
+            >
+              <Wrench aria-hidden="true" size={16} />
+              Maintenance
+            </Link>
+          ) : null}
         </div>
       </section>
 
@@ -116,14 +129,16 @@ export function VehicleDetail({
           label="Open defects"
           value={String(vehicle.openDefectCount ?? 0)}
         />
-        <SummaryCard
-          label="Maintenance"
-          value={
-            vehicle.latestMaintenanceDate
-              ? formatDate(vehicle.latestMaintenanceDate)
-              : "Not recorded"
-          }
-        />
+        {maintenanceEnabled ? (
+          <SummaryCard
+            label="Maintenance"
+            value={
+              vehicle.latestMaintenanceDate
+                ? formatDate(vehicle.latestMaintenanceDate)
+                : "Not recorded"
+            }
+          />
+        ) : null}
         <SummaryCard label="Base" value={vehicle.homeBase} />
       </section>
 
@@ -189,35 +204,37 @@ export function VehicleDetail({
         </div>
       </Panel>
 
-      <Panel
-        icon={<Wrench aria-hidden="true" size={18} />}
-        title="Maintenance"
-      >
-        <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-lg font-semibold text-charcoal-950">
-                {vehicle.latestMaintenanceDate
-                  ? formatMaintenanceDetailSummary(vehicle)
-                  : "Not recorded"}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-charcoal-600">
-                Recent maintenance visibility only. Work orders, scheduling and
-                booking blocks remain outside this foundation.
-              </p>
+      {maintenanceEnabled ? (
+        <Panel
+          icon={<Wrench aria-hidden="true" size={18} />}
+          title="Maintenance"
+        >
+          <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-lg font-semibold text-charcoal-950">
+                  {vehicle.latestMaintenanceDate
+                    ? formatMaintenanceDetailSummary(vehicle)
+                    : "Not recorded"}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                  Recent maintenance visibility only. Work orders, scheduling
+                  and booking blocks remain outside this foundation.
+                </p>
+              </div>
+              <Link
+                className="inline-flex w-fit rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+                href={organisationHref(
+                  `/vehicles/${vehicle.id}/maintenance`,
+                  organisationSlug,
+                )}
+              >
+                Add record
+              </Link>
             </div>
-            <Link
-              className="inline-flex w-fit rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
-              href={organisationHref(
-                `/vehicles/${vehicle.id}/maintenance`,
-                organisationSlug,
-              )}
-            >
-              Add record
-            </Link>
           </div>
-        </div>
-      </Panel>
+        </Panel>
+      ) : null}
 
       <Panel icon={<Wrench aria-hidden="true" size={18} />} title="Bookings">
         {bookings.length ? (

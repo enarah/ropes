@@ -1,6 +1,11 @@
 import type { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions, isAuthenticationConfigured } from "@/lib/auth-options";
+import {
+  defaultDemoCapabilityKeys,
+  isOrganisationCapabilityKey,
+  type OrganisationCapabilityKey,
+} from "@/lib/capability-registry";
 import { demoOrganisations, fakeCurrentSession } from "@/lib/dashboard-data";
 import { getFakeTenantGuardSession } from "@/lib/demo-session";
 import { isDatabaseConfigured } from "@/lib/db";
@@ -16,6 +21,7 @@ export type AuthResolutionSource =
 
 export type DashboardAuthContext = {
   availableOrganisations: Array<{
+    capabilityKeys: OrganisationCapabilityKey[];
     name: string;
     slug: string;
     type: string;
@@ -92,6 +98,7 @@ export async function getDashboardAuthContext(
   if (!isDatabaseConfigured() || !prisma) {
     return {
       availableOrganisations: demoOrganisations.map((organisation) => ({
+        capabilityKeys: [...defaultDemoCapabilityKeys],
         name: organisation.name,
         slug: organisation.slug,
         type: "Demo fallback",
@@ -113,6 +120,11 @@ export async function getDashboardAuthContext(
         name: "asc",
       },
       select: {
+        capabilities: {
+          select: {
+            key: true,
+          },
+        },
         id: true,
         name: true,
         slug: true,
@@ -127,6 +139,9 @@ export async function getDashboardAuthContext(
 
     return {
       availableOrganisations: organisations.map((organisation) => ({
+        capabilityKeys: normaliseCapabilityKeys(
+          organisation.capabilities.map((capability) => capability.key),
+        ),
         name: organisation.name,
         slug: organisation.slug,
         type: `${organisation.type} demo fallback`,
@@ -155,7 +170,15 @@ export async function getDashboardAuthContext(
     include: {
       memberships: {
         include: {
-          organisation: true,
+          organisation: {
+            include: {
+              capabilities: {
+                select: {
+                  key: true,
+                },
+              },
+            },
+          },
           role: true,
         },
         orderBy: {
@@ -174,6 +197,11 @@ export async function getDashboardAuthContext(
   return {
     availableOrganisations:
       user?.memberships.map((membership) => ({
+        capabilityKeys: normaliseCapabilityKeys(
+          membership.organisation.capabilities.map(
+            (capability) => capability.key,
+          ),
+        ),
         name: membership.organisation.name,
         slug: membership.organisation.slug,
         type: membership.role.name,
@@ -183,4 +211,8 @@ export async function getDashboardAuthContext(
     name: user?.name ?? name,
     source: user ? "authenticated" : "unauthenticated",
   };
+}
+
+function normaliseCapabilityKeys(keys: string[]) {
+  return [...new Set(keys)].filter(isOrganisationCapabilityKey);
 }

@@ -557,6 +557,10 @@ function StatusMessage({ error, saved }: { error?: string; saved?: string }) {
       body: "The TMP/JMP risk assessment was saved and recorded in the audit log.",
       title: "Plan saved",
     },
+    capability: {
+      body: "This organisation can access ROPES, but TMP/JMP risk assessment is not enabled for it.",
+      title: "Capability disabled",
+    },
   };
   const message = saved
     ? messages[saved] ?? messages.assessment

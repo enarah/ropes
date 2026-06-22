@@ -1,3 +1,8 @@
+import {
+  isModuleEnabledForCapabilities,
+  type OrganisationCapabilityKey,
+} from "@/lib/capability-registry";
+
 export const navigationItems = [
   {
     label: "Overview",
@@ -95,6 +100,7 @@ type ScopedRecord = {
 };
 
 export type DashboardOrganisation = {
+  capabilityKeys?: OrganisationCapabilityKey[];
   id?: string;
   name: string;
   slug: string;
@@ -194,29 +200,53 @@ export const modulePanels = [
   },
 ] as const;
 
-export function getDashboardStats(organisationSlug: OrganisationSlug) {
+export function getDashboardStats(
+  organisationSlug: OrganisationSlug,
+  capabilityKeys?: readonly OrganisationCapabilityKey[],
+) {
   const records = getOrganisationRecords(organisationSlug);
+  const tripsEnabled = isModuleEnabledForCapabilities("trips", capabilityKeys);
+  const vehiclesEnabled = isModuleEnabledForCapabilities(
+    "vehicles",
+    capabilityKeys,
+  );
+  const reportingEnabled = isModuleEnabledForCapabilities(
+    "reports",
+    capabilityKeys,
+  );
+  const safetyEnabled = isModuleEnabledForCapabilities(
+    "compliance",
+    capabilityKeys,
+  );
 
   return [
     {
       label: "Upcoming trips",
-      value: String(countRecords(records, "trips")),
-      caption: "Demo journeys scoped to the selected organisation.",
+      value: tripsEnabled ? String(countRecords(records, "trips")) : "-",
+      caption: tripsEnabled
+        ? "Demo journeys scoped to the selected organisation."
+        : "Trips capability is disabled for this organisation.",
     },
     {
       label: "Vehicles tracked",
-      value: String(countRecords(records, "vehicles")),
-      caption: "Placeholder fleet records for this organisation only.",
+      value: vehiclesEnabled ? String(countRecords(records, "vehicles")) : "-",
+      caption: vehiclesEnabled
+        ? "Placeholder fleet records for this organisation only."
+        : "Vehicles capability is disabled for this organisation.",
     },
     {
       label: "Open reports",
-      value: String(countRecords(records, "reports")),
-      caption: "Draft reporting surfaces in the active tenant context.",
+      value: reportingEnabled ? String(countRecords(records, "reports")) : "-",
+      caption: reportingEnabled
+        ? "Draft reporting surfaces in the active tenant context."
+        : "Reporting capability is disabled for this organisation.",
     },
     {
       label: "Risks flagged",
-      value: String(countRecords(records, "compliance")),
-      caption: "Mock WHS and operational risks for this organisation.",
+      value: safetyEnabled ? String(countRecords(records, "compliance")) : "-",
+      caption: safetyEnabled
+        ? "Mock WHS and operational risks for this organisation."
+        : "Safety capability is disabled for this organisation.",
     },
   ];
 }

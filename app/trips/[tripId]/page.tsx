@@ -41,6 +41,7 @@ export default async function TripDetailPage({
       organisationName={selectedOrganisation.name}
       organisationSlug={selectedOrganisation.slug}
       approvalResult={resolvedSearchParams?.approval}
+      capabilityKeys={selectedOrganisation.capabilityKeys}
       trip={trip}
     />
   );

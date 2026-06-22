@@ -1,6 +1,10 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import {
+  defaultDemoCapabilityKeys,
+  getModuleKeyForCapability,
+} from "../lib/capability-registry";
 
 const connectionString = process.env["DATABASE_URL"];
 
@@ -30,6 +34,7 @@ async function main() {
   await prisma.vehicle.deleteMany();
   await prisma.rangerProgram.deleteMany();
   await prisma.project.deleteMany();
+  await prisma.organisationCapability.deleteMany();
   await prisma.membership.deleteMany();
   await prisma.role.deleteMany();
   await prisma.user.deleteMany();
@@ -56,6 +61,17 @@ async function main() {
   });
 
   const users = await createDemoUsers();
+
+  await prisma.organisationCapability.createMany({
+    data: [enarah, partner].flatMap((organisation) =>
+      defaultDemoCapabilityKeys.map((key) => ({
+        isDemo: true,
+        key,
+        moduleKey: getModuleKeyForCapability(key),
+        organisationId: organisation.id,
+      })),
+    ),
+  });
 
   await prisma.membership.createMany({
     data: [

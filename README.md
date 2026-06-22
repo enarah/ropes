@@ -85,10 +85,11 @@ npm run db:seed
 ```
 
 The seed creates fake organisations, users, memberships, roles, projects,
-ranger programs, trips, trip risk assessments, vehicles, bookings, vehicle
-pre-starts, vehicle defects, vehicle maintenance records, Fulcrum placeholders
-and audit logs. It does not create authentication accounts, store Fulcrum
-tokens or call external APIs.
+ranger programs, organisation capability toggles, trips, trip risk
+assessments, vehicles, bookings, vehicle pre-starts, vehicle defects, vehicle
+maintenance records, Fulcrum placeholders and audit logs. It does not create
+authentication accounts, store Fulcrum tokens, store AI provider credentials or
+call external APIs.
 
 For deployment-style environments, use:
 
@@ -264,6 +265,15 @@ The current app includes:
   active organisation memberships
 - Route-level access blocking for dashboard, Trips, Vehicles and Fulcrum pages
   when authentication and the database are configured
+- Organisation capability-toggle foundation with stable module/capability keys,
+  seeded defaults, capability-aware navigation, disabled feature states and
+  proof checks for Trips TMP/JMP risk assessment and Vehicles maintenance
+- Tenant access and capability access are separate: tenant guards decide who
+  can access an organisation, while capabilities decide which features are
+  enabled for that organisation
+- AI provider abstraction placeholder for future no-provider, local LLM and
+  frontier/cloud provider modes, with no provider calls, API keys or stored
+  credentials
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
@@ -316,16 +326,17 @@ The current app includes:
 
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
-user-linked trip participants, approval notifications, vehicle
-maintenance work orders, maintenance scheduling, decommission workflows,
-vehicle booking approval workflow, automatic booking blocking from defects or
-maintenance, trip dashboards, reporting, full server-side booking
-calendar/scheduling features, PDF/DOCX TMP/JMP export, live SPOT/GARMIN
-tracking, TMP/JMP notifications, full maintenance planning, full defect
-timelines or persisted resolution notes, broad Fulcrum sync, media/photo
+admin UI for managing capabilities, shared vehicles across organisations,
+user-linked trip participants, approval notifications, vehicle maintenance work
+orders, maintenance scheduling, decommission workflows, vehicle booking
+approval workflow, automatic booking blocking from defects or maintenance, trip
+dashboards, reporting, full server-side booking calendar/scheduling features,
+PDF/DOCX TMP/JMP export, live SPOT/GARMIN tracking, SPOT/finder integration,
+Google Calendar sync, TMP/JMP notifications, full maintenance planning, full
+defect timelines or persisted resolution notes, broad Fulcrum sync, media/photo
 import, Fulcrum app writes, background workers, scheduled sync, AI provider
-calls, API keys or external service credentials beyond local environment
-configuration.
+calls, AI API keys, AI provider credentials or external service credentials
+beyond local environment configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
 configured, or the clearly labelled fake/demo session fallback when auth is not
 configured for local development.

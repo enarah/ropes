@@ -13,6 +13,10 @@ import {
   Users,
 } from "lucide-react";
 import {
+  isModuleEnabledForCapabilities,
+  type OrganisationCapabilityKey,
+} from "@/lib/capability-registry";
+import {
   getDashboardStats,
   getModuleBySlug,
   getModuleRecords,
@@ -57,6 +61,7 @@ export async function DashboardContent({
   );
   const selectedOrganisation =
     organisation ?? getSelectedOrganisation(selectedOrganisationSlug);
+  const capabilityKeys = selectedOrganisation.capabilityKeys;
   const activeModule = getModuleBySlug(moduleSlug, selectedOrganisation.slug);
   const ActiveIcon = moduleIconMap[moduleSlug];
   const isOverview = moduleSlug === "overview";
@@ -111,7 +116,10 @@ export async function DashboardContent({
       </section>
 
       {isOverview ? (
-        <OverviewStats organisationSlug={selectedOrganisation.slug} />
+        <OverviewStats
+          capabilityKeys={capabilityKeys}
+          organisationSlug={selectedOrganisation.slug}
+        />
       ) : (
         <ModuleSnapshot
           moduleSlug={moduleSlug}
@@ -144,7 +152,11 @@ export async function DashboardContent({
           </span>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {modulePanels.map((panel) => {
+          {modulePanels
+            .filter((panel) =>
+              isModuleEnabledForCapabilities(panel.slug, capabilityKeys),
+            )
+            .map((panel) => {
             const PanelIcon = moduleIconMap[panel.slug];
 
             return (
@@ -237,11 +249,13 @@ function getSessionLabel(source: "authenticated" | "demo-fallback" | "unauthenti
 }
 
 function OverviewStats({
+  capabilityKeys,
   organisationSlug,
 }: {
+  capabilityKeys?: OrganisationCapabilityKey[];
   organisationSlug: Parameters<typeof getDashboardStats>[0];
 }) {
-  const dashboardStats = getDashboardStats(organisationSlug);
+  const dashboardStats = getDashboardStats(organisationSlug, capabilityKeys);
 
   return (
     <section

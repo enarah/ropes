@@ -20,10 +20,20 @@ Vehicles records, and the initial authentication foundation.
   Fulcrum pages when authentication and the database are configured.
 - Organisation-scoped in-memory dashboard/module mock data.
 - Initial Prisma schema and clearly fake seed data for organisations, users,
-  memberships, roles, projects, ranger programs, trips, vehicles, bookings,
-  trip risk assessments, vehicle pre-starts, vehicle defects, vehicle
-  maintenance records, Fulcrum placeholders and audit logs.
+  memberships, roles, projects, ranger programs, organisation capability
+  toggles, trips, vehicles, bookings, trip risk assessments, vehicle
+  pre-starts, vehicle defects, vehicle maintenance records, Fulcrum
+  placeholders and audit logs.
 - Tenant guard foundation used by persisted trip and vehicle booking writes.
+- Organisation capability-toggle foundation with stable module/capability keys,
+  seeded defaults, capability-aware navigation, disabled feature states and
+  proof checks for Trips TMP/JMP risk assessment and Vehicles maintenance.
+- Capability checks are intentionally separate from tenant guards: tenant
+  access decides whether a user can access an organisation, while capabilities
+  decide which modules and workflows are enabled inside that organisation.
+- AI provider abstraction placeholder describes future no-provider, local LLM
+  and frontier/cloud provider modes without storing credentials, adding keys or
+  calling any provider.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
@@ -98,14 +108,19 @@ Vehicles records, and the initial authentication foundation.
   options come from active memberships when auth/database are configured.
 - Role-specific permission rules beyond active membership checks are not
   implemented yet.
+- Admin UI for managing organisation modules and capabilities is not
+  implemented yet.
 - Dashboard and Fulcrum UI data is in-memory demo data.
 - Trip participants are stored as free-text MVP rows; optional linkage to
   existing users remains future work.
 - Trip approval workflow notifications and role-specific approval permissions
   are still future work.
-- TMP/JMP PDF/DOCX export, live SPOT/GARMIN tracking, notifications,
-  organisation-level Trips capability toggles and a TMP-specific approval step
-  are still future work.
+- TMP/JMP PDF/DOCX export, live SPOT/GARMIN tracking, notifications and a
+  TMP-specific approval step are still future work.
+- Live Google Calendar sync, SPOT/finder integrations, Teams/email/calendar
+  integrations, AI provider execution and AI credential storage are still
+  future work.
+- Shared vehicles across organisations remain intentionally out of scope.
 - Maintenance work orders, maintenance scheduling, full maintenance planning
   and decommission workflows are not implemented yet.
 - Full vehicle defect timelines, persisted resolution notes, defect-triggered

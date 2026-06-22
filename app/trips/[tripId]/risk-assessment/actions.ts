@@ -6,6 +6,10 @@ import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
 import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
+  isOrganisationCapabilityError,
+  requireOrganisationCapability,
+} from "@/lib/organisation-capabilities";
+import {
   createOrganisationWriteContext,
   isTenantGuardError,
 } from "@/lib/tenant-guards";
@@ -70,6 +74,18 @@ export async function saveTripRiskAssessmentAction(formData: FormData) {
       ],
       session,
     });
+
+    await requireOrganisationCapability(
+      prisma,
+      context.organisationId,
+      "trips.riskAssessment",
+      {
+        actorUserId: context.actorUserId,
+        entityId: trip.id,
+        entityType: "Trip",
+      },
+    );
+
     const assessmentData = getAssessmentData(formData);
     const isUpdate = Boolean(existingAssessment);
 
@@ -129,9 +145,11 @@ export async function saveTripRiskAssessmentAction(formData: FormData) {
     redirectTo = `${fallbackPath}&error=${
       isTenantGuardError(error)
         ? "tenant"
-        : isTripRiskAssessmentValidationError(error)
-          ? "validation"
-          : "persistence"
+        : isOrganisationCapabilityError(error)
+          ? "capability"
+          : isTripRiskAssessmentValidationError(error)
+            ? "validation"
+            : "persistence"
     }`;
   }
 

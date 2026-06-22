@@ -130,6 +130,7 @@ model Organisation {
   isDemo             Boolean             @default(false)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  capabilities       OrganisationCapability[]
   memberships        Membership[]
   projects           Project[]
   rangerPrograms     RangerProgram[]
@@ -149,6 +150,22 @@ model Organisation {
   fulcrumApps        FulcrumApp[]
   fulcrumRecords     FulcrumRecord[]
   auditLogs          AuditLog[]
+}
+
+model OrganisationCapability {
+  id             String       @id @default(cuid())
+  organisationId String
+  key            String
+  moduleKey      String
+  isDemo         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, key])
+  @@index([organisationId])
+  @@index([key])
+  @@index([moduleKey])
 }
 
 model User {

@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { TripRiskAssessmentForm } from "@/components/trips/trip-risk-assessment-form";
 import { UnauthorisedState } from "@/components/unauthorised-state";
+import { organisationHasCapability } from "@/lib/capability-registry";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   getTripForOrganisationWithPersistence,
@@ -31,6 +33,21 @@ export default async function TripRiskAssessmentPage({
   }
 
   const selectedOrganisation = access.organisation;
+
+  if (
+    !organisationHasCapability(
+      selectedOrganisation.capabilityKeys,
+      "trips.riskAssessment",
+    )
+  ) {
+    return (
+      <DisabledFeatureState
+        capability="trips.riskAssessment"
+        organisationName={selectedOrganisation.name}
+      />
+    );
+  }
+
   const [trip, persistence] = await Promise.all([
     getTripForOrganisationWithPersistence(selectedOrganisation.slug, tripId),
     getTripPersistenceState(selectedOrganisation.slug),

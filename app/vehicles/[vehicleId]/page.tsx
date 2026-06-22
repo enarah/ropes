@@ -47,6 +47,7 @@ export default async function VehicleDetailPage({
   return (
     <VehicleDetail
       bookings={bookings}
+      capabilityKeys={selectedOrganisation.capabilityKeys}
       organisationName={selectedOrganisation.name}
       organisationSlug={selectedOrganisation.slug}
       saved={resolvedSearchParams?.saved}

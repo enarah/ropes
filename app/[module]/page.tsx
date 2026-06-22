@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
+import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { DashboardContent } from "@/components/dashboard-content";
 import { FulcrumShell } from "@/components/fulcrum/fulcrum-shell";
 import { TripsList } from "@/components/trips/trips-list";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { VehiclesRegister } from "@/components/vehicles/vehicles-register";
+import {
+  moduleRequiresCapability,
+  organisationHasCapability,
+} from "@/lib/capability-registry";
 import { isModuleSlug, moduleSlugs } from "@/lib/dashboard-data";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
 
@@ -49,6 +54,23 @@ export default async function ModulePage({
 
   if (access.status === "denied") {
     return <UnauthorisedState {...access} />;
+  }
+
+  const requiredCapability = moduleRequiresCapability(module);
+
+  if (
+    requiredCapability &&
+    !organisationHasCapability(
+      access.organisation.capabilityKeys,
+      requiredCapability,
+    )
+  ) {
+    return (
+      <DisabledFeatureState
+        capability={requiredCapability}
+        organisationName={access.organisation.name}
+      />
+    );
   }
 
   if (module === "trips") {
