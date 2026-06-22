@@ -34,6 +34,12 @@ enum TripApprovalState {
   CANCELLED
 }
 
+enum TripRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum VehicleStatus {
   AVAILABLE
   BOOKED
@@ -128,6 +134,7 @@ model Organisation {
   projects           Project[]
   rangerPrograms     RangerProgram[]
   trips              Trip[]
+  tripRiskAssessments TripRiskAssessment[]
   tripApprovalNotes  TripApprovalNote[]
   tripParticipants   TripParticipant[]
   tripVehicleAllocations TripVehicleAllocation[]
@@ -156,6 +163,8 @@ model User {
   tripsLed        Trip[]       @relation("TripLead")
   tripApprovalNotes TripApprovalNote[]
   tripParticipants TripParticipant[]
+  tripRiskAssessmentsCreated TripRiskAssessment[] @relation("TripRiskAssessmentCreatedBy")
+  tripRiskAssessmentsUpdated TripRiskAssessment[] @relation("TripRiskAssessmentUpdatedBy")
   vehicleBookings VehicleBooking[]
   vehicleDefects  VehicleDefect[]
   vehicleMaintenanceRecords VehicleMaintenanceRecord[]
@@ -250,6 +259,7 @@ model Trip {
   rangerProgram   RangerProgram? @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
   leadUser        User?          @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
   approvalNotes   TripApprovalNote[]
+  riskAssessment  TripRiskAssessment?
   participants    TripParticipant[]
   vehicleAllocations TripVehicleAllocation[]
   itineraryItems  TripItineraryItem[]
@@ -261,6 +271,49 @@ model Trip {
   @@index([rangerProgramId])
   @@index([leadUserId])
   @@index([approvalStatus])
+}
+
+model TripRiskAssessment {
+  id                   String        @id @default(cuid())
+  organisationId       String
+  tripId               String        @unique
+  createdByUserId      String?
+  updatedByUserId      String?
+  tripTypeCode         String
+  activityRiskCodes    String[]      @default([])
+  baseRiskLevel        TripRiskLevel
+  finalRiskLevel       TripRiskLevel
+  tripSpecificControls String?
+  leadDrivers          String?
+  spotGarminDetails    String?
+  satellitePhone       String?
+  mobilePhone          String?
+  epirbDetails         String?
+  firstAidDetails      String?
+  defibDetails         String?
+  dpfDetails           String?
+  otherEquipment       String?
+  rangers              String?
+  partners             String?
+  medicalAllergyNotes  String?
+  relevantContacts     String?
+  dailyItinerary       Json?
+  emergencyContacts    String?
+  escalationNotes      String?
+  readyForManagerReview Boolean      @default(false)
+  isDemo               Boolean       @default(false)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  organisation         Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trip                 Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdBy            User?         @relation("TripRiskAssessmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy            User?         @relation("TripRiskAssessmentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([tripId])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
+  @@index([finalRiskLevel])
 }
 
 model TripApprovalNote {

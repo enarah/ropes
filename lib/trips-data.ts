@@ -5,6 +5,13 @@ import {
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
+import {
+  isActivityRiskCode,
+  isTripTypeCode,
+  type TripRiskAssessmentDetails,
+  type TripRiskAssessmentItineraryRow,
+  type TripRiskLevelValue,
+} from "@/lib/trip-risk-assessment";
 
 export type TripApprovalStatus =
   | "Draft"
@@ -30,6 +37,7 @@ export type DemoTrip = {
     note: string;
     toApprovalStatus: TripApprovalStatus;
   }>;
+  riskAssessment?: TripRiskAssessmentDetails | null;
   startsAt: string;
   endsAt: string;
   lead: string;
@@ -143,6 +151,30 @@ type PersistedTrip = {
       registration: string;
     };
   }>;
+  riskAssessment: {
+    activityRiskCodes: string[];
+    baseRiskLevel: string;
+    dailyItinerary: unknown;
+    defibDetails: string | null;
+    dpfDetails: string | null;
+    emergencyContacts: string | null;
+    epirbDetails: string | null;
+    escalationNotes: string | null;
+    finalRiskLevel: string;
+    firstAidDetails: string | null;
+    leadDrivers: string | null;
+    medicalAllergyNotes: string | null;
+    mobilePhone: string | null;
+    otherEquipment: string | null;
+    partners: string | null;
+    rangers: string | null;
+    readyForManagerReview: boolean;
+    relevantContacts: string | null;
+    satellitePhone: string | null;
+    spotGarminDetails: string | null;
+    tripSpecificControls: string | null;
+    tripTypeCode: string;
+  } | null;
 };
 
 export function getTripsForOrganisation(organisationSlug: OrganisationSlug) {
@@ -196,6 +228,7 @@ export function getTripFormDefaults(
       status: "Draft",
       approvalStatus: "Draft",
       approvalNotes: [],
+      riskAssessment: null,
       startsAt: "",
       endsAt: "",
       lead: "",
@@ -551,6 +584,7 @@ async function getPersistedTripsForOrganisation(
               },
               take: 5,
             },
+            riskAssessment: true,
             participants: {
               orderBy: {
                 rowOrder: "asc",
@@ -632,6 +666,7 @@ function mapPersistedTripToDemoTrip(
       note: note.note,
       toApprovalStatus: mapTripApprovalStatus(note.toApprovalStatus),
     })),
+    riskAssessment: mapPersistedRiskAssessment(trip.riskAssessment),
     startsAt: trip.startsAt.toISOString(),
     endsAt: trip.endsAt.toISOString(),
     lead: leadName,
@@ -675,6 +710,96 @@ function mapPersistedTripToDemoTrip(
               "Persisted trip core details are saved. Add itinerary rows to persist structured schedule details.",
           },
         ],
+  };
+}
+
+function mapPersistedRiskAssessment(
+  assessment: PersistedTrip["riskAssessment"],
+): TripRiskAssessmentDetails | null {
+  if (!assessment || !isTripTypeCode(assessment.tripTypeCode)) {
+    return null;
+  }
+
+  const activityRiskCodes = assessment.activityRiskCodes.filter(
+    isActivityRiskCode,
+  );
+  const baseRiskLevel = mapRiskLevel(assessment.baseRiskLevel);
+  const finalRiskLevel = mapRiskLevel(assessment.finalRiskLevel);
+
+  if (!baseRiskLevel || !finalRiskLevel) {
+    return null;
+  }
+
+  return {
+    activityRiskCodes,
+    baseRiskLevel,
+    dailyItinerary: parseRiskAssessmentItinerary(assessment.dailyItinerary),
+    defibDetails: assessment.defibDetails,
+    dpfDetails: assessment.dpfDetails,
+    emergencyContacts: assessment.emergencyContacts,
+    epirbDetails: assessment.epirbDetails,
+    escalationNotes: assessment.escalationNotes,
+    finalRiskLevel,
+    firstAidDetails: assessment.firstAidDetails,
+    leadDrivers: assessment.leadDrivers,
+    medicalAllergyNotes: assessment.medicalAllergyNotes,
+    mobilePhone: assessment.mobilePhone,
+    otherEquipment: assessment.otherEquipment,
+    partners: assessment.partners,
+    rangers: assessment.rangers,
+    readyForManagerReview: assessment.readyForManagerReview,
+    relevantContacts: assessment.relevantContacts,
+    satellitePhone: assessment.satellitePhone,
+    spotGarminDetails: assessment.spotGarminDetails,
+    tripSpecificControls: assessment.tripSpecificControls,
+    tripTypeCode: assessment.tripTypeCode,
+  };
+}
+
+function mapRiskLevel(value: string): TripRiskLevelValue | null {
+  if (value === "LOW" || value === "MEDIUM" || value === "HIGH") {
+    return value;
+  }
+
+  return null;
+}
+
+function parseRiskAssessmentItinerary(
+  value: unknown,
+): TripRiskAssessmentItineraryRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(parseRiskAssessmentItineraryRow)
+    .filter(
+      (row): row is TripRiskAssessmentItineraryRow =>
+        row !== null && Boolean(row.day),
+    );
+}
+
+function parseRiskAssessmentItineraryRow(
+  row: unknown,
+): TripRiskAssessmentItineraryRow | null {
+  if (
+    !row ||
+    typeof row !== "object" ||
+    !("day" in row) ||
+    !("date" in row) ||
+    !("amSchedule" in row) ||
+    !("pmSchedule" in row) ||
+    !("checkInRequired" in row)
+  ) {
+    return null;
+  }
+
+  return {
+    amSchedule: typeof row.amSchedule === "string" ? row.amSchedule : "",
+    checkInRequired: row.checkInRequired === true,
+    date: typeof row.date === "string" ? row.date : "",
+    day: typeof row.day === "string" ? row.day : "",
+    pmSchedule: typeof row.pmSchedule === "string" ? row.pmSchedule : "",
   };
 }
 

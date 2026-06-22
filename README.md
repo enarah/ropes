@@ -85,10 +85,10 @@ npm run db:seed
 ```
 
 The seed creates fake organisations, users, memberships, roles, projects,
-ranger programs, trips, vehicles, bookings, vehicle pre-starts, vehicle
-defects, vehicle maintenance records, Fulcrum placeholders and audit
-logs. It does not create authentication accounts, store Fulcrum tokens or call
-external APIs.
+ranger programs, trips, trip risk assessments, vehicles, bookings, vehicle
+pre-starts, vehicle defects, vehicle maintenance records, Fulcrum placeholders
+and audit logs. It does not create authentication accounts, store Fulcrum
+tokens or call external APIs.
 
 For deployment-style environments, use:
 
@@ -228,12 +228,12 @@ write path or broad sync engine.
 
 ## Audit logging
 
-Persisted trip create/update, trip approval transitions, vehicle booking
-create, server-side vehicle booking overlap rejection, vehicle pre-start
-submission, vehicle defect submission, vehicle maintenance record creation,
-Fulcrum connection save/update/disable, Fulcrum connection test
-success/failure actions, and manual Fulcrum sync job placeholder
-creation/rejection write
+Persisted trip create/update, trip approval transitions, trip risk assessment
+creation/update, vehicle booking create, server-side vehicle booking overlap
+rejection, vehicle pre-start submission, vehicle defect submission, vehicle
+maintenance record creation, Fulcrum connection save/update/disable, Fulcrum
+connection test success/failure actions, and manual Fulcrum sync job
+placeholder creation/rejection write
 organisation-scoped audit entries after tenant access has been confirmed.
 Audit entries record the organisation, actor user when available, action,
 target record type, target record ID when available, timestamp and safe
@@ -242,8 +242,9 @@ metadata.
 Audit metadata deliberately avoids raw Fulcrum API tokens, encrypted token
 values, auth/provider tokens, API keys, environment variables, full request
 payloads, full trip approval note text and full vehicle defect descriptions.
-Vehicle maintenance audit metadata stores safe counts, flags and selected enum
-values, not full free-text notes.
+Trip risk assessment and vehicle maintenance audit metadata store safe counts,
+flags, selected codes and note lengths, not full free-text controls, medical
+notes, emergency contact details or maintenance notes.
 Audit writes are best-effort for this prototype: if an audit insert fails after
 the primary operational write succeeds, the user workflow continues.
 
@@ -275,6 +276,12 @@ The current app includes:
 - Plain-text trip approval notes for approval transitions, including required
   change-request and cancellation reasons, safe author/timestamp display and
   server-side length limits
+- Trip Risk Assessment and Journey Management Plan foundation with a
+  persisted organisation-scoped `TripRiskAssessment` model, trip-scoped TMP/JMP
+  form, Enarah trip-type and activity-risk classification, base/final risk
+  calculation, standard risks/mitigations/reference display, journey equipment,
+  traveller, daily check-in and emergency guidance fields, and safe audit
+  metadata
 - Trips list workflow filters for approval state, trip status, timing and
   needs-action views, with count chips and short safe review-note previews
 - Lightweight Trips summary cards for organisation-scoped operational counts
@@ -313,10 +320,12 @@ user-linked trip participants, approval notifications, vehicle
 maintenance work orders, maintenance scheduling, decommission workflows,
 vehicle booking approval workflow, automatic booking blocking from defects or
 maintenance, trip dashboards, reporting, full server-side booking
-calendar/scheduling features, full maintenance planning, full defect timelines
-or persisted resolution notes, broad Fulcrum sync, media/photo import, Fulcrum
-app writes, background workers, scheduled sync, AI provider calls, API keys or
-external service credentials beyond local environment configuration.
+calendar/scheduling features, PDF/DOCX TMP/JMP export, live SPOT/GARMIN
+tracking, TMP/JMP notifications, full maintenance planning, full defect
+timelines or persisted resolution notes, broad Fulcrum sync, media/photo
+import, Fulcrum app writes, background workers, scheduled sync, AI provider
+calls, API keys or external service credentials beyond local environment
+configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
 configured, or the clearly labelled fake/demo session fallback when auth is not
 configured for local development.

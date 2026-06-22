@@ -17,6 +17,7 @@ async function main() {
   await prisma.fulcrumApp.deleteMany();
   await prisma.fulcrumSyncJob.deleteMany();
   await prisma.fulcrumConnection.deleteMany();
+  await prisma.tripRiskAssessment.deleteMany();
   await prisma.tripItineraryItem.deleteMany();
   await prisma.tripVehicleAllocation.deleteMany();
   await prisma.tripParticipant.deleteMany();
@@ -339,6 +340,57 @@ async function main() {
         isDemo: true,
       },
     ],
+  });
+
+  await prisma.tripRiskAssessment.create({
+    data: {
+      organisationId: partner.id,
+      tripId: trip.id,
+      createdByUserId: users.operationsManager.id,
+      updatedByUserId: users.operationsManager.id,
+      tripTypeCode: "2A",
+      activityRiskCodes: [],
+      baseRiskLevel: "MEDIUM",
+      finalRiskLevel: "MEDIUM",
+      tripSpecificControls:
+        "Fake demo controls: confirm road condition check, SPOT check-ins and vehicle recovery equipment before departure.",
+      leadDrivers: "Demo Head Ranger",
+      spotGarminDetails: "Fake demo SPOT assigned to trip lead.",
+      satellitePhone: "Fake demo satellite phone carried by second traveller.",
+      mobilePhone: "Fake demo mobile contact for depot departure and arrival.",
+      epirbDetails: "Fake demo EPIRB packed with field kit.",
+      firstAidDetails: "Fake demo first aid kit checked at depot.",
+      defibDetails: "Fake demo defib not required for this trip.",
+      dpfDetails: "Fake demo DPF status checked during pre-start.",
+      otherEquipment: "Fake demo recovery kit, water and shade packed.",
+      rangers: "Demo Head Ranger; Demo Ranger",
+      partners: "No fake partner travellers.",
+      medicalAllergyNotes:
+        "Fake demo note only: no real medical or allergy details.",
+      relevantContacts: "Demo Operations Manager; Demo depot contact.",
+      dailyItinerary: [
+        {
+          amSchedule: "Depart depot and travel to Demo Water Point 7.",
+          checkInRequired: true,
+          date: "2026-08-11",
+          day: "Day 1",
+          pmSchedule: "Arrive, set up and send check-in.",
+        },
+        {
+          amSchedule: "Inspect demo water points and record fake conditions.",
+          checkInRequired: true,
+          date: "2026-08-12",
+          day: "Day 2",
+          pmSchedule: "Return to depot and close trip.",
+        },
+      ],
+      emergencyContacts:
+        "Fake demo emergency contacts: operations manager and senior manager.",
+      escalationNotes:
+        "Fake demo escalation follows Enarah check-in response timing.",
+      readyForManagerReview: true,
+      isDemo: true,
+    },
   });
 
   await prisma.tripApprovalNote.create({
