@@ -21,8 +21,8 @@ Vehicles records, and the initial authentication foundation.
 - Organisation-scoped in-memory dashboard/module mock data.
 - Initial Prisma schema and clearly fake seed data for organisations, users,
   memberships, roles, projects, ranger programs, trips, vehicles, bookings,
-  vehicle pre-starts, vehicle defects, vehicle maintenance records, Fulcrum
-  placeholders and audit logs.
+  trip risk assessments, vehicle pre-starts, vehicle defects, vehicle
+  maintenance records, Fulcrum placeholders and audit logs.
 - Tenant guard foundation used by persisted trip and vehicle booking writes.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
@@ -33,6 +33,12 @@ Vehicles records, and the initial authentication foundation.
 - Trip approval notes are persisted as organisation-scoped plain-text records
   with safe author/timestamp display, required reasons for change requests and
   cancellations, and server-side length limits.
+- Trip Risk Assessment and Journey Management Plan foundation with a persisted
+  organisation-scoped assessment per trip, Enarah trip-type and activity-risk
+  classifications, base/final risk calculation, standard risks, mitigations and
+  reference display, trip-specific controls, journey equipment, traveller,
+  daily check-in and emergency guidance capture, plus concise TMP/JMP summary
+  visibility on trip detail pages.
 - Trips list filters can narrow by approval state, trip status, timing and
   needs-action views, with visible workflow badges, count chips and short safe
   latest-review-note previews.
@@ -74,10 +80,11 @@ Vehicles records, and the initial authentication foundation.
 - Recent Fulcrum sync job status shows safe import counts for records imported,
   records updated, records skipped, missing GPS and filtered sensitive field
   previews.
-- Organisation-scoped audit entries for persisted trip create/update, vehicle
-  booking create/update/overlap rejection, vehicle pre-start submission,
-  vehicle defect submission and status changes, vehicle maintenance record
-  creation, trip approval workflow transitions, Fulcrum connection
+- Organisation-scoped audit entries for persisted trip create/update, trip risk
+  assessment creation/update, vehicle booking create/update/overlap rejection,
+  vehicle pre-start submission, vehicle defect submission and status changes,
+  vehicle maintenance record creation, trip approval workflow transitions,
+  Fulcrum connection
   save/update/disable, Fulcrum connection test success/failure, sync job
   placeholder events and safe Fulcrum import events.
 
@@ -95,6 +102,9 @@ Vehicles records, and the initial authentication foundation.
 - Trip participants are stored as free-text MVP rows; optional linkage to
   existing users remains future work.
 - Trip approval workflow notifications and role-specific approval permissions
+  are still future work.
+- TMP/JMP PDF/DOCX export, live SPOT/GARMIN tracking, notifications,
+  organisation-level Trips capability toggles and a TMP-specific approval step
   are still future work.
 - Maintenance work orders, maintenance scheduling, full maintenance planning
   and decommission workflows are not implemented yet.

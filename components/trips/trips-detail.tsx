@@ -4,12 +4,18 @@ import {
   Download,
   MapPinned,
   Pencil,
+  ShieldCheck,
   Truck,
   Users,
 } from "lucide-react";
 import { transitionTripApprovalAction } from "@/app/trips/actions";
 import type { DemoTrip } from "@/lib/trips-data";
 import { organisationHref } from "@/lib/trips-data";
+import {
+  formatRiskLevel,
+  getActivityRiskDefinitions,
+  getTripTypeDefinition,
+} from "@/lib/trip-risk-assessment";
 
 type TripsDetailProps = {
   approvalResult?: string;
@@ -46,6 +52,16 @@ export function TripsDetail({
             <Pencil aria-hidden="true" size={16} />
             Edit
           </Link>
+          <Link
+            className="inline-flex items-center gap-2 rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/trips/${trip.id}/risk-assessment`,
+              organisationSlug,
+            )}
+          >
+            <ShieldCheck aria-hidden="true" size={16} />
+            TMP/JMP
+          </Link>
           <button
             className="inline-flex items-center gap-2 rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white"
             type="button"
@@ -56,9 +72,17 @@ export function TripsDetail({
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard label="Trip status" value={trip.status} />
         <SummaryCard label="Approval" value={trip.approvalStatus} />
+        <SummaryCard
+          label="TMP/JMP risk"
+          value={
+            trip.riskAssessment
+              ? formatRiskLevel(trip.riskAssessment.finalRiskLevel)
+              : "Not started"
+          }
+        />
         <SummaryCard label="Starts" value={formatDate(trip.startsAt)} />
         <SummaryCard label="Ends" value={formatDate(trip.endsAt)} />
       </section>
@@ -116,6 +140,16 @@ export function TripsDetail({
       </Panel>
 
       <Panel
+        icon={<ShieldCheck aria-hidden="true" size={18} />}
+        title="TMP/JMP risk assessment"
+      >
+        <RiskAssessmentSummary
+          organisationSlug={organisationSlug}
+          trip={trip}
+        />
+      </Panel>
+
+      <Panel
         icon={<CalendarCheck aria-hidden="true" size={18} />}
         title="Approval status"
       >
@@ -125,6 +159,103 @@ export function TripsDetail({
           trip={trip}
         />
       </Panel>
+    </div>
+  );
+}
+
+function RiskAssessmentSummary({
+  organisationSlug,
+  trip,
+}: {
+  organisationSlug: string;
+  trip: DemoTrip;
+}) {
+  const assessment = trip.riskAssessment;
+
+  if (!assessment) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm leading-6 text-charcoal-600">
+          No TMP/JMP risk assessment has been saved for this trip yet.
+        </p>
+        <Link
+          className="inline-flex items-center gap-2 rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white"
+          href={organisationHref(
+            `/trips/${trip.id}/risk-assessment`,
+            organisationSlug,
+          )}
+        >
+          <ShieldCheck aria-hidden="true" size={16} />
+          Start TMP/JMP
+        </Link>
+      </div>
+    );
+  }
+
+  const tripType = getTripTypeDefinition(assessment.tripTypeCode);
+  const activityRisks = getActivityRiskDefinitions(
+    assessment.activityRiskCodes,
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <InlineStat
+          label="Trip type"
+          value={tripType?.code ?? assessment.tripTypeCode}
+        />
+        <InlineStat
+          label="Final risk"
+          value={formatRiskLevel(assessment.finalRiskLevel)}
+        />
+        <InlineStat
+          label="Manager review"
+          value={assessment.readyForManagerReview ? "Ready" : "In progress"}
+        />
+      </div>
+      <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+        <p className="text-sm font-semibold text-charcoal-950">
+          {tripType?.label ?? "Selected TMP/JMP trip type"}
+        </p>
+        <p className="mt-1 text-sm leading-6 text-charcoal-600">
+          {activityRisks.length
+            ? `${activityRisks.length} activity-specific risk overlay${
+                activityRisks.length === 1 ? "" : "s"
+              } selected.`
+            : "No activity-specific risk overlays selected."}
+        </p>
+        <p className="mt-1 text-sm leading-6 text-charcoal-600">
+          {assessment.dailyItinerary.filter((row) => row.checkInRequired)
+            .length}{" "}
+          itinerary check-in requirement
+          {assessment.dailyItinerary.filter((row) => row.checkInRequired)
+            .length === 1
+            ? ""
+            : "s"}{" "}
+          recorded.
+        </p>
+      </div>
+      <Link
+        className="inline-flex items-center gap-2 rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800"
+        href={organisationHref(
+          `/trips/${trip.id}/risk-assessment`,
+          organisationSlug,
+        )}
+      >
+        <ShieldCheck aria-hidden="true" size={16} />
+        Review TMP/JMP
+      </Link>
+    </div>
+  );
+}
+
+function InlineStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase text-charcoal-500">
+        {label}
+      </p>
+      <p className="mt-1 text-base font-semibold text-charcoal-950">{value}</p>
     </div>
   );
 }
