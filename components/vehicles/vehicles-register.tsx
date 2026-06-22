@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ClipboardCheck, Gauge, ListFilter, Plus, Truck } from "lucide-react";
+import {
+  ClipboardCheck,
+  Gauge,
+  ListFilter,
+  Plus,
+  Truck,
+  Wrench,
+} from "lucide-react";
 import {
   getSelectedOrganisation,
   type DashboardOrganisation,
@@ -373,6 +380,15 @@ function VehicleRegisterCard({
             <span className="rounded-md bg-ochre-50 px-2.5 py-1 text-xs font-semibold text-ochre-800">
               Pre-start: {vehicle.preStartStatus}
             </span>
+            {vehicle.openDefectCount ? (
+              <span className="rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-800">
+                Defects: {vehicle.openDefectCount} open
+              </span>
+            ) : (
+              <span className="rounded-md bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-800">
+                Defects: none open
+              </span>
+            )}
           </div>
           <h2 className="mt-3 text-xl font-semibold text-charcoal-950">
             <Link
@@ -416,10 +432,19 @@ function VehicleRegisterCard({
           >
             Pre-start
           </Link>
+          <Link
+            className="rounded-md border border-earth-300 bg-earth-50 px-3 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/defects`,
+              organisationSlug,
+            )}
+          >
+            Report defect
+          </Link>
         </div>
       </div>
 
-      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-5">
+      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-6">
         <Fact
           icon={<Truck aria-hidden="true" size={15} />}
           label="Registration"
@@ -436,6 +461,11 @@ function VehicleRegisterCard({
           icon={<ClipboardCheck aria-hidden="true" size={15} />}
           label="Pre-start"
           value={vehicle.preStartStatus}
+        />
+        <Fact
+          icon={<Wrench aria-hidden="true" size={15} />}
+          label="Defects"
+          value={formatDefectSummary(vehicle)}
         />
       </dl>
     </article>
@@ -561,6 +591,22 @@ function formatVehicleDescription(vehicle: DemoVehicle) {
 
 function formatOdometer(odometerKm: number) {
   return `${new Intl.NumberFormat("en-AU").format(odometerKm)} km`;
+}
+
+function formatDefectSummary(vehicle: DemoVehicle) {
+  if (!vehicle.openDefectCount) {
+    return "None open";
+  }
+
+  const latest = [
+    vehicle.latestDefectStatus,
+    vehicle.latestDefectSeverity,
+    vehicle.latestDefectCategory,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  return latest ? `${vehicle.openDefectCount} open - ${latest}` : "Open";
 }
 
 function getActiveFilterCount(filters: VehicleRegisterFilters) {

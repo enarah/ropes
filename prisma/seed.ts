@@ -22,6 +22,7 @@ async function main() {
   await prisma.tripParticipant.deleteMany();
   await prisma.tripApprovalNote.deleteMany();
   await prisma.vehicleBooking.deleteMany();
+  await prisma.vehicleDefect.deleteMany();
   await prisma.vehiclePreStartChecklist.deleteMany();
   await prisma.trip.deleteMany();
   await prisma.vehicle.deleteMany();
@@ -215,6 +216,21 @@ async function main() {
         isDemo: true,
       },
     ],
+  });
+
+  await prisma.vehicleDefect.create({
+    data: {
+      organisationId: partner.id,
+      vehicleId: vehicles[2].id,
+      reportedByUserId: users.ranger.id,
+      category: "ELECTRICAL",
+      severity: "HIGH",
+      status: "OPEN",
+      reportedAt: new Date("2026-08-04T01:30:00.000Z"),
+      description:
+        "Fake demo defect: lights need workshop review before remote travel.",
+      isDemo: true,
+    },
   });
 
   await prisma.tripParticipant.createMany({
