@@ -2,7 +2,7 @@
 
 APP&B reporting is planned as an optional Reporting / Grants capability. It must be enabled per organisation and must not become a global default.
 
-This planning foundation covers Annual Project Plan and Budget templates used by major funders such as National Indigenous Australians Agency (NIAA) and Department of Climate Change, Energy, the Environment and Water (DCCEEW). It does not parse, store or generate XLSX workbooks yet.
+This foundation covers Annual Project Plan and Budget templates used by major funders such as National Indigenous Australians Agency (NIAA) and Department of Climate Change, Energy, the Environment and Water (DCCEEW). It now includes a lightweight persisted Grants and APP&B report structure, but it does not parse, store or generate XLSX workbooks yet.
 
 ## Product Shape
 
@@ -16,7 +16,7 @@ ROPES must support more than one APP&B workflow per organisation. The future mod
 - annual planning, mid-year progress reporting and annual acquittal/final reporting cycles
 - repeated workbooks for the same organisation when grants, funders or program types differ
 
-APP&B reporting should sit across Reporting and future Grants. Reporting owns workbook/profile/export surfaces; Grants should eventually own funder, program, funding-period, budget, milestone, output and acquittal data.
+APP&B reporting should sit across Reporting and Grants. Reporting owns workbook/profile/export surfaces. Grants now owns the first funder, program and reporting-period anchors; budgets, milestones, outputs and acquittals remain future work.
 
 ## Source Templates
 
@@ -38,7 +38,7 @@ Relevant future capability keys:
 - `grants.appb`
 - `grants.progressReporting`
 
-The keys are defined in the central capability registry, but they are not part of the default demo capability set. APP&B should stay disabled unless an organisation explicitly has the capability enabled.
+The keys are defined in the central capability registry, but they are not part of the default demo capability set. APP&B should stay disabled unless an organisation explicitly has the capability enabled. The seeded demo partner organisation explicitly enables them so reviewers can inspect the foundation.
 
 Capability checks remain separate from tenant guards:
 
@@ -50,6 +50,9 @@ Capability checks remain separate from tenant guards:
 - `Organisation`: available for tenant identity and report scoping.
 - `Project`: partial fit for project names, codes, dates and funding stream placeholders.
 - `RangerProgram`: partial fit for program names, descriptions and regions.
+- `Grant`: persisted fit for organisation-scoped funder, program type, funding agreement reference, status and funding period.
+- `GrantReportingPeriod`: persisted fit for grant-scoped annual planning, mid-year progress and annual acquittal/reporting windows.
+- `AppbReport`: persisted fit for repeated report instances, template profile/version placeholders and safe missing-data summaries.
 - `Trip`: partial fit for activity timing, destination and purpose.
 - `TripParticipant`: partial fit for people counts and activity participation context.
 - `TripItineraryItem`: partial fit for scheduled activity narratives.
@@ -59,25 +62,28 @@ Capability checks remain separate from tenant guards:
 - `AuditLog`: available for future safe generation/export audit events.
 - `OrganisationCapability`: available for optional feature enablement.
 
-Missing future data includes grant agreements, funders, program types, funding periods, budgets, milestones, outputs, acquittals, report-specific manual fields and template mapping records.
+Missing future data includes budgets, milestones, outputs, acquittals, detailed report-specific manual fields and template mapping records.
 
 ## Future Data Concepts
 
-Likely future concepts:
+The first persisted concepts are:
 
 - `Grant`
+- `GrantReportingPeriod`
+- `AppbReport`
+
+Likely future concepts:
+
 - `GrantFunder`
 - `GrantProgramType`
-- `GrantReportingPeriod`
 - `FunderTemplateProfile`
 - `FunderTemplateVersion`
-- `AppbReport`
 - `AppbReportSection`
 - `AppbReportField`
 - `AppbTemplateMapping`
 - `AppbGeneratedWorkbook`
 
-These are planning concepts only. This PR intentionally does not add schema for them.
+This PR intentionally does not add workbook sections, fields, mappings, generated workbook metadata, budget/acquittal records or finance logic.
 
 ## Future Workflow
 

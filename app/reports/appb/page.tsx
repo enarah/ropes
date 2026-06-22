@@ -10,6 +10,7 @@ import {
   appbSourceTemplates,
   appbTemplateProfiles,
 } from "@/lib/appb-reporting";
+import { getGrantsAppbOverview } from "@/lib/grants-appb-data";
 
 type AppbReportingPageProps = {
   searchParams?: Promise<{
@@ -45,6 +46,34 @@ export default async function AppbReportingPage({
     );
   }
 
+  if (!organisationHasCapability(access.organisation.capabilityKeys, "grants")) {
+    return (
+      <DisabledFeatureState
+        capability="grants"
+        organisationName={access.organisation.name}
+      />
+    );
+  }
+
+  if (!organisationHasCapability(access.organisation.capabilityKeys, "grants.appb")) {
+    return (
+      <DisabledFeatureState
+        capability="grants.appb"
+        organisationName={access.organisation.name}
+      />
+    );
+  }
+
+  const overview = await getGrantsAppbOverview(access.organisation.slug);
+  const reportingPeriodCount = overview.grants.reduce(
+    (count, grant) => count + grant.reportingPeriods.length,
+    0,
+  );
+  const appbReportCount = overview.grants.reduce(
+    (count, grant) => count + grant.appbReportCount,
+    0,
+  );
+
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 border-b border-earth-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -69,11 +98,109 @@ export default async function AppbReportingPage({
         </Link>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
+        <SummaryCard label="Grants" value={String(overview.grants.length)} />
+        <SummaryCard label="Reporting periods" value={String(reportingPeriodCount)} />
+        <SummaryCard label="APP&B reports" value={String(appbReportCount)} />
         <SummaryCard label="Template profiles" value={String(appbTemplateProfiles.length)} />
-        <SummaryCard label="Source examples" value={String(appbSourceTemplates.length)} />
-        <SummaryCard label="Future concepts" value={String(appbFutureConcepts.length)} />
       </section>
+
+      <Panel title="Grant APP&B records">
+        {!overview.isDatabaseConfigured ? (
+          <EmptyState message="Configure the database and enable APP&B capabilities to show persisted grant and report records." />
+        ) : !overview.isDatabaseAvailable ? (
+          <EmptyState message="ROPES could not confirm access to persisted APP&B records for this organisation." />
+        ) : overview.grants.length === 0 ? (
+          <EmptyState message="No grant records have been added for this organisation yet." />
+        ) : (
+          <div className="space-y-4">
+            {overview.grants.map((grant) => (
+              <article
+                className="rounded-md border border-earth-200 bg-earth-50 p-4"
+                key={grant.id}
+              >
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-charcoal-950">
+                      {grant.title}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold uppercase text-ochre-700">
+                      {grant.funder} / {grant.programType} / {grant.status}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                      {grant.fundingPeriod}
+                      {grant.fundingAgreementNumber
+                        ? ` / ${grant.fundingAgreementNumber}`
+                        : ""}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-charcoal-600">
+                      {[grant.project, grant.rangerProgram].filter(Boolean).join(" / ")}
+                    </p>
+                  </div>
+                  <span className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-charcoal-700">
+                    {grant.appbReportCount} APP&B reports
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {grant.reportingPeriods.map((period) => (
+                    <div
+                      className="rounded-md border border-earth-200 bg-white p-4"
+                      key={period.id}
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-charcoal-950">
+                            {period.label}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold uppercase text-charcoal-600">
+                            {period.cycle} / {period.status}
+                          </p>
+                        </div>
+                        {period.dueOn ? (
+                          <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                            Due {period.dueOn}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                        {period.dateRange}
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {period.appbReports.length === 0 ? (
+                          <p className="text-sm leading-6 text-charcoal-500">
+                            No APP&B report instances for this period yet.
+                          </p>
+                        ) : (
+                          period.appbReports.map((report) => (
+                            <div
+                              className="rounded-md bg-earth-50 p-3"
+                              key={report.id}
+                            >
+                              <p className="text-sm font-semibold text-charcoal-950">
+                                {report.status}
+                              </p>
+                              <p className="mt-1 text-xs font-semibold uppercase text-charcoal-600">
+                                {report.templateProfileId} /{" "}
+                                {report.templateVersionLabel}
+                              </p>
+                              {report.missingDataSummary ? (
+                                <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                                  {report.missingDataSummary}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <Panel title="Source template references">
         <div className="grid gap-3">
@@ -178,6 +305,14 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
       <p className="text-sm font-medium text-charcoal-600">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-charcoal-950">{value}</p>
     </article>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-earth-300 bg-earth-50 p-4">
+      <p className="text-sm leading-6 text-charcoal-600">{message}</p>
+    </div>
   );
 }
 

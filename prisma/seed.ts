@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   defaultDemoCapabilityKeys,
   getModuleKeyForCapability,
+  type OrganisationCapabilityKey,
 } from "../lib/capability-registry";
 
 const connectionString = process.env["DATABASE_URL"];
@@ -21,6 +22,9 @@ async function main() {
   await prisma.fulcrumApp.deleteMany();
   await prisma.fulcrumSyncJob.deleteMany();
   await prisma.fulcrumConnection.deleteMany();
+  await prisma.appbReport.deleteMany();
+  await prisma.grantReportingPeriod.deleteMany();
+  await prisma.grant.deleteMany();
   await prisma.tripRiskAssessment.deleteMany();
   await prisma.tripItineraryItem.deleteMany();
   await prisma.tripVehicleAllocation.deleteMany();
@@ -71,6 +75,24 @@ async function main() {
         organisationId: organisation.id,
       })),
     ),
+  });
+
+  const demoAppbCapabilityKeys = [
+    "grants",
+    "grants.management",
+    "grants.appb",
+    "grants.progressReporting",
+    "reporting.appb",
+    "reporting.funderTemplates",
+  ] as const satisfies readonly OrganisationCapabilityKey[];
+
+  await prisma.organisationCapability.createMany({
+    data: demoAppbCapabilityKeys.map((key) => ({
+      isDemo: true,
+      key,
+      moduleKey: getModuleKeyForCapability(key),
+      organisationId: partner.id,
+    })),
   });
 
   await prisma.membership.createMany({
@@ -132,6 +154,164 @@ async function main() {
       region: "Demo North Region",
       isDemo: true,
     },
+  });
+
+  const irpGrant = await prisma.grant.create({
+    data: {
+      organisationId: partner.id,
+      projectId: project.id,
+      rangerProgramId: rangerProgram.id,
+      funder: "NIAA",
+      programType: "IRP",
+      title: "Demo Indigenous Ranger Program 2025-26",
+      fundingAgreementNumber: "DEMO-IRP-2025-26",
+      fundingPeriodStart: new Date("2025-07-01T00:00:00.000Z"),
+      fundingPeriodEnd: new Date("2026-06-30T00:00:00.000Z"),
+      status: "ACTIVE",
+      isDemo: true,
+    },
+  });
+
+  const ipaGrant = await prisma.grant.create({
+    data: {
+      organisationId: partner.id,
+      projectId: project.id,
+      rangerProgramId: rangerProgram.id,
+      funder: "DCCEEW",
+      programType: "IPA",
+      title: "Demo IPA Country Planning Support 2025-27",
+      fundingAgreementNumber: "DEMO-IPA-2025-27",
+      fundingPeriodStart: new Date("2025-07-01T00:00:00.000Z"),
+      fundingPeriodEnd: new Date("2027-06-30T00:00:00.000Z"),
+      status: "ACTIVE",
+      isDemo: true,
+    },
+  });
+
+  const irpPlanningPeriod = await prisma.grantReportingPeriod.create({
+    data: {
+      organisationId: partner.id,
+      grantId: irpGrant.id,
+      label: "2025-26 annual planning",
+      cycle: "ANNUAL_PLANNING",
+      startsOn: new Date("2025-07-01T00:00:00.000Z"),
+      endsOn: new Date("2026-06-30T00:00:00.000Z"),
+      dueOn: new Date("2025-06-20T00:00:00.000Z"),
+      status: "ACTIVE",
+      isDemo: true,
+    },
+  });
+
+  const irpMidYearPeriod = await prisma.grantReportingPeriod.create({
+    data: {
+      organisationId: partner.id,
+      grantId: irpGrant.id,
+      label: "2025-26 mid-year progress",
+      cycle: "MID_YEAR_PROGRESS",
+      startsOn: new Date("2025-07-01T00:00:00.000Z"),
+      endsOn: new Date("2025-12-31T00:00:00.000Z"),
+      dueOn: new Date("2026-01-31T00:00:00.000Z"),
+      status: "DRAFT",
+      isDemo: true,
+    },
+  });
+
+  const irpAcquittalPeriod = await prisma.grantReportingPeriod.create({
+    data: {
+      organisationId: partner.id,
+      grantId: irpGrant.id,
+      label: "2025-26 annual acquittal",
+      cycle: "ANNUAL_ACQUITTAL",
+      startsOn: new Date("2025-07-01T00:00:00.000Z"),
+      endsOn: new Date("2026-06-30T00:00:00.000Z"),
+      dueOn: new Date("2026-07-31T00:00:00.000Z"),
+      status: "DRAFT",
+      isDemo: true,
+    },
+  });
+
+  const ipaPlanningPeriod = await prisma.grantReportingPeriod.create({
+    data: {
+      organisationId: partner.id,
+      grantId: ipaGrant.id,
+      label: "2025-26 annual planning",
+      cycle: "ANNUAL_PLANNING",
+      startsOn: new Date("2025-07-01T00:00:00.000Z"),
+      endsOn: new Date("2026-06-30T00:00:00.000Z"),
+      dueOn: new Date("2025-06-30T00:00:00.000Z"),
+      status: "ACTIVE",
+      isDemo: true,
+    },
+  });
+
+  await prisma.appbReport.createMany({
+    data: [
+      {
+        organisationId: partner.id,
+        grantId: irpGrant.id,
+        reportingPeriodId: irpPlanningPeriod.id,
+        templateProfileId: "niaa-irp-ipa-mdbirr-appb",
+        templateVersionLabel: "2025-26 annual planning template",
+        status: "DRAFT",
+        manualFieldSummary:
+          "Fake demo summary: budget and milestone fields need manual review.",
+        missingDataSummary:
+          "Fake demo missing data: budget lines, outputs and partner approvals.",
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        grantId: irpGrant.id,
+        reportingPeriodId: irpPlanningPeriod.id,
+        templateProfileId: "niaa-irp-ipa-mdbirr-appb",
+        templateVersionLabel: "2025-26 annual planning review copy",
+        status: "IN_REVIEW",
+        manualFieldSummary:
+          "Fake demo summary: coordinator review copy for the same grant period.",
+        missingDataSummary:
+          "Fake demo missing data: final sign-off and finance cross-check.",
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        grantId: irpGrant.id,
+        reportingPeriodId: irpMidYearPeriod.id,
+        templateProfileId: "niaa-irp-ipa-mdbirr-appb",
+        templateVersionLabel: "2025-26 mid-year template",
+        status: "DRAFT",
+        manualFieldSummary:
+          "Fake demo summary: activity evidence can later come from trips and Fulcrum.",
+        missingDataSummary:
+          "Fake demo missing data: output counts and financial progress.",
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        grantId: irpGrant.id,
+        reportingPeriodId: irpAcquittalPeriod.id,
+        templateProfileId: "niaa-irp-ipa-mdbirr-appb",
+        templateVersionLabel: "2025-26 annual report template",
+        status: "DRAFT",
+        manualFieldSummary:
+          "Fake demo summary: final reporting instance exists without workbook export.",
+        missingDataSummary:
+          "Fake demo missing data: acquittal totals and final outcome narrative.",
+        isDemo: true,
+      },
+      {
+        organisationId: partner.id,
+        grantId: ipaGrant.id,
+        reportingPeriodId: ipaPlanningPeriod.id,
+        templateProfileId: "dcceew-appb-placeholder",
+        templateVersionLabel: "2025-26 annual planning placeholder",
+        status: "DRAFT",
+        manualFieldSummary:
+          "Fake demo summary: future DCCEEW profile mapping placeholder.",
+        missingDataSummary:
+          "Fake demo missing data: template profile and activity outputs.",
+        isDemo: true,
+      },
+    ],
   });
 
   const trip = await prisma.trip.create({

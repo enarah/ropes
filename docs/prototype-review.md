@@ -38,6 +38,9 @@ Vehicles records, and the initial authentication foundation.
   keys, a gated Reporting placeholder page, source template references and
   typed placeholder profile/data-fit definitions for future NIAA/DCCEEW workbook
   mapping.
+- Grants and APP&B data model foundation adds organisation-scoped `Grant`,
+  `GrantReportingPeriod` and `AppbReport` records, seeded multi-grant examples
+  and a capability-gated read-only APP&B overview.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
@@ -125,7 +128,7 @@ Vehicles records, and the initial authentication foundation.
   integrations, AI provider execution and AI credential storage are still
   future work.
 - APP&B workbook parsing/export, template upload storage, budget/acquittal
-  models and full Grants implementation are still future work.
+  finance logic and full Grants workflows are still future work.
 - Shared vehicles across organisations remain intentionally out of scope.
 - Maintenance work orders, maintenance scheduling, full maintenance planning
   and decommission workflows are not implemented yet.
