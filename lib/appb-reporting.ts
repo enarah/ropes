@@ -3,7 +3,7 @@ export type AppbReportingCycle =
   | "mid-year-progress"
   | "annual-acquittal";
 
-export type AppbFunder = "NIAA" | "DCCEEW";
+export type AppbFunder = "NIAA" | "DCCEEW" | "OTHER";
 export type AppbProgramType = "IRP" | "IPA" | "MDBIRR" | "OTHER";
 
 export type AppbSourceTemplate = {
@@ -28,7 +28,7 @@ export type AppbFutureConcept = {
 
 export type AppbRopesDataSource = {
   appbUse: string;
-  currentStatus: "available" | "partial" | "future";
+  currentStatus: "available" | "persisted" | "partial" | "future";
   model: string;
 };
 
@@ -181,8 +181,9 @@ export const appbRopesDataSources: AppbRopesDataSource[] = [
     model: "OrganisationCapability",
   },
   {
-    appbUse: "Grant budgets, funders, program types, outputs and acquittals.",
-    currentStatus: "future",
-    model: "Future Grants module",
+    appbUse:
+      "Organisation-scoped funder, program type, funding period and report window anchors.",
+    currentStatus: "persisted",
+    model: "Grant / GrantReportingPeriod / AppbReport",
   },
 ];

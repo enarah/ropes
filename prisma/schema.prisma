@@ -110,6 +110,46 @@ enum FulcrumSyncJobStatus {
   CANCELLED
 }
 
+enum GrantFunder {
+  NIAA
+  DCCEEW
+  OTHER
+}
+
+enum GrantProgramType {
+  IRP
+  IPA
+  MDBIRR
+  OTHER
+}
+
+enum GrantStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum GrantReportingCycle {
+  ANNUAL_PLANNING
+  MID_YEAR_PROGRESS
+  ANNUAL_ACQUITTAL
+}
+
+enum GrantReportingPeriodStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum AppbReportStatus {
+  DRAFT
+  IN_REVIEW
+  READY
+  EXPORTED
+}
+
 enum AuditAction {
   CREATED
   UPDATED
@@ -123,33 +163,36 @@ enum AuditAction {
 }
 
 model Organisation {
-  id                 String              @id @default(cuid())
-  name               String
-  slug               String              @unique
-  type               OrganisationType    @default(PARTNER)
-  isDemo             Boolean             @default(false)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  capabilities       OrganisationCapability[]
-  memberships        Membership[]
-  projects           Project[]
-  rangerPrograms     RangerProgram[]
-  trips              Trip[]
-  tripRiskAssessments TripRiskAssessment[]
-  tripApprovalNotes  TripApprovalNote[]
-  tripParticipants   TripParticipant[]
-  tripVehicleAllocations TripVehicleAllocation[]
-  tripItineraryItems TripItineraryItem[]
-  vehicles           Vehicle[]
-  vehicleBookings    VehicleBooking[]
-  vehicleDefects     VehicleDefect[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  slug                      String                     @unique
+  type                      OrganisationType           @default(PARTNER)
+  isDemo                    Boolean                    @default(false)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  capabilities              OrganisationCapability[]
+  memberships               Membership[]
+  projects                  Project[]
+  rangerPrograms            RangerProgram[]
+  trips                     Trip[]
+  tripRiskAssessments       TripRiskAssessment[]
+  tripApprovalNotes         TripApprovalNote[]
+  tripParticipants          TripParticipant[]
+  tripVehicleAllocations    TripVehicleAllocation[]
+  tripItineraryItems        TripItineraryItem[]
+  vehicles                  Vehicle[]
+  vehicleBookings           VehicleBooking[]
+  vehicleDefects            VehicleDefect[]
   vehicleMaintenanceRecords VehicleMaintenanceRecord[]
   vehiclePreStartChecklists VehiclePreStartChecklist[]
-  fulcrumConnections FulcrumConnection[]
-  fulcrumSyncJobs     FulcrumSyncJob[]
-  fulcrumApps        FulcrumApp[]
-  fulcrumRecords     FulcrumRecord[]
-  auditLogs          AuditLog[]
+  fulcrumConnections        FulcrumConnection[]
+  fulcrumSyncJobs           FulcrumSyncJob[]
+  fulcrumApps               FulcrumApp[]
+  fulcrumRecords            FulcrumRecord[]
+  grants                    Grant[]
+  grantReportingPeriods     GrantReportingPeriod[]
+  appbReports               AppbReport[]
+  auditLogs                 AuditLog[]
 }
 
 model OrganisationCapability {
@@ -169,24 +212,24 @@ model OrganisationCapability {
 }
 
 model User {
-  id              String       @id @default(cuid())
-  name            String
-  email           String       @unique
-  isDemo          Boolean      @default(false)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  memberships     Membership[]
-  auditLogs       AuditLog[]
-  tripsLed        Trip[]       @relation("TripLead")
-  tripApprovalNotes TripApprovalNote[]
-  tripParticipants TripParticipant[]
-  tripRiskAssessmentsCreated TripRiskAssessment[] @relation("TripRiskAssessmentCreatedBy")
-  tripRiskAssessmentsUpdated TripRiskAssessment[] @relation("TripRiskAssessmentUpdatedBy")
-  vehicleBookings VehicleBooking[]
-  vehicleDefects  VehicleDefect[]
-  vehicleMaintenanceRecords VehicleMaintenanceRecord[]
-  vehiclePreStartChecklists VehiclePreStartChecklist[]
-  fulcrumSyncJobs FulcrumSyncJob[]
+  id                         String                     @id @default(cuid())
+  name                       String
+  email                      String                     @unique
+  isDemo                     Boolean                    @default(false)
+  createdAt                  DateTime                   @default(now())
+  updatedAt                  DateTime                   @updatedAt
+  memberships                Membership[]
+  auditLogs                  AuditLog[]
+  tripsLed                   Trip[]                     @relation("TripLead")
+  tripApprovalNotes          TripApprovalNote[]
+  tripParticipants           TripParticipant[]
+  tripRiskAssessmentsCreated TripRiskAssessment[]       @relation("TripRiskAssessmentCreatedBy")
+  tripRiskAssessmentsUpdated TripRiskAssessment[]       @relation("TripRiskAssessmentUpdatedBy")
+  vehicleBookings            VehicleBooking[]
+  vehicleDefects             VehicleDefect[]
+  vehicleMaintenanceRecords  VehicleMaintenanceRecord[]
+  vehiclePreStartChecklists  VehiclePreStartChecklist[]
+  fulcrumSyncJobs            FulcrumSyncJob[]
 }
 
 model Role {
@@ -232,6 +275,7 @@ model Project {
   trips          Trip[]
   fulcrumApps    FulcrumApp[]
   fulcrumRecords FulcrumRecord[]
+  grants         Grant[]
 
   @@unique([organisationId, code])
   @@index([organisationId])
@@ -250,38 +294,39 @@ model RangerProgram {
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   trips          Trip[]
+  grants         Grant[]
 
   @@index([organisationId])
   @@index([projectId])
 }
 
 model Trip {
-  id              String         @id @default(cuid())
-  organisationId  String
-  projectId       String?
-  rangerProgramId String?
-  leadUserId      String?
-  title           String
-  purpose         String
-  status          TripStatus     @default(DRAFT)
-  approvalStatus  TripApprovalState @default(DRAFT)
-  destination     String
-  startsAt        DateTime
-  endsAt          DateTime
-  isDemo          Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  organisation    Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  project         Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  rangerProgram   RangerProgram? @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
-  leadUser        User?          @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
-  approvalNotes   TripApprovalNote[]
-  riskAssessment  TripRiskAssessment?
-  participants    TripParticipant[]
+  id                 String                  @id @default(cuid())
+  organisationId     String
+  projectId          String?
+  rangerProgramId    String?
+  leadUserId         String?
+  title              String
+  purpose            String
+  status             TripStatus              @default(DRAFT)
+  approvalStatus     TripApprovalState       @default(DRAFT)
+  destination        String
+  startsAt           DateTime
+  endsAt             DateTime
+  isDemo             Boolean                 @default(false)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  organisation       Organisation            @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  project            Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rangerProgram      RangerProgram?          @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
+  leadUser           User?                   @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
+  approvalNotes      TripApprovalNote[]
+  riskAssessment     TripRiskAssessment?
+  participants       TripParticipant[]
   vehicleAllocations TripVehicleAllocation[]
-  itineraryItems  TripItineraryItem[]
-  vehicleBookings VehicleBooking[]
-  fulcrumRecords  FulcrumRecord[]
+  itineraryItems     TripItineraryItem[]
+  vehicleBookings    VehicleBooking[]
+  fulcrumRecords     FulcrumRecord[]
 
   @@index([organisationId])
   @@index([projectId])
@@ -291,40 +336,40 @@ model Trip {
 }
 
 model TripRiskAssessment {
-  id                   String        @id @default(cuid())
-  organisationId       String
-  tripId               String        @unique
-  createdByUserId      String?
-  updatedByUserId      String?
-  tripTypeCode         String
-  activityRiskCodes    String[]      @default([])
-  baseRiskLevel        TripRiskLevel
-  finalRiskLevel       TripRiskLevel
-  tripSpecificControls String?
-  leadDrivers          String?
-  spotGarminDetails    String?
-  satellitePhone       String?
-  mobilePhone          String?
-  epirbDetails         String?
-  firstAidDetails      String?
-  defibDetails         String?
-  dpfDetails           String?
-  otherEquipment       String?
-  rangers              String?
-  partners             String?
-  medicalAllergyNotes  String?
-  relevantContacts     String?
-  dailyItinerary       Json?
-  emergencyContacts    String?
-  escalationNotes      String?
-  readyForManagerReview Boolean      @default(false)
-  isDemo               Boolean       @default(false)
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  organisation         Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  trip                 Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  createdBy            User?         @relation("TripRiskAssessmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedBy            User?         @relation("TripRiskAssessmentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  id                    String        @id @default(cuid())
+  organisationId        String
+  tripId                String        @unique
+  createdByUserId       String?
+  updatedByUserId       String?
+  tripTypeCode          String
+  activityRiskCodes     String[]      @default([])
+  baseRiskLevel         TripRiskLevel
+  finalRiskLevel        TripRiskLevel
+  tripSpecificControls  String?
+  leadDrivers           String?
+  spotGarminDetails     String?
+  satellitePhone        String?
+  mobilePhone           String?
+  epirbDetails          String?
+  firstAidDetails       String?
+  defibDetails          String?
+  dpfDetails            String?
+  otherEquipment        String?
+  rangers               String?
+  partners              String?
+  medicalAllergyNotes   String?
+  relevantContacts      String?
+  dailyItinerary        Json?
+  emergencyContacts     String?
+  escalationNotes       String?
+  readyForManagerReview Boolean       @default(false)
+  isDemo                Boolean       @default(false)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  organisation          Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trip                  Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdBy             User?         @relation("TripRiskAssessmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy             User?         @relation("TripRiskAssessmentUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@index([organisationId])
   @@index([tripId])
@@ -334,18 +379,18 @@ model TripRiskAssessment {
 }
 
 model TripApprovalNote {
-  id                 String            @id @default(cuid())
+  id                 String             @id @default(cuid())
   organisationId     String
   tripId             String
   actorUserId        String?
   fromApprovalStatus TripApprovalState?
   toApprovalStatus   TripApprovalState
   note               String
-  isDemo             Boolean           @default(false)
-  createdAt          DateTime          @default(now())
-  organisation       Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  trip               Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  actor              User?             @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  isDemo             Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  organisation       Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trip               Trip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actor              User?              @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([organisationId])
   @@index([tripId])
@@ -420,50 +465,50 @@ model TripItineraryItem {
 }
 
 model Vehicle {
-  id              String           @id @default(cuid())
-  organisationId  String
-  name            String
-  registration    String
-  make            String
-  model           String
-  year            Int?
-  status          VehicleStatus    @default(AVAILABLE)
-  odometerKm      Int?
-  isDemo          Boolean          @default(false)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  id                     String                     @id @default(cuid())
+  organisationId         String
+  name                   String
+  registration           String
+  make                   String
+  model                  String
+  year                   Int?
+  status                 VehicleStatus              @default(AVAILABLE)
+  odometerKm             Int?
+  isDemo                 Boolean                    @default(false)
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  organisation           Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   tripVehicleAllocations TripVehicleAllocation[]
-  vehicleBookings VehicleBooking[]
-  vehicleDefects  VehicleDefect[]
-  maintenanceRecords VehicleMaintenanceRecord[]
-  preStartChecklists VehiclePreStartChecklist[]
+  vehicleBookings        VehicleBooking[]
+  vehicleDefects         VehicleDefect[]
+  maintenanceRecords     VehicleMaintenanceRecord[]
+  preStartChecklists     VehiclePreStartChecklist[]
 
   @@unique([organisationId, registration])
   @@index([organisationId])
 }
 
 model VehiclePreStartChecklist {
-  id                  String       @id @default(cuid())
-  organisationId      String
-  vehicleId           String
-  submittedByUserId   String?
-  odometerKm          Int
-  tyresOk             Boolean
-  lightsOk            Boolean
-  fluidsOk            Boolean
-  communicationsOk    Boolean
-  recoveryGearOk      Boolean
-  generalConditionOk  Boolean
-  issueNotes          String?
-  isDemo              Boolean      @default(false)
-  checkedAt           DateTime     @default(now())
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  organisation        Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  vehicle             Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  submittedBy         User?        @relation(fields: [submittedByUserId], references: [id], onDelete: SetNull)
-  vehicleDefects      VehicleDefect[]
+  id                 String          @id @default(cuid())
+  organisationId     String
+  vehicleId          String
+  submittedByUserId  String?
+  odometerKm         Int
+  tyresOk            Boolean
+  lightsOk           Boolean
+  fluidsOk           Boolean
+  communicationsOk   Boolean
+  recoveryGearOk     Boolean
+  generalConditionOk Boolean
+  issueNotes         String?
+  isDemo             Boolean         @default(false)
+  checkedAt          DateTime        @default(now())
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  organisation       Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicle            Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  submittedBy        User?           @relation(fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  vehicleDefects     VehicleDefect[]
 
   @@index([organisationId])
   @@index([vehicleId])
@@ -472,24 +517,24 @@ model VehiclePreStartChecklist {
 }
 
 model VehicleDefect {
-  id                    String                @id @default(cuid())
-  organisationId        String
-  vehicleId             String
-  preStartChecklistId   String?
-  reportedByUserId      String?
-  category              VehicleDefectCategory
-  severity              VehicleDefectSeverity
-  description           String
-  status                VehicleDefectStatus   @default(OPEN)
-  reportedAt            DateTime              @default(now())
-  isDemo                Boolean               @default(false)
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  organisation          Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  vehicle               Vehicle               @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  preStartChecklist     VehiclePreStartChecklist? @relation(fields: [preStartChecklistId], references: [id], onDelete: SetNull)
-  reportedBy            User?                 @relation(fields: [reportedByUserId], references: [id], onDelete: SetNull)
-  maintenanceRecords    VehicleMaintenanceRecord[]
+  id                  String                     @id @default(cuid())
+  organisationId      String
+  vehicleId           String
+  preStartChecklistId String?
+  reportedByUserId    String?
+  category            VehicleDefectCategory
+  severity            VehicleDefectSeverity
+  description         String
+  status              VehicleDefectStatus        @default(OPEN)
+  reportedAt          DateTime                   @default(now())
+  isDemo              Boolean                    @default(false)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  organisation        Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicle             Vehicle                    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  preStartChecklist   VehiclePreStartChecklist?  @relation(fields: [preStartChecklistId], references: [id], onDelete: SetNull)
+  reportedBy          User?                      @relation(fields: [reportedByUserId], references: [id], onDelete: SetNull)
+  maintenanceRecords  VehicleMaintenanceRecord[]
 
   @@index([organisationId])
   @@index([vehicleId])
@@ -500,26 +545,26 @@ model VehicleDefect {
 }
 
 model VehicleMaintenanceRecord {
-  id             String                   @id @default(cuid())
-  organisationId String
-  vehicleId      String
-  defectId       String?
+  id               String                   @id @default(cuid())
+  organisationId   String
+  vehicleId        String
+  defectId         String?
   recordedByUserId String?
-  type           VehicleMaintenanceType
-  status         VehicleMaintenanceStatus @default(COMPLETED)
-  provider       String?
-  maintenanceDate DateTime
-  odometerKm     Int?
-  costCents      Int?
-  notes          String?
-  nextDueDate    DateTime?
-  isDemo         Boolean                  @default(false)
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-  organisation   Organisation             @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  vehicle        Vehicle                  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  defect         VehicleDefect?           @relation(fields: [defectId], references: [id], onDelete: SetNull)
-  recordedBy     User?                    @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+  type             VehicleMaintenanceType
+  status           VehicleMaintenanceStatus @default(COMPLETED)
+  provider         String?
+  maintenanceDate  DateTime
+  odometerKm       Int?
+  costCents        Int?
+  notes            String?
+  nextDueDate      DateTime?
+  isDemo           Boolean                  @default(false)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  organisation     Organisation             @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicle          Vehicle                  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  defect           VehicleDefect?           @relation(fields: [defectId], references: [id], onDelete: SetNull)
+  recordedBy       User?                    @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
 
   @@index([organisationId])
   @@index([vehicleId])
@@ -571,7 +616,7 @@ model FulcrumConnection {
   organisation      Organisation            @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   fulcrumApps       FulcrumApp[]
   fulcrumRecords    FulcrumRecord[]
-  fulcrumSyncJobs    FulcrumSyncJob[]
+  fulcrumSyncJobs   FulcrumSyncJob[]
 
   @@index([organisationId])
 }
@@ -656,6 +701,85 @@ model FulcrumRecord {
   @@index([fulcrumAppId])
   @@index([projectId])
   @@index([tripId])
+}
+
+model Grant {
+  id                     String                 @id @default(cuid())
+  organisationId         String
+  projectId              String?
+  rangerProgramId        String?
+  funder                 GrantFunder
+  programType            GrantProgramType
+  title                  String
+  fundingAgreementNumber String?
+  fundingPeriodStart     DateTime
+  fundingPeriodEnd       DateTime
+  status                 GrantStatus            @default(ACTIVE)
+  isDemo                 Boolean                @default(false)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  organisation           Organisation           @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  project                Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rangerProgram          RangerProgram?         @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
+  reportingPeriods       GrantReportingPeriod[]
+  appbReports            AppbReport[]
+
+  @@index([organisationId])
+  @@index([projectId])
+  @@index([rangerProgramId])
+  @@index([funder])
+  @@index([programType])
+  @@index([status])
+  @@index([organisationId, fundingPeriodStart, fundingPeriodEnd])
+}
+
+model GrantReportingPeriod {
+  id             String                     @id @default(cuid())
+  organisationId String
+  grantId        String
+  label          String
+  cycle          GrantReportingCycle
+  startsOn       DateTime
+  endsOn         DateTime
+  dueOn          DateTime?
+  status         GrantReportingPeriodStatus @default(DRAFT)
+  isDemo         Boolean                    @default(false)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  organisation   Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant          Grant                      @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  appbReports    AppbReport[]
+
+  @@index([organisationId])
+  @@index([grantId])
+  @@index([cycle])
+  @@index([status])
+  @@index([organisationId, grantId, startsOn])
+}
+
+model AppbReport {
+  id                   String               @id @default(cuid())
+  organisationId       String
+  grantId              String
+  reportingPeriodId    String
+  templateProfileId    String
+  templateVersionLabel String
+  status               AppbReportStatus     @default(DRAFT)
+  manualFieldSummary   String?
+  missingDataSummary   String?
+  exportedAt           DateTime?
+  isDemo               Boolean              @default(false)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  organisation         Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant                Grant                @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  reportingPeriod      GrantReportingPeriod @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
+  @@index([grantId])
+  @@index([reportingPeriodId])
+  @@index([status])
+  @@index([organisationId, grantId, reportingPeriodId])
 }
 
 model AuditLog {
