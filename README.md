@@ -274,6 +274,10 @@ The current app includes:
 - AI provider abstraction placeholder for future no-provider, local LLM and
   frontier/cloud provider modes, with no provider calls, API keys or stored
   credentials
+- APP&B reporting planning foundation with optional `reporting.appb`,
+  `reporting.funderTemplates`, `grants.appb` and `grants.progressReporting`
+  capability keys, a gated Reporting placeholder page and code-level template
+  profile references for future NIAA/DCCEEW workbook mapping
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
@@ -331,6 +335,7 @@ user-linked trip participants, approval notifications, vehicle maintenance work
 orders, maintenance scheduling, decommission workflows, vehicle booking
 approval workflow, automatic booking blocking from defects or maintenance, trip
 dashboards, reporting, full server-side booking calendar/scheduling features,
+APP&B workbook parsing/export, budget/acquittal models, a full Grants module,
 PDF/DOCX TMP/JMP export, live SPOT/GARMIN tracking, SPOT/finder integration,
 Google Calendar sync, TMP/JMP notifications, full maintenance planning, full
 defect timelines or persisted resolution notes, broad Fulcrum sync, media/photo
