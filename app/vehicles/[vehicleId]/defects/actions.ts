@@ -137,6 +137,106 @@ export async function createVehicleDefectAction(formData: FormData) {
   redirect(redirectTo);
 }
 
+export async function updateVehicleDefectStatusAction(formData: FormData) {
+  const organisationSlug = getRequiredString(formData, "organisationSlug");
+  const vehicleId = getRequiredString(formData, "vehicleId");
+  const defectId = getRequiredString(formData, "defectId");
+  const fallbackPath = `/vehicles/${vehicleId}/defects?org=${organisationSlug}`;
+
+  if (!isDatabaseConfigured()) {
+    redirect(`${fallbackPath}&saved=demo-status`);
+  }
+
+  let redirectTo = `${fallbackPath}&error=persistence`;
+
+  try {
+    const prisma = getPrismaClient();
+    const organisationId = getRequiredString(formData, "organisationId");
+    const [organisation, vehicle, defect] = await Promise.all([
+      prisma.organisation.findUnique({
+        select: { id: true, slug: true },
+        where: { id: organisationId },
+      }),
+      prisma.vehicle.findUnique({
+        select: { id: true, organisationId: true },
+        where: { id: vehicleId },
+      }),
+      prisma.vehicleDefect.findUnique({
+        select: {
+          id: true,
+          organisationId: true,
+          status: true,
+          vehicleId: true,
+        },
+        where: { id: defectId },
+      }),
+    ]);
+
+    if (!organisation || !vehicle || !defect) {
+      throw new Error("Organisation, vehicle or defect was not found.");
+    }
+
+    if (defect.vehicleId !== vehicle.id) {
+      throw new DefectValidationError(
+        "Defect does not belong to this vehicle.",
+      );
+    }
+
+    const session = await getTenantGuardSessionForRequest(prisma);
+    const context = createOrganisationWriteContext({
+      organisationId: organisation.id,
+      relatedRecords: [
+        { label: "Vehicle", record: vehicle },
+        { label: "Defect", record: defect },
+      ],
+      session,
+    });
+    const nextStatus = getDefectStatus(formData);
+    const note = getOptionalLimitedString(formData, "statusNote", 240);
+
+    validateStatusTransition(defect.status, nextStatus);
+
+    const updatedDefect = await prisma.vehicleDefect.update({
+      data: {
+        status: nextStatus,
+      },
+      where: { id: defect.id },
+    });
+
+    await recordAuditLog(prisma, {
+      action: "UPDATED",
+      actorUserId: context.actorUserId,
+      entityId: updatedDefect.id,
+      entityType: "VehicleDefect",
+      metadata: {
+        defectId: updatedDefect.id,
+        event: "vehicle_defect_status_updated",
+        newStatus: updatedDefect.status,
+        noteLength: note?.length ?? 0,
+        previousStatus: defect.status,
+        vehicleId: vehicle.id,
+      },
+      organisationId: context.organisationId,
+      summary: "Updated persisted vehicle defect status.",
+    });
+
+    revalidatePath("/vehicles");
+    revalidatePath(`/vehicles/${vehicle.id}`);
+    revalidatePath(`/vehicles/${vehicle.id}/defects`);
+    redirectTo = `/vehicles/${vehicle.id}/defects?org=${organisation.slug}&saved=status`;
+  } catch (error) {
+    redirectTo = `${fallbackPath}&error=${
+      isTenantGuardError(error)
+        ? "tenant"
+        : isDefectValidationError(error)
+          ? "validation"
+          : "persistence"
+    }`;
+  }
+
+  redirect(redirectTo);
+}
+
 function getDefectData(formData: FormData) {
   return {
     category: getAllowedValue(
@@ -151,12 +251,38 @@ function getDefectData(formData: FormData) {
       "severity",
       vehicleDefectSeverityOptions.map((option) => option.value),
     ) as VehicleDefectSeverityValue,
-    status: getAllowedValue(
-      formData,
-      "status",
-      vehicleDefectStatusOptions.map((option) => option.value),
-    ) as VehicleDefectStatusValue,
+    status: getDefectStatus(formData),
   };
+}
+
+function getDefectStatus(formData: FormData) {
+  return getAllowedValue(
+    formData,
+    "status",
+    vehicleDefectStatusOptions.map((option) => option.value),
+  ) as VehicleDefectStatusValue;
+}
+
+function validateStatusTransition(
+  previousStatus: VehicleDefectStatusValue,
+  nextStatus: VehicleDefectStatusValue,
+) {
+  if (previousStatus === nextStatus) {
+    throw new DefectValidationError("Defect status must change.");
+  }
+
+  const allowedTransitions: Record<
+    VehicleDefectStatusValue,
+    VehicleDefectStatusValue[]
+  > = {
+    MONITORING: ["OPEN", "RESOLVED"],
+    OPEN: ["MONITORING", "RESOLVED"],
+    RESOLVED: ["MONITORING", "OPEN"],
+  };
+
+  if (!allowedTransitions[previousStatus].includes(nextStatus)) {
+    throw new DefectValidationError("Defect status transition is not allowed.");
+  }
 }
 
 function getAllowedValue(
@@ -190,6 +316,24 @@ function getReportedAt(formData: FormData) {
 
 function getLimitedString(formData: FormData, key: string, maxLength: number) {
   const value = getRequiredString(formData, key);
+
+  if (value.length > maxLength) {
+    throw new DefectValidationError(`${key} is too long.`);
+  }
+
+  return value;
+}
+
+function getOptionalLimitedString(
+  formData: FormData,
+  key: string,
+  maxLength: number,
+) {
+  const value = getOptionalString(formData, key);
+
+  if (!value) {
+    return null;
+  }
 
   if (value.length > maxLength) {
     throw new DefectValidationError(`${key} is too long.`);

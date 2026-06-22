@@ -129,8 +129,8 @@ export function VehicleDetail({
             </p>
             <p className="mt-2 text-sm leading-6 text-charcoal-600">
               Latest persisted checklist status when a local database is
-              configured. Maintenance records, defects and sign-off workflow
-              remain future work.
+              configured. Maintenance records, sign-off workflow and booking
+              changes remain future work.
             </p>
             <Link
               className="mt-4 inline-flex rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
