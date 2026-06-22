@@ -23,6 +23,10 @@ import {
   type ModuleSlug,
 } from "@/lib/dashboard-data";
 import type { DashboardAuthContext } from "@/lib/auth-session";
+import {
+  defaultDemoCapabilityKeys,
+  isModuleEnabledForCapabilities,
+} from "@/lib/capability-registry";
 
 const navIcons = {
   overview: Home,
@@ -56,7 +60,10 @@ export function DashboardShell({
   const organisations = authContext.availableOrganisations.length
     ? authContext.availableOrganisations
     : authContext.source === "demo-fallback"
-      ? demoOrganisations
+      ? demoOrganisations.map((organisation) => ({
+          ...organisation,
+          capabilityKeys: [...defaultDemoCapabilityKeys],
+        }))
       : [];
   const selectedOrganisation = organisations.length
     ? organisations.find(
@@ -70,6 +77,12 @@ export function DashboardShell({
     organisations.find(
       (organisation) => organisation.slug === searchParams.get("org"),
     ) ?? organisations[0] ?? selectedOrganisation;
+  const visibleNavigationItems = navigationItems.filter((item) =>
+    isModuleEnabledForCapabilities(
+      item.slug,
+      selectedOrganisationForLinks?.capabilityKeys,
+    ),
+  );
 
   function handleOrganisationChange(organisationSlug: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -91,7 +104,7 @@ export function DashboardShell({
               tone="dark"
             />
             <nav aria-label="Primary" className="flex-1 space-y-1 px-4 py-3">
-              {navigationItems.map((item) => (
+              {visibleNavigationItems.map((item) => (
                 <NavItem
                   active={activeSlug === item.slug}
                   href={withOrganisation(
@@ -149,7 +162,7 @@ export function DashboardShell({
               aria-label="Primary"
               className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1"
             >
-              {navigationItems.map((item) => {
+              {visibleNavigationItems.map((item) => {
                 const Icon = navIcons[item.slug];
                 const isActive = activeSlug === item.slug;
 

@@ -9,6 +9,10 @@ import {
   Users,
 } from "lucide-react";
 import { transitionTripApprovalAction } from "@/app/trips/actions";
+import {
+  organisationHasCapability,
+  type OrganisationCapabilityKey,
+} from "@/lib/capability-registry";
 import type { DemoTrip } from "@/lib/trips-data";
 import { organisationHref } from "@/lib/trips-data";
 import {
@@ -19,6 +23,7 @@ import {
 
 type TripsDetailProps = {
   approvalResult?: string;
+  capabilityKeys?: OrganisationCapabilityKey[];
   organisationName: string;
   organisationSlug: string;
   trip: DemoTrip;
@@ -26,10 +31,16 @@ type TripsDetailProps = {
 
 export function TripsDetail({
   approvalResult,
+  capabilityKeys,
   organisationName,
   organisationSlug,
   trip,
 }: TripsDetailProps) {
+  const riskAssessmentEnabled = organisationHasCapability(
+    capabilityKeys,
+    "trips.riskAssessment",
+  );
+
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 border-b border-earth-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -52,16 +63,18 @@ export function TripsDetail({
             <Pencil aria-hidden="true" size={16} />
             Edit
           </Link>
-          <Link
-            className="inline-flex items-center gap-2 rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800"
-            href={organisationHref(
-              `/trips/${trip.id}/risk-assessment`,
-              organisationSlug,
-            )}
-          >
-            <ShieldCheck aria-hidden="true" size={16} />
-            TMP/JMP
-          </Link>
+          {riskAssessmentEnabled ? (
+            <Link
+              className="inline-flex items-center gap-2 rounded-md border border-earth-300 bg-white px-4 py-2 text-sm font-semibold text-charcoal-800"
+              href={organisationHref(
+                `/trips/${trip.id}/risk-assessment`,
+                organisationSlug,
+              )}
+            >
+              <ShieldCheck aria-hidden="true" size={16} />
+              TMP/JMP
+            </Link>
+          ) : null}
           <button
             className="inline-flex items-center gap-2 rounded-md bg-ochre-600 px-4 py-2 text-sm font-semibold text-white"
             type="button"
@@ -139,15 +152,17 @@ export function TripsDetail({
         </div>
       </Panel>
 
-      <Panel
-        icon={<ShieldCheck aria-hidden="true" size={18} />}
-        title="TMP/JMP risk assessment"
-      >
-        <RiskAssessmentSummary
-          organisationSlug={organisationSlug}
-          trip={trip}
-        />
-      </Panel>
+      {riskAssessmentEnabled ? (
+        <Panel
+          icon={<ShieldCheck aria-hidden="true" size={18} />}
+          title="TMP/JMP risk assessment"
+        >
+          <RiskAssessmentSummary
+            organisationSlug={organisationSlug}
+            trip={trip}
+          />
+        </Panel>
+      ) : null}
 
       <Panel
         icon={<CalendarCheck aria-hidden="true" size={18} />}

@@ -4,6 +4,10 @@ import {
   getTenantGuardSessionForRequest,
 } from "@/lib/auth-session";
 import {
+  defaultDemoCapabilityKeys,
+  isOrganisationCapabilityKey,
+} from "@/lib/capability-registry";
+import {
   getSelectedOrganisation,
   type DashboardOrganisation,
 } from "@/lib/dashboard-data";
@@ -37,9 +41,14 @@ export async function getOrganisationPageAccess(
   selectedOrganisationSlug?: string | null,
 ): Promise<OrganisationPageAccess> {
   if (!isAuthenticatedDatabaseMode()) {
+    const organisation = getSelectedOrganisation(selectedOrganisationSlug);
+
     return {
       mode: "demo-fallback",
-      organisation: getSelectedOrganisation(selectedOrganisationSlug),
+      organisation: {
+        ...organisation,
+        capabilityKeys: [...defaultDemoCapabilityKeys],
+      },
       status: "allowed",
     };
   }
@@ -61,6 +70,11 @@ export async function getOrganisationPageAccess(
 
     const organisation = await prisma.organisation.findUnique({
       select: {
+        capabilities: {
+          select: {
+            key: true,
+          },
+        },
         id: true,
         name: true,
         slug: true,
@@ -87,6 +101,9 @@ export async function getOrganisationPageAccess(
       mode: "authenticated",
       organisation: {
         id: organisation.id,
+        capabilityKeys: normaliseCapabilityKeys(
+          organisation.capabilities.map((capability) => capability.key),
+        ),
         name: organisation.name,
         region: formatOrganisationType(organisation.type),
         slug: organisation.slug,
@@ -111,6 +128,10 @@ export async function getOrganisationPageAccess(
       title: "Organisation access unavailable",
     });
   }
+}
+
+function normaliseCapabilityKeys(keys: string[]) {
+  return [...new Set(keys)].filter(isOrganisationCapabilityKey);
 }
 
 function deniedAccess({

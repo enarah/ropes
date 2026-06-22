@@ -8,6 +8,9 @@ import {
   Wrench,
 } from "lucide-react";
 import {
+  organisationHasCapability,
+} from "@/lib/capability-registry";
+import {
   getSelectedOrganisation,
   type DashboardOrganisation,
   type OrganisationSlug,
@@ -45,6 +48,10 @@ export async function VehiclesRegister({
 }: VehiclesRegisterProps) {
   const organisation =
     resolvedOrganisation ?? getSelectedOrganisation(selectedOrganisationSlug);
+  const maintenanceEnabled = organisationHasCapability(
+    organisation.capabilityKeys,
+    "vehicles.maintenance",
+  );
   const filters = getVehicleRegisterFilters(searchParams);
   const [vehicles, bookings, persistence] = await Promise.all([
     getVehiclesForOrganisationWithPersistence(organisation.slug),
@@ -131,6 +138,7 @@ export async function VehiclesRegister({
             <VehicleRegisterCard
               bookingCount={bookingCounts[vehicle.id] ?? 0}
               key={vehicle.id}
+              maintenanceEnabled={maintenanceEnabled}
               organisationSlug={organisation.slug}
               vehicle={vehicle}
             />
@@ -362,10 +370,12 @@ function FilterGroup({
 
 function VehicleRegisterCard({
   bookingCount,
+  maintenanceEnabled,
   organisationSlug,
   vehicle,
 }: {
   bookingCount: number;
+  maintenanceEnabled: boolean;
   organisationSlug: string;
   vehicle: DemoVehicle;
 }) {
@@ -441,15 +451,17 @@ function VehicleRegisterCard({
           >
             Report defect
           </Link>
-          <Link
-            className="rounded-md border border-earth-300 bg-earth-50 px-3 py-2 text-sm font-semibold text-charcoal-800"
-            href={organisationHref(
-              `/vehicles/${vehicle.id}/maintenance`,
-              organisationSlug,
-            )}
-          >
-            Maintenance
-          </Link>
+          {maintenanceEnabled ? (
+            <Link
+              className="rounded-md border border-earth-300 bg-earth-50 px-3 py-2 text-sm font-semibold text-charcoal-800"
+              href={organisationHref(
+                `/vehicles/${vehicle.id}/maintenance`,
+                organisationSlug,
+              )}
+            >
+              Maintenance
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -476,11 +488,13 @@ function VehicleRegisterCard({
           label="Defects"
           value={formatDefectSummary(vehicle)}
         />
-        <Fact
-          icon={<Wrench aria-hidden="true" size={15} />}
-          label="Maintenance"
-          value={formatMaintenanceSummary(vehicle)}
-        />
+        {maintenanceEnabled ? (
+          <Fact
+            icon={<Wrench aria-hidden="true" size={15} />}
+            label="Maintenance"
+            value={formatMaintenanceSummary(vehicle)}
+          />
+        ) : null}
       </dl>
     </article>
   );

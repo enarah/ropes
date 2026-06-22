@@ -6,6 +6,10 @@ import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
 import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
+  isOrganisationCapabilityError,
+  requireOrganisationCapability,
+} from "@/lib/organisation-capabilities";
+import {
   createOrganisationWriteContext,
   isTenantGuardError,
 } from "@/lib/tenant-guards";
@@ -78,6 +82,18 @@ export async function createVehicleMaintenanceRecordAction(formData: FormData) {
       ],
       session,
     });
+
+    await requireOrganisationCapability(
+      prisma,
+      context.organisationId,
+      "vehicles.maintenance",
+      {
+        actorUserId: context.actorUserId,
+        entityId: vehicle.id,
+        entityType: "Vehicle",
+      },
+    );
+
     const maintenanceData = getMaintenanceData(formData);
 
     const maintenanceRecord = await prisma.vehicleMaintenanceRecord.create({
@@ -122,9 +138,11 @@ export async function createVehicleMaintenanceRecordAction(formData: FormData) {
     redirectTo = `${fallbackPath}&error=${
       isTenantGuardError(error)
         ? "tenant"
-        : isMaintenanceValidationError(error)
-          ? "validation"
-          : "persistence"
+        : isOrganisationCapabilityError(error)
+          ? "capability"
+          : isMaintenanceValidationError(error)
+            ? "validation"
+            : "persistence"
     }`;
   }
 

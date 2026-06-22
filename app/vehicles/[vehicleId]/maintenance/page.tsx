@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { createVehicleMaintenanceRecordAction } from "@/app/vehicles/[vehicleId]/maintenance/actions";
+import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { VehicleMaintenanceForm } from "@/components/vehicles/vehicle-maintenance-form";
+import { organisationHasCapability } from "@/lib/capability-registry";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   getVehicleDefectsForVehicleWithPersistence,
@@ -35,6 +37,21 @@ export default async function VehicleMaintenancePage({
   }
 
   const selectedOrganisation = access.organisation;
+
+  if (
+    !organisationHasCapability(
+      selectedOrganisation.capabilityKeys,
+      "vehicles.maintenance",
+    )
+  ) {
+    return (
+      <DisabledFeatureState
+        capability="vehicles.maintenance"
+        organisationName={selectedOrganisation.name}
+      />
+    );
+  }
+
   const [vehicle, maintenanceRecords, defects, persistence] = await Promise.all([
     getVehicleForOrganisationWithPersistence(selectedOrganisation.slug, vehicleId),
     getVehicleMaintenanceRecordsForVehicleWithPersistence(
@@ -146,6 +163,13 @@ function getStatusMessage(
     return {
       body: "Check type, status, dates, odometer, cost and note length before submitting again.",
       title: "Maintenance details need review",
+    };
+  }
+
+  if (error === "capability") {
+    return {
+      body: "This organisation can access ROPES, but vehicle maintenance records are not enabled for it.",
+      title: "Capability disabled",
     };
   }
 
