@@ -42,7 +42,8 @@ Future modules and integrations:
 
 - `fulcrum`, `fulcrum.import`, `fulcrum.maps`
 - `grants`, `grants.management`, `grants.acquittals`
-- `reporting`
+- `grants.appb`, `grants.progressReporting`
+- `reporting`, `reporting.appb`, `reporting.funderTemplates`
 - `safety`
 - `integrations`, `integrations.googleCalendar`, `integrations.spotTracker`, `integrations.teams`
 - `branding`, `branding.customTheme`
@@ -68,6 +69,8 @@ Future AI actions must be permission-aware and auditable. Audit metadata should 
 Future milestones should plug into the capability registry before adding routes or server actions:
 
 - Grants should be its own module, not mixed into Trips or Vehicles.
+- APP&B reporting should be optional and grant/reporting-period scoped; do not
+  assume one APP&B workbook per organisation.
 - PDF export should be a shared document export capability reusable by Trips, Grants and Reporting.
 - Emergency contacts and communication device registries should sit under Safety and be attachable to trip plans and journey outputs.
 - SPOT/finder and Google Calendar should be optional integrations. ROPES remains the internal source of truth.

@@ -17,8 +17,12 @@ export type OrganisationCapabilityKey =
   | "fulcrum.maps"
   | "grants"
   | "grants.management"
+  | "grants.appb"
   | "grants.acquittals"
+  | "grants.progressReporting"
   | "reporting"
+  | "reporting.appb"
+  | "reporting.funderTemplates"
   | "safety"
   | "integrations"
   | "integrations.googleCalendar"
@@ -147,15 +151,39 @@ export const capabilityDefinitions = [
     moduleKey: "grants",
   },
   {
+    description: "Future grant-scoped APP&B reporting workflows.",
+    key: "grants.appb",
+    label: "Grant APP&B reporting",
+    moduleKey: "grants",
+  },
+  {
     description: "Future grant acquittal workflows.",
     key: "grants.acquittals",
     label: "Grant acquittals",
     moduleKey: "grants",
   },
   {
+    description: "Future grant progress and milestone reporting workflows.",
+    key: "grants.progressReporting",
+    label: "Grant progress reporting",
+    moduleKey: "grants",
+  },
+  {
     description: "Reporting module and shared report surfaces.",
     key: "reporting",
     label: "Reporting",
+    moduleKey: "reporting",
+  },
+  {
+    description: "Future APP&B reporting template mapping and workbook generation.",
+    key: "reporting.appb",
+    label: "APP&B reporting",
+    moduleKey: "reporting",
+  },
+  {
+    description: "Future funder template profile and version management.",
+    key: "reporting.funderTemplates",
+    label: "Funder templates",
     moduleKey: "reporting",
   },
   {
