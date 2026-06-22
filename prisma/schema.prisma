@@ -49,6 +49,30 @@ enum BookingStatus {
   CANCELLED
 }
 
+enum VehicleDefectCategory {
+  MECHANICAL
+  SAFETY
+  TYRES
+  ELECTRICAL
+  COMMUNICATIONS
+  RECOVERY_GEAR
+  BODY
+  OTHER
+}
+
+enum VehicleDefectSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum VehicleDefectStatus {
+  OPEN
+  MONITORING
+  RESOLVED
+}
+
 enum FulcrumConnectionStatus {
   NOT_CONNECTED
   READY_FOR_SETUP
@@ -94,6 +118,7 @@ model Organisation {
   tripItineraryItems TripItineraryItem[]
   vehicles           Vehicle[]
   vehicleBookings    VehicleBooking[]
+  vehicleDefects     VehicleDefect[]
   vehiclePreStartChecklists VehiclePreStartChecklist[]
   fulcrumConnections FulcrumConnection[]
   fulcrumSyncJobs     FulcrumSyncJob[]
@@ -115,6 +140,7 @@ model User {
   tripApprovalNotes TripApprovalNote[]
   tripParticipants TripParticipant[]
   vehicleBookings VehicleBooking[]
+  vehicleDefects  VehicleDefect[]
   vehiclePreStartChecklists VehiclePreStartChecklist[]
   fulcrumSyncJobs FulcrumSyncJob[]
 }
@@ -321,6 +347,7 @@ model Vehicle {
   organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   tripVehicleAllocations TripVehicleAllocation[]
   vehicleBookings VehicleBooking[]
+  vehicleDefects  VehicleDefect[]
   preStartChecklists VehiclePreStartChecklist[]
 
   @@unique([organisationId, registration])
@@ -347,11 +374,39 @@ model VehiclePreStartChecklist {
   organisation        Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   vehicle             Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   submittedBy         User?        @relation(fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  vehicleDefects      VehicleDefect[]
 
   @@index([organisationId])
   @@index([vehicleId])
   @@index([submittedByUserId])
   @@index([organisationId, vehicleId, checkedAt])
+}
+
+model VehicleDefect {
+  id                    String                @id @default(cuid())
+  organisationId        String
+  vehicleId             String
+  preStartChecklistId   String?
+  reportedByUserId      String?
+  category              VehicleDefectCategory
+  severity              VehicleDefectSeverity
+  description           String
+  status                VehicleDefectStatus   @default(OPEN)
+  reportedAt            DateTime              @default(now())
+  isDemo                Boolean               @default(false)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  organisation          Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vehicle               Vehicle               @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  preStartChecklist     VehiclePreStartChecklist? @relation(fields: [preStartChecklistId], references: [id], onDelete: SetNull)
+  reportedBy            User?                 @relation(fields: [reportedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([vehicleId])
+  @@index([preStartChecklistId])
+  @@index([reportedByUserId])
+  @@index([status])
+  @@index([organisationId, vehicleId, status, reportedAt])
 }
 
 model VehicleBooking {

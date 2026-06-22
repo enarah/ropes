@@ -21,7 +21,7 @@ Vehicles records, and the initial authentication foundation.
 - Organisation-scoped in-memory dashboard/module mock data.
 - Initial Prisma schema and clearly fake seed data for organisations, users,
   memberships, roles, projects, ranger programs, trips, vehicles, bookings,
-  Fulcrum placeholders and audit logs.
+  vehicle pre-starts, vehicle defects, Fulcrum placeholders and audit logs.
 - Tenant guard foundation used by persisted trip and vehicle booking writes.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
@@ -44,6 +44,10 @@ Vehicles records, and the initial authentication foundation.
   filters, compact booking summary counts, booking count visibility, booking
   calendar-style view, client-side overlap warning and tenant-guarded pre-start
   checklist submissions with latest status display.
+- Vehicle defect reporting foundation with a persisted organisation-scoped
+  defect model, vehicle-scoped report form, tenant-guarded create action,
+  short description validation, safe audit metadata, optional pre-start link
+  and open/latest count/status visibility on vehicle register and detail pages.
 - Fulcrum shell with demo-only Overview, Connections, Apps & Forms, Field
   Records, Maps, Data Health, AI Assistant, App Builder and Sync Settings pages.
 - Fulcrum connection setup can save an organisation-scoped API token encrypted
@@ -65,9 +69,9 @@ Vehicles records, and the initial authentication foundation.
   records updated, records skipped, missing GPS and filtered sensitive field
   previews.
 - Organisation-scoped audit entries for persisted trip create/update, vehicle
-  booking create/update/overlap rejection, vehicle pre-start submission, trip
-  approval workflow transitions, Fulcrum connection save/update/disable,
-  Fulcrum connection test
+  booking create/update/overlap rejection, vehicle pre-start submission,
+  vehicle defect submission, trip approval workflow transitions, Fulcrum
+  connection save/update/disable, Fulcrum connection test
   success/failure, sync job placeholder events and safe Fulcrum import events.
 
 ## Still demo-only
@@ -85,10 +89,10 @@ Vehicles records, and the initial authentication foundation.
   existing users remains future work.
 - Trip approval workflow notifications and role-specific approval permissions
   are still future work.
-- Vehicle maintenance records and decommission workflows are not implemented
-  yet.
-- Vehicle defect management and pre-start history reporting are not implemented
-  yet.
+- Vehicle maintenance records, maintenance work orders, maintenance scheduling
+  and decommission workflows are not implemented yet.
+- Vehicle defect resolution workflows, defect-triggered booking blocks and
+  pre-start history reporting are not implemented yet.
 - Vehicle booking approval workflows and advanced scheduling are not implemented
   yet.
 - Broader calendar/scheduling features remain future work.

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { createVehiclePreStartAction } from "@/app/vehicles/[vehicleId]/pre-start/actions";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { VehiclePreStartForm } from "@/components/vehicles/vehicle-pre-start-form";
@@ -7,6 +8,7 @@ import {
   getLatestVehiclePreStartForOrganisationWithPersistence,
   getVehicleForOrganisationWithPersistence,
   getVehiclePersistenceState,
+  organisationHref,
 } from "@/lib/vehicles-data";
 
 type VehiclePreStartPageProps = {
@@ -58,7 +60,7 @@ export default async function VehiclePreStartPage({
         <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
           Submit a small organisation-scoped pre-start checklist for this
           vehicle. This foundation records readiness only and does not create
-          maintenance records, defects, approvals or booking changes.
+          maintenance records, approvals or booking changes.
         </p>
       </section>
 
@@ -96,6 +98,36 @@ export default async function VehiclePreStartPage({
           <p className="mt-2 text-sm leading-6 text-charcoal-600">
             {latestPreStart.issueNotes}
           </p>
+          <Link
+            className="mt-4 inline-flex rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+            href={`${organisationHref(
+              `/vehicles/${vehicle.id}/defects`,
+              selectedOrganisation.slug,
+            )}&preStart=${latestPreStart.id}`}
+          >
+            Report defect
+          </Link>
+        </section>
+      ) : null}
+
+      {!latestPreStart?.issueNotes ? (
+        <section className="rounded-md border border-earth-200 bg-earth-50 p-4">
+          <p className="text-sm font-semibold text-charcoal-950">
+            Defect reporting
+          </p>
+          <p className="mt-2 text-sm leading-6 text-charcoal-600">
+            Open a vehicle-scoped defect report for this organisation without
+            changing bookings or maintenance records.
+          </p>
+          <Link
+            className="mt-4 inline-flex rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/defects`,
+              selectedOrganisation.slug,
+            )}
+          >
+            Report defect
+          </Link>
         </section>
       ) : null}
 

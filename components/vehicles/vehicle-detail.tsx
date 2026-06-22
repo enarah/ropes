@@ -70,6 +70,16 @@ export function VehicleDetail({
             <ClipboardCheck aria-hidden="true" size={16} />
             Pre-start
           </Link>
+          <Link
+            className="inline-flex w-fit items-center gap-2 rounded-md border border-earth-300 bg-earth-50 px-4 py-2 text-sm font-semibold text-charcoal-800"
+            href={organisationHref(
+              `/vehicles/${vehicle.id}/defects`,
+              organisationSlug,
+            )}
+          >
+            <Wrench aria-hidden="true" size={16} />
+            Report defect
+          </Link>
         </div>
       </section>
 
@@ -85,12 +95,16 @@ export function VehicleDetail({
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard label="Status" value={vehicle.status} />
         <SummaryCard label="Registration" value={vehicle.registration} />
         <SummaryCard
           label="Odometer"
           value={`${vehicle.odometerKm.toLocaleString("en-AU")} km`}
+        />
+        <SummaryCard
+          label="Open defects"
+          value={String(vehicle.openDefectCount ?? 0)}
         />
         <SummaryCard label="Base" value={vehicle.homeBase} />
       </section>
@@ -130,6 +144,32 @@ export function VehicleDetail({
           </div>
         </Panel>
       </section>
+
+      <Panel icon={<Wrench aria-hidden="true" size={18} />} title="Defects">
+        <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-lg font-semibold text-charcoal-950">
+                {vehicle.openDefectCount
+                  ? `${vehicle.openDefectCount} open`
+                  : "None open"}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                {formatDefectDetailSummary(vehicle)}
+              </p>
+            </div>
+            <Link
+              className="inline-flex w-fit rounded-md bg-charcoal-900 px-3 py-2 text-sm font-semibold text-white"
+              href={organisationHref(
+                `/vehicles/${vehicle.id}/defects`,
+                organisationSlug,
+              )}
+            >
+              Report defect
+            </Link>
+          </div>
+        </div>
+      </Panel>
 
       <Panel icon={<Wrench aria-hidden="true" size={18} />} title="Bookings">
         {bookings.length ? (
@@ -232,4 +272,25 @@ function Fact({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 font-semibold text-charcoal-950">{value}</dd>
     </div>
   );
+}
+
+function formatDefectDetailSummary(vehicle: DemoVehicle) {
+  if (!vehicle.openDefectCount) {
+    return "No open defect reports are visible for this vehicle in the selected organisation.";
+  }
+
+  const latest = [
+    vehicle.latestDefectStatus,
+    vehicle.latestDefectSeverity,
+    vehicle.latestDefectCategory,
+    vehicle.latestDefectReportedAt
+      ? formatDateTime(vehicle.latestDefectReportedAt)
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  return latest
+    ? `Latest open defect: ${latest}.`
+    : "Open defect metadata is visible for this vehicle.";
 }

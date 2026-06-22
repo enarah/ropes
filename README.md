@@ -9,8 +9,8 @@ ROPES is a multi-organisation operations platform for Enarah and partner ranger 
 This repository now contains the first ROPES application foundation: a
 Next.js, TypeScript and Tailwind dashboard shell, placeholder module
 navigation, demo dashboard content, an initial Prisma data model and
-tenant-guarded persistence for core trip and vehicle booking workflows when a
-local database is configured, and an Auth.js/NextAuth foundation for resolving
+tenant-guarded persistence for core trip and vehicle workflows when a local
+database is configured, and an Auth.js/NextAuth foundation for resolving
 signed-in users to organisation memberships.
 
 The first implementation stream will establish:
@@ -85,7 +85,8 @@ npm run db:seed
 ```
 
 The seed creates fake organisations, users, memberships, roles, projects,
-ranger programs, trips, vehicles, bookings, Fulcrum placeholders and audit
+ranger programs, trips, vehicles, bookings, vehicle pre-starts, vehicle
+defects, Fulcrum placeholders and audit
 logs. It does not create authentication accounts, store Fulcrum tokens or call
 external APIs.
 
@@ -228,9 +229,10 @@ write path or broad sync engine.
 ## Audit logging
 
 Persisted trip create/update, trip approval transitions, vehicle booking
-create, server-side vehicle booking overlap rejection, Fulcrum connection
-save/update/disable, Fulcrum connection test success/failure actions, and
-manual Fulcrum sync job placeholder creation/rejection write
+create, server-side vehicle booking overlap rejection, vehicle pre-start
+submission, vehicle defect submission, Fulcrum connection save/update/disable,
+Fulcrum connection test success/failure actions, and manual Fulcrum sync job
+placeholder creation/rejection write
 organisation-scoped audit entries after tenant access has been confirmed.
 Audit entries record the organisation, actor user when available, action,
 target record type, target record ID when available, timestamp and safe
@@ -238,9 +240,9 @@ metadata.
 
 Audit metadata deliberately avoids raw Fulcrum API tokens, encrypted token
 values, auth/provider tokens, API keys, environment variables, full request
-payloads and full trip approval note text. Audit writes are best-effort for
-this prototype: if an audit insert fails after the primary operational write
-succeeds, the user workflow continues.
+payloads, full trip approval note text and full vehicle defect descriptions.
+Audit writes are best-effort for this prototype: if an audit insert fails after
+the primary operational write succeeds, the user workflow continues.
 
 ## App foundation
 
@@ -281,6 +283,11 @@ The current app includes:
   status/timing filters, compact booking summary counts, booking count
   visibility, booking list/calendar view, client-side overlap warning and
   tenant-guarded pre-start checklist submissions with latest status display
+- Vehicle defect reporting foundation with a persisted organisation-scoped
+  `VehicleDefect` model, vehicle-scoped report form, tenant-guarded create
+  action, optional pre-start link, short description validation, safe audit
+  metadata and open/latest defect count/status visibility on register and
+  detail screens
 - Fulcrum module shell with in-memory demo overview, connections, apps/forms,
   field records, maps, data health, AI assistant, app builder and sync settings
   pages, plus encrypted per-organisation token storage and server-side
@@ -289,18 +296,20 @@ The current app includes:
   connections and capped manual Fulcrum app/form and record imports for
   selected app IDs, without background sync workers
 - Organisation-scoped audit logging for the first persisted trip, trip approval,
-  vehicle booking and Fulcrum connection writes
+  vehicle booking, vehicle pre-start, vehicle defect and Fulcrum connection
+  writes
 - Placeholder summary cards and module panels using clearly fake demo content
 
 This milestone intentionally does not include user invitation/provisioning,
 role-specific permission rules beyond active memberships, an audit log viewer,
 user-linked trip participants, approval notifications, vehicle
-maintenance records, decommission workflows, vehicle booking approval workflow,
-trip dashboards, reporting, full server-side booking calendar/scheduling
-features, vehicle defect management workflows, broad Fulcrum sync, media/photo
-import, Fulcrum app writes, background workers, scheduled sync, AI provider
-calls, API keys or external service credentials beyond local environment
-configuration.
+maintenance records, maintenance work orders, maintenance scheduling,
+decommission workflows, vehicle booking approval workflow, automatic booking
+blocking from defects, trip dashboards, reporting, full server-side booking
+calendar/scheduling features, vehicle defect resolution workflows, broad
+Fulcrum sync, media/photo import, Fulcrum app writes, background workers,
+scheduled sync, AI provider calls, API keys or external service credentials
+beyond local environment configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
 configured, or the clearly labelled fake/demo session fallback when auth is not
 configured for local development.

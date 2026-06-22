@@ -24,6 +24,32 @@ export type VehicleBookingStatusValue =
   | "ACTIVE"
   | "COMPLETED"
   | "CANCELLED";
+export type VehicleDefectCategoryValue =
+  | "MECHANICAL"
+  | "SAFETY"
+  | "TYRES"
+  | "ELECTRICAL"
+  | "COMMUNICATIONS"
+  | "RECOVERY_GEAR"
+  | "BODY"
+  | "OTHER";
+export type VehicleDefectSeverityValue =
+  | "LOW"
+  | "MEDIUM"
+  | "HIGH"
+  | "CRITICAL";
+export type VehicleDefectStatusValue = "OPEN" | "MONITORING" | "RESOLVED";
+export type VehicleDefectCategory =
+  | "Mechanical"
+  | "Safety"
+  | "Tyres"
+  | "Electrical"
+  | "Communications"
+  | "Recovery gear"
+  | "Body"
+  | "Other";
+export type VehicleDefectSeverity = "Low" | "Medium" | "High" | "Critical";
+export type VehicleDefectStatus = "Open" | "Monitoring" | "Resolved";
 export type VehicleStatusFilter =
   | "all"
   | "available"
@@ -83,6 +109,11 @@ export type DemoVehicle = {
   preStartStatus: PreStartStatus;
   equipmentStatus: string;
   notes: string;
+  latestDefectCategory?: VehicleDefectCategory;
+  latestDefectReportedAt?: string;
+  latestDefectSeverity?: VehicleDefectSeverity;
+  latestDefectStatus?: VehicleDefectStatus;
+  openDefectCount?: number;
 };
 
 export type DemoVehicleBooking = {
@@ -111,6 +142,21 @@ export type DemoVehiclePreStartChecklist = {
   recoveryGearOk: boolean;
   submittedBy: string;
   tyresOk: boolean;
+  vehicleId: string;
+};
+export type DemoVehicleDefect = {
+  category: VehicleDefectCategory;
+  categoryValue: VehicleDefectCategoryValue;
+  id: string;
+  organisationId?: string;
+  organisationSlug: OrganisationSlug;
+  preStartChecklistId?: string;
+  reportedAt: string;
+  reportedBy: string;
+  severity: VehicleDefectSeverity;
+  severityValue: VehicleDefectSeverityValue;
+  status: VehicleDefectStatus;
+  statusValue: VehicleDefectStatusValue;
   vehicleId: string;
 };
 
@@ -152,6 +198,7 @@ type PersistedVehicle = {
   status: string;
   odometerKm: number | null;
   preStartChecklists: PersistedVehiclePreStartChecklist[];
+  vehicleDefects: PersistedVehicleDefect[];
 };
 
 type PersistedVehicleBooking = {
@@ -181,6 +228,51 @@ type PersistedVehiclePreStartChecklist = {
   tyresOk: boolean;
   vehicleId: string;
 };
+
+type PersistedVehicleDefect = {
+  category: string;
+  id: string;
+  organisationId: string;
+  preStartChecklistId: string | null;
+  reportedAt: Date;
+  reportedBy: { name: string } | null;
+  severity: string;
+  status: string;
+  vehicleId: string;
+};
+
+export const vehicleDefectCategoryOptions: Array<{
+  label: VehicleDefectCategory;
+  value: VehicleDefectCategoryValue;
+}> = [
+  { label: "Mechanical", value: "MECHANICAL" },
+  { label: "Safety", value: "SAFETY" },
+  { label: "Tyres", value: "TYRES" },
+  { label: "Electrical", value: "ELECTRICAL" },
+  { label: "Communications", value: "COMMUNICATIONS" },
+  { label: "Recovery gear", value: "RECOVERY_GEAR" },
+  { label: "Body", value: "BODY" },
+  { label: "Other", value: "OTHER" },
+];
+
+export const vehicleDefectSeverityOptions: Array<{
+  label: VehicleDefectSeverity;
+  value: VehicleDefectSeverityValue;
+}> = [
+  { label: "Low", value: "LOW" },
+  { label: "Medium", value: "MEDIUM" },
+  { label: "High", value: "HIGH" },
+  { label: "Critical", value: "CRITICAL" },
+];
+
+export const vehicleDefectStatusOptions: Array<{
+  label: VehicleDefectStatus;
+  value: VehicleDefectStatusValue;
+}> = [
+  { label: "Open", value: "OPEN" },
+  { label: "Monitoring", value: "MONITORING" },
+  { label: "Resolved", value: "RESOLVED" },
+];
 
 export function getVehiclesForOrganisation(organisationSlug: OrganisationSlug) {
   return demoVehicles.filter(
@@ -501,6 +593,31 @@ export async function getLatestVehiclePreStartForOrganisationWithPersistence(
   return preStarts.find((preStart) => preStart.vehicleId === vehicleId) ?? null;
 }
 
+export async function getVehicleDefectsForVehicleWithPersistence(
+  organisationSlug: OrganisationSlug,
+  vehicleId: string,
+) {
+  const persistedDefects = await getPersistedVehicleDefectsForOrganisation(
+    organisationSlug,
+  );
+
+  if (persistedDefects) {
+    return persistedDefects.filter((defect) => defect.vehicleId === vehicleId);
+  }
+
+  return getVehicleDefectsForOrganisation(organisationSlug).filter(
+    (defect) => defect.vehicleId === vehicleId,
+  );
+}
+
+export function getVehicleDefectsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  return demoVehicleDefects.filter(
+    (defect) => defect.organisationSlug === organisationSlug,
+  );
+}
+
 export function getBookingFormDefaults(
   organisationSlug: OrganisationSlug,
   vehicleId?: string,
@@ -603,6 +720,19 @@ async function getPersistedVehiclesForOrganisation(
               },
               take: 1,
             },
+            vehicleDefects: {
+              include: {
+                reportedBy: true,
+              },
+              orderBy: {
+                reportedAt: "desc",
+              },
+              where: {
+                status: {
+                  not: "RESOLVED",
+                },
+              },
+            },
           },
           orderBy: {
             name: "asc",
@@ -667,6 +797,45 @@ async function getPersistedVehiclePreStartsForOrganisation(
   }
 }
 
+async function getPersistedVehicleDefectsForOrganisation(
+  organisationSlug: OrganisationSlug,
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const prisma = getPrismaClient();
+    const organisation = await prisma.organisation.findUnique({
+      include: {
+        vehicleDefects: {
+          include: {
+            reportedBy: true,
+          },
+          orderBy: {
+            reportedAt: "desc",
+          },
+        },
+      },
+      where: { slug: organisationSlug },
+    });
+
+    if (!organisation) {
+      return isAuthenticatedDatabaseMode() ? [] : null;
+    }
+
+    if (!(await canReadOrganisation(prisma, organisation.id))) {
+      return [];
+    }
+
+    return organisation.vehicleDefects.map((defect) =>
+      mapPersistedDefectToDemoDefect(organisationSlug, defect),
+    );
+  } catch {
+    return isAuthenticatedDatabaseMode() ? [] : null;
+  }
+}
+
 async function getPersistedVehicleBookingsForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
@@ -712,6 +881,7 @@ function mapPersistedVehicleToDemoVehicle(
   vehicle: PersistedVehicle,
 ): DemoVehicle {
   const latestPreStart = vehicle.preStartChecklists[0];
+  const latestDefect = vehicle.vehicleDefects[0];
 
   return {
     id: vehicle.id,
@@ -730,7 +900,18 @@ function mapPersistedVehicleToDemoVehicle(
       : "Not recorded",
     equipmentStatus: "Persisted vehicle core details only.",
     notes:
-      "Persisted vehicle record. Defects and equipment checks remain future work.",
+      "Persisted vehicle record with tenant-guarded booking, pre-start and defect visibility.",
+    latestDefectCategory: latestDefect
+      ? mapDefectCategory(latestDefect.category)
+      : undefined,
+    latestDefectReportedAt: latestDefect?.reportedAt.toISOString(),
+    latestDefectSeverity: latestDefect
+      ? mapDefectSeverity(latestDefect.severity)
+      : undefined,
+    latestDefectStatus: latestDefect
+      ? mapDefectStatus(latestDefect.status)
+      : undefined,
+    openDefectCount: vehicle.vehicleDefects.length,
   };
 }
 
@@ -753,6 +934,27 @@ function mapPersistedPreStartToDemoPreStart(
     submittedBy: preStart.submittedBy?.name ?? "Demo Operations Manager",
     tyresOk: preStart.tyresOk,
     vehicleId: preStart.vehicleId,
+  };
+}
+
+function mapPersistedDefectToDemoDefect(
+  organisationSlug: OrganisationSlug,
+  defect: PersistedVehicleDefect,
+): DemoVehicleDefect {
+  return {
+    category: mapDefectCategory(defect.category),
+    categoryValue: mapDefectCategoryValue(defect.category),
+    id: defect.id,
+    organisationId: defect.organisationId,
+    organisationSlug,
+    preStartChecklistId: defect.preStartChecklistId ?? undefined,
+    reportedAt: defect.reportedAt.toISOString(),
+    reportedBy: defect.reportedBy?.name ?? "Demo Operations Manager",
+    severity: mapDefectSeverity(defect.severity),
+    severityValue: mapDefectSeverityValue(defect.severity),
+    status: mapDefectStatus(defect.status),
+    statusValue: mapDefectStatusValue(defect.status),
+    vehicleId: defect.vehicleId,
   };
 }
 
@@ -838,6 +1040,48 @@ function mapVehicleStatusToEnum(
   }
 
   return "AVAILABLE";
+}
+
+function mapDefectCategoryValue(category: string): VehicleDefectCategoryValue {
+  return vehicleDefectCategoryOptions.some((option) => option.value === category)
+    ? (category as VehicleDefectCategoryValue)
+    : "OTHER";
+}
+
+function mapDefectCategory(category: string): VehicleDefectCategory {
+  return (
+    vehicleDefectCategoryOptions.find(
+      (option) => option.value === mapDefectCategoryValue(category),
+    )?.label ?? "Other"
+  );
+}
+
+function mapDefectSeverityValue(severity: string): VehicleDefectSeverityValue {
+  return vehicleDefectSeverityOptions.some((option) => option.value === severity)
+    ? (severity as VehicleDefectSeverityValue)
+    : "LOW";
+}
+
+function mapDefectSeverity(severity: string): VehicleDefectSeverity {
+  return (
+    vehicleDefectSeverityOptions.find(
+      (option) => option.value === mapDefectSeverityValue(severity),
+    )?.label ?? "Low"
+  );
+}
+
+function mapDefectStatusValue(status: string): VehicleDefectStatusValue {
+  return vehicleDefectStatusOptions.some((option) => option.value === status)
+    ? (status as VehicleDefectStatusValue)
+    : "OPEN";
+}
+
+function mapDefectStatus(status: string): VehicleDefectStatus {
+  return (
+    vehicleDefectStatusOptions.find(
+      (option) => option.value === mapDefectStatusValue(status),
+    )?.label ?? "Open"
+  );
 }
 
 function getVehicleStatusFilterValue(
@@ -946,6 +1190,7 @@ export const demoVehicles: DemoVehicle[] = [
     preStartStatus: "Due today",
     equipmentStatus: "Satellite phone placeholder assigned",
     notes: "Fake vehicle record for journey planning demos only.",
+    openDefectCount: 0,
   },
   {
     id: "demo-ranger-ute",
@@ -961,6 +1206,7 @@ export const demoVehicles: DemoVehicle[] = [
     preStartStatus: "Ready",
     equipmentStatus: "Recovery kit placeholder checked",
     notes: "Fake ute available for local operations in the selected tenant.",
+    openDefectCount: 0,
   },
   {
     id: "demo-troopy",
@@ -975,7 +1221,12 @@ export const demoVehicles: DemoVehicle[] = [
     homeBase: "Demo Workshop",
     preStartStatus: "Issue reported",
     equipmentStatus: "First aid kit placeholder needs review",
-    notes: "Fake maintenance signal. No defect workflow exists yet.",
+    notes: "Fake maintenance signal with a demo defect summary only.",
+    latestDefectCategory: "Electrical",
+    latestDefectReportedAt: "2026-08-04T01:30:00.000Z",
+    latestDefectSeverity: "High",
+    latestDefectStatus: "Open",
+    openDefectCount: 1,
   },
   {
     id: "demo-enarah-pool-vehicle",
@@ -991,6 +1242,23 @@ export const demoVehicles: DemoVehicle[] = [
     preStartStatus: "Not recorded",
     equipmentStatus: "Office travel kit placeholder",
     notes: "Fake internal pool vehicle separate from partner ranger data.",
+    openDefectCount: 0,
+  },
+];
+
+export const demoVehicleDefects: DemoVehicleDefect[] = [
+  {
+    category: "Electrical",
+    categoryValue: "ELECTRICAL",
+    id: "defect-demo-troopy-lights",
+    organisationSlug: "ropes-demo-aboriginal-corporation",
+    reportedAt: "2026-08-04T01:30:00.000Z",
+    reportedBy: "Demo Ranger",
+    severity: "High",
+    severityValue: "HIGH",
+    status: "Open",
+    statusValue: "OPEN",
+    vehicleId: "demo-troopy",
   },
 ];
 
