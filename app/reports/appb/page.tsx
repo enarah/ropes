@@ -19,6 +19,7 @@ import {
   appbTemplateVersions,
 } from "@/lib/appb-reporting";
 import {
+  type AppbManualFieldOverview,
   type AppbReportOverview,
   getGrantsAppbOverview,
 } from "@/lib/grants-appb-data";
@@ -555,20 +556,52 @@ function ManualFieldSummary({
     ["Entered", "Reviewed", "Not Applicable"].includes(field.status),
   ).length;
   const statusCounts = countByStatus(report.manualFields.map((field) => field.status));
-  const definitionById = new Map(
-    definitions.map((definition) => [definition.fieldId, definition]),
-  );
-  const editableDefinitions = definitions.slice(0, 8);
+  const groups = groupManualFieldDefinitions(definitions);
 
   return (
     <div className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <AppbManualFieldSafeSummary
+        definitionCount={definitions.length}
+        enteredCount={enteredCount}
+        statusCounts={statusCounts}
+      />
+
+      <details className="mt-3 rounded-md border border-earth-200 bg-earth-50 p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-charcoal-950">
+          Edit manual report fields
+        </summary>
+        <p className="mt-2 text-xs leading-5 text-charcoal-600">
+          Manual values support readiness only. Sensitive values are edited here
+          and stay out of compact report cards, URLs and audit metadata.
+        </p>
+        <AppbManualFieldEditor
+          groups={groups}
+          organisationSlug={organisationSlug}
+          report={report}
+        />
+      </details>
+    </div>
+  );
+}
+
+function AppbManualFieldSafeSummary({
+  definitionCount,
+  enteredCount,
+  statusCounts,
+}: {
+  definitionCount: number;
+  enteredCount: number;
+  statusCounts: Array<{ count: number; status: string }>;
+}) {
+  return (
+    <>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase text-ochre-700">
             Manual report fields
           </p>
           <p className="mt-1 text-sm font-semibold text-charcoal-950">
-            {enteredCount} of {definitions.length} entered or reviewed
+            {enteredCount} of {definitionCount} entered or reviewed
           </p>
           <p className="mt-1 text-xs leading-5 text-charcoal-600">
             Report-only values support readiness but do not make workbook export
@@ -587,126 +620,365 @@ function ManualFieldSummary({
           </span>
         ) : (
           statusCounts.map((count) => (
-            <span
-              className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+            <AppbManualFieldStatusBadge
+              count={count.count}
               key={count.status}
-            >
-              {count.status}: {count.count}
-            </span>
+              status={count.status}
+            />
           ))
         )}
       </div>
+    </>
+  );
+}
 
-      {report.manualFields.length > 0 ? (
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
-          {report.manualFields.slice(0, 4).map((field) => {
-            const definition = definitionById.get(field.fieldId);
+function AppbManualFieldEditor({
+  groups,
+  organisationSlug,
+  report,
+}: {
+  groups: ManualFieldDefinitionGroup[];
+  organisationSlug: string;
+  report: AppbReportOverview;
+}) {
+  const manualFieldById = new Map(
+    report.manualFields.map((field) => [field.fieldId, field]),
+  );
 
-            return (
-              <div
-                className="rounded-md border border-earth-200 bg-earth-50 p-3"
-                key={field.fieldId}
-              >
-                <p className="text-xs font-semibold uppercase text-charcoal-600">
-                  {field.status} / {field.sensitivity}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-charcoal-950">
-                  {field.fieldLabel}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-charcoal-600">
-                  {formatStatus(definition?.fieldGroup ?? field.fieldGroup)}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
-      <form action={upsertAppbManualFieldValueAction} className="mt-3 space-y-3">
-        <input name="organisationSlug" type="hidden" value={organisationSlug} />
-        <input name="appbReportId" type="hidden" value={report.id} />
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-sm font-semibold text-charcoal-700">
-            Field
-            <select
-              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
-              name="fieldId"
-              required
-            >
-              {editableDefinitions.map((definition) => (
-                <option key={definition.fieldId} value={definition.fieldId}>
-                  {definition.fieldLabel}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-semibold text-charcoal-700">
-            Status
-            <select
-              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
-              name="status"
-              required
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="ENTERED">Entered</option>
-              <option value="NEEDS_REVIEW">Needs review</option>
-              <option value="REVIEWED">Reviewed</option>
-              <option value="NOT_APPLICABLE">Not applicable</option>
-              <option value="BLANK">Blank</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <label className="text-sm font-semibold text-charcoal-700">
-            Short text
-            <input
-              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
-              maxLength={500}
-              name="valueText"
-              placeholder="Stored, not shown in summaries"
-            />
-          </label>
-          <label className="text-sm font-semibold text-charcoal-700">
-            Number
-            <input
-              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
-              name="valueNumber"
-              placeholder="Optional"
-              step="0.01"
-              type="number"
-            />
-          </label>
-          <label className="text-sm font-semibold text-charcoal-700">
-            Date
-            <input
-              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
-              name="valueDate"
-              type="date"
-            />
-          </label>
-        </div>
-
-        <label className="block text-sm font-semibold text-charcoal-700">
-          Safe note
-          <textarea
-            className="mt-1 min-h-20 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
-            maxLength={300}
-            name="notes"
-            placeholder="Optional short report note; not shown in compact summaries"
-          />
-        </label>
-
-        <button
-          className="inline-flex rounded-md bg-charcoal-900 px-4 py-2 text-sm font-semibold text-sand-50"
-          type="submit"
-        >
-          Save manual field
-        </button>
-      </form>
+  return (
+    <div className="mt-3 space-y-3">
+      {groups.map((group) => (
+        <AppbManualFieldGroupCard
+          group={group}
+          key={group.key}
+          manualFieldById={manualFieldById}
+          organisationSlug={organisationSlug}
+          reportId={report.id}
+        />
+      ))}
     </div>
   );
+}
+
+function AppbManualFieldGroupCard({
+  group,
+  manualFieldById,
+  organisationSlug,
+  reportId,
+}: {
+  group: ManualFieldDefinitionGroup;
+  manualFieldById: Map<string, AppbManualFieldOverview>;
+  organisationSlug: string;
+  reportId: string;
+}) {
+  return (
+    <section className="rounded-md border border-earth-200 bg-white p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-charcoal-950">
+            {group.label}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            {group.description}
+          </p>
+        </div>
+        <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+          {group.definitions.length} fields
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {group.definitions.map((definition) => {
+          const currentField = manualFieldById.get(definition.fieldId);
+
+          return (
+            <form
+              action={upsertAppbManualFieldValueAction}
+              className="rounded-md border border-earth-200 bg-earth-50 p-3"
+              key={definition.fieldId}
+            >
+              <input name="organisationSlug" type="hidden" value={organisationSlug} />
+              <input name="appbReportId" type="hidden" value={reportId} />
+              <input name="fieldId" type="hidden" value={definition.fieldId} />
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-charcoal-950">
+                    {definition.fieldLabel}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-charcoal-600">
+                    {helperTextForManualField(definition)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <AppbManualFieldStatusBadge
+                    status={currentField?.status ?? "Blank"}
+                  />
+                  <AppbManualFieldSensitivityBadge
+                    sensitivity={definition.sensitivity}
+                  />
+                  <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                    {formatStatus(definition.fieldType)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <AppbManualFieldReviewState currentField={currentField} />
+                <AppbManualFieldValueInput definition={definition} />
+              </div>
+
+              <label className="mt-3 block text-sm font-semibold text-charcoal-700">
+                Safe note
+                <textarea
+                  className="mt-1 min-h-20 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+                  maxLength={300}
+                  name="notes"
+                  placeholder="Optional note; not shown in compact summaries"
+                />
+              </label>
+
+              <button
+                className="mt-3 inline-flex rounded-md bg-charcoal-900 px-4 py-2 text-sm font-semibold text-sand-50"
+                type="submit"
+              >
+                Save field
+              </button>
+            </form>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function AppbManualFieldReviewState({
+  currentField,
+}: {
+  currentField?: AppbManualFieldOverview;
+}) {
+  return (
+    <label className="text-sm font-semibold text-charcoal-700">
+      Status
+      <select
+        className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+        defaultValue={statusValueForSelect(currentField?.status)}
+        name="status"
+        required
+      >
+        <option value="BLANK">Blank</option>
+        <option value="DRAFT">Draft</option>
+        <option value="ENTERED">Entered</option>
+        <option value="NEEDS_REVIEW">Needs review</option>
+        <option value="REVIEWED">Reviewed</option>
+        <option value="NOT_APPLICABLE">Not applicable</option>
+      </select>
+    </label>
+  );
+}
+
+function AppbManualFieldValueInput({
+  definition,
+}: {
+  definition: AppbManualFieldDefinition;
+}) {
+  if (definition.fieldType === "ROW_GROUP_PLACEHOLDER") {
+    return (
+      <div className="rounded-md border border-dashed border-earth-300 bg-white p-3">
+        <p className="text-sm font-semibold text-charcoal-700">
+          Status-only placeholder
+        </p>
+        <p className="mt-1 text-xs leading-5 text-charcoal-600">
+          Use the status and safe note for this row group until detailed rows are
+          scoped.
+        </p>
+      </div>
+    );
+  }
+
+  if (definition.fieldType === "LONG_TEXT") {
+    return (
+      <label className="text-sm font-semibold text-charcoal-700">
+        Long text
+        <textarea
+          className="mt-1 min-h-24 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          maxLength={500}
+          name="valueText"
+          placeholder="Stored, not shown in compact summaries"
+        />
+      </label>
+    );
+  }
+
+  if (definition.fieldType === "NUMBER" || definition.fieldType === "CURRENCY") {
+    return (
+      <label className="text-sm font-semibold text-charcoal-700">
+        {definition.fieldType === "CURRENCY" ? "Currency value" : "Number"}
+        <input
+          className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          name="valueNumber"
+          placeholder="Stored, not shown in compact summaries"
+          step={definition.fieldType === "CURRENCY" ? "0.01" : "1"}
+          type="number"
+        />
+      </label>
+    );
+  }
+
+  if (definition.fieldType === "DATE") {
+    return (
+      <label className="text-sm font-semibold text-charcoal-700">
+        Date
+        <input
+          className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          name="valueDate"
+          type="date"
+        />
+      </label>
+    );
+  }
+
+  if (definition.fieldType === "YES_NO") {
+    return (
+      <label className="text-sm font-semibold text-charcoal-700">
+        Yes/no
+        <select
+          className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          name="valueText"
+        >
+          <option value="">Select</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </label>
+    );
+  }
+
+  return (
+    <label className="text-sm font-semibold text-charcoal-700">
+      {definition.fieldType === "SELECT" ? "Select value" : "Short text"}
+      <input
+        className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+        maxLength={500}
+        name="valueText"
+        placeholder="Stored, not shown in compact summaries"
+      />
+    </label>
+  );
+}
+
+function AppbManualFieldStatusBadge({
+  count,
+  status,
+}: {
+  count?: number;
+  status: string;
+}) {
+  return (
+    <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+      {formatStatus(status)}
+      {typeof count === "number" ? `: ${count}` : ""}
+    </span>
+  );
+}
+
+function AppbManualFieldSensitivityBadge({
+  sensitivity,
+}: {
+  sensitivity: string;
+}) {
+  return (
+    <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-ochre-700">
+      {formatStatus(sensitivity)}
+    </span>
+  );
+}
+
+type ManualFieldDefinitionGroup = {
+  definitions: AppbManualFieldDefinition[];
+  description: string;
+  key: string;
+  label: string;
+};
+
+function groupManualFieldDefinitions(
+  definitions: AppbManualFieldDefinition[],
+): ManualFieldDefinitionGroup[] {
+  const groups = new Map<string, AppbManualFieldDefinition[]>();
+
+  for (const definition of definitions) {
+    const group = groups.get(definition.fieldGroup) ?? [];
+    group.push(definition);
+    groups.set(definition.fieldGroup, group);
+  }
+
+  return [...groups.entries()].map(([key, groupedDefinitions]) => ({
+    definitions: groupedDefinitions,
+    description: manualFieldGroupDescription(key),
+    key,
+    label: manualFieldGroupLabel(key),
+  }));
+}
+
+function manualFieldGroupLabel(group: string) {
+  switch (group) {
+    case "report-setup":
+      return "Report setup";
+    case "manual-finance":
+      return "Manual finance";
+    case "manual-wage-personnel":
+      return "Manual wage/personnel";
+    case "manual-narrative":
+      return "Manual narrative";
+    case "fee-for-service-rows":
+      return "Fee-for-service rows";
+    case "asset-register-rows":
+      return "Asset register rows";
+    default:
+      return "Other report-only fields";
+  }
+}
+
+function manualFieldGroupDescription(group: string) {
+  switch (group) {
+    case "manual-finance":
+      return "Report-only finance or acquittal values. These are not accounting source records.";
+    case "manual-wage-personnel":
+      return "Report-only workforce summaries. These are not personnel system-of-record fields.";
+    case "manual-narrative":
+      return "Free-text report narrative, edited only in this context and hidden from compact cards.";
+    case "fee-for-service-rows":
+      return "Placeholder status controls for future fee-for-service row capture.";
+    case "asset-register-rows":
+      return "Placeholder status controls for future asset register row capture.";
+    case "report-setup":
+      return "Report-only setup values used to support readiness checks.";
+    default:
+      return "Manual values that ROPES does not yet own as structured operational data.";
+  }
+}
+
+function helperTextForManualField(definition: AppbManualFieldDefinition) {
+  if (definition.fieldType === "ROW_GROUP_PLACEHOLDER") {
+    return "Mark the row group status now; detailed row entry remains future work.";
+  }
+
+  if (definition.sensitivity === "FINANCE") {
+    return "Use for report-only finance context, not accounting calculations.";
+  }
+
+  if (definition.sensitivity === "PERSONNEL") {
+    return "Use for report-only workforce context, not personnel records.";
+  }
+
+  if (definition.sensitivity === "NARRATIVE") {
+    return "Narrative text is hidden from compact summaries.";
+  }
+
+  return "Stored value supports readiness only; export remains blocked.";
+}
+
+function statusValueForSelect(status: string | undefined) {
+  return status?.toUpperCase().replace(/\s+/g, "_") ?? "BLANK";
 }
 
 function Panel({

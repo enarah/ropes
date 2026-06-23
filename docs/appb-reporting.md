@@ -168,7 +168,18 @@ Each value records a bounded status, field type and sensitivity:
 
 Manual field values are not finance/accounting source-of-truth records, wage/personnel system-of-record records, workbook export mappings or range mappings. They support report readiness only.
 
-The `/reports/appb` page shows compact manual-field status counts and field labels. It does not show stored finance, personnel, narrative, sensitive or workbook values in summary cards. The small save form is tenant-guarded, APP&B capability-gated and records safe audit metadata only: organisation, report, field ID, field group, sensitivity, status and action type. Raw manual values are not written to audit metadata.
+The `/reports/appb` page shows compact manual-field status counts and field labels. It does not show stored finance, personnel, narrative, sensitive or workbook values in summary cards. Manual field editing is kept in an expandable report context with group cards, sensitivity/status badges and field-type-specific inputs:
+
+- short text input for `SHORT_TEXT`
+- textarea for `LONG_TEXT`
+- number input for `NUMBER`
+- currency-style number input for `CURRENCY`
+- date input for `DATE`
+- yes/no select for `YES_NO`
+- select-style fallback for `SELECT`
+- status-only placeholder controls for `ROW_GROUP_PLACEHOLDER`
+
+The save flow is tenant-guarded, APP&B capability-gated and records safe audit metadata only: organisation, report, field ID, field group, sensitivity, status and action type. Raw manual values are not written to audit metadata.
 
 This foundation still does not add workbook export, XLSX generation, uploaded-template storage, mapping admin UI, finance/acquittal calculations, wage/personnel system-of-record features, AI calls or external integrations.
 

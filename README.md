@@ -299,6 +299,9 @@ The current app includes:
   `AppbManualFieldValue` records, bounded status/type/sensitivity values,
   safe summary counts, guarded updates and audit metadata without exposing raw
   sensitive values in compact cards
+- APP&B manual field UX refinement with grouped editing cards, status and
+  sensitivity labels, and field-type-specific inputs while keeping compact
+  summaries value-free and export blocked
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
