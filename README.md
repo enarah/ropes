@@ -292,6 +292,9 @@ The current app includes:
   common sections, formula-protected placeholders, manual-only areas and
   repeatable table candidates while keeping exact cell/range mapping and export
   blocked
+- Read-only APP&B report readiness summaries on `/reports/appb`, showing safe
+  status counts, top blockers and next actions for each report without exposing
+  finance, personnel, narrative or workbook values
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
