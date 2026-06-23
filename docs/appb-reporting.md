@@ -179,6 +179,14 @@ The `/reports/appb` page shows compact manual-field status counts and field labe
 - select-style fallback for `SELECT`
 - status-only placeholder controls for `ROW_GROUP_PLACEHOLDER`
 
+The expandable editing context can load existing manual values for the selected
+APP&B report so users can change status without accidentally clearing stored
+report-only values. Compact report cards remain value-free. Status-only changes
+preserve existing values and notes; choosing `BLANK` clears values and notes;
+choosing `NOT_APPLICABLE` clears typed values while allowing a short safe note.
+Finance, personnel, narrative and sensitive fields show editing warnings that
+the values are report-only and are not source-of-truth records.
+
 The save flow is tenant-guarded, APP&B capability-gated and records safe audit metadata only: organisation, report, field ID, field group, sensitivity, status and action type. Raw manual values are not written to audit metadata.
 
 This foundation still does not add workbook export, XLSX generation, uploaded-template storage, mapping admin UI, finance/acquittal calculations, wage/personnel system-of-record features, AI calls or external integrations.

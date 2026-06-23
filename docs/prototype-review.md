@@ -59,6 +59,9 @@ Vehicles records, and the initial authentication foundation.
 - APP&B manual field UX refinement groups editable fields by category, adds
   status/sensitivity labels and uses field-type-specific controls while keeping
   compact summaries value-free.
+- APP&B manual field value preservation now preloads existing values only in
+  the editing context, keeps compact summaries value-free and preserves stored
+  values on status-only changes.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
