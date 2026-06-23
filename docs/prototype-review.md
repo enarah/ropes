@@ -50,6 +50,9 @@ Vehicles records, and the initial authentication foundation.
 - Verified APP&B workbook mapping metadata now records reviewed sheet
   inventories, common sections, formula-protected placeholders, manual-only
   areas and repeatable table candidates while keeping export blocked.
+- APP&B report readiness summaries now show safe per-report status counts, top
+  blockers and next actions without exposing finance, personnel, narrative or
+  workbook values.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

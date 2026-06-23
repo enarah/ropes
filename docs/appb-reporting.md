@@ -103,6 +103,53 @@ Formula-heavy areas are represented as formula-protected placeholders. Manual-on
 
 Exact cells and ranges remain marked `needs-range-review`, and all export-readiness checks remain blocked.
 
+## Report Readiness Checklist
+
+`lib/appb-readiness.ts` adds a read-only readiness layer for each persisted `AppbReport` shown on `/reports/appb`.
+
+For a selected organisation, grant, reporting period and APP&B report, the readiness summary:
+
+- identifies the matching template version from `lib/appb-reporting.ts`
+- checks required structured fields that ROPES already has, such as organisation, grant, reporting period and APP&B report metadata
+- marks optional linked structured data such as Project and Ranger Program as present or missing
+- marks future derived fields such as activity summaries and Fulcrum evidence as future data sources
+- marks manual-only finance, wage/personnel, narrative and asset-register areas as manual required
+- marks formula-protected placeholders as formula protected
+- marks exact cell/range mappings as range-review required
+- marks repeatable table candidates as range-review required or future data source
+- always includes an export-blocked item
+
+The UI shows only safe labels, statuses, counts, short reasons and next actions. It does not show finance values, personnel values, narrative values, raw workbook contents or generated workbook data.
+
+Readiness statuses are:
+
+- `ready`
+- `missing-data`
+- `manual-required`
+- `range-review-required`
+- `formula-protected`
+- `future-data-source`
+- `blocked`
+
+Readiness categories are:
+
+- `organisation`
+- `grant`
+- `reporting-period`
+- `appb-report`
+- `project`
+- `ranger-program`
+- `activity-summary`
+- `fulcrum-evidence`
+- `manual-finance`
+- `manual-wage-personnel`
+- `manual-narrative`
+- `formula-protection`
+- `repeatable-table`
+- `export-readiness`
+
+This layer is intentionally read-only. It does not add schema, write actions, workbook export, XLSX generation, mapping admin UI, finance/acquittal calculations, wage/personnel capture, AI calls or integrations.
+
 ## Template Mapping Metadata
 
 The code-level metadata in `lib/appb-reporting.ts` describes:
@@ -176,7 +223,7 @@ Future behaviour should follow this shape:
 3. User links the grant to funder, program type, funding period, projects and ranger programs.
 4. User creates an APP&B report for one grant and reporting period.
 5. User selects a funder template profile/version.
-6. ROPES shows a mapping checklist of required fields.
+6. ROPES shows a read-only readiness checklist of required fields.
 7. ROPES pre-fills available fields from structured Projects, Ranger Programs, Trips, Fulcrum records and future Grants data.
 8. User fills manual values where ROPES does not own structured data yet.
 9. ROPES blocks export until mapping readiness checks pass.

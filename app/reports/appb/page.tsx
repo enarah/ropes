@@ -4,6 +4,7 @@ import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { organisationHasCapability } from "@/lib/capability-registry";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
+import { buildAppbReportReadinessSummary } from "@/lib/appb-readiness";
 import {
   appbFutureConcepts,
   appbGeneratedWorkbookPlaceholder,
@@ -178,25 +179,42 @@ export default async function AppbReportingPage({
                             No APP&B report instances for this period yet.
                           </p>
                         ) : (
-                          period.appbReports.map((report) => (
-                            <div
-                              className="rounded-md bg-earth-50 p-3"
-                              key={report.id}
-                            >
-                              <p className="text-sm font-semibold text-charcoal-950">
-                                {report.status}
-                              </p>
-                              <p className="mt-1 text-xs font-semibold uppercase text-charcoal-600">
-                                {report.templateProfileId} /{" "}
-                                {report.templateVersionLabel}
-                              </p>
-                              {report.missingDataSummary ? (
-                                <p className="mt-2 text-sm leading-6 text-charcoal-600">
-                                  {report.missingDataSummary}
-                                </p>
-                              ) : null}
-                            </div>
-                          ))
+                          period.appbReports.map((report) => {
+                            const readiness = buildAppbReportReadinessSummary({
+                              grant,
+                              organisationName: access.organisation.name,
+                              period,
+                              report,
+                            });
+
+                            return (
+                              <div
+                                className="rounded-md bg-earth-50 p-3"
+                                key={report.id}
+                              >
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                  <div>
+                                    <p className="text-sm font-semibold text-charcoal-950">
+                                      {report.status}
+                                    </p>
+                                    <p className="mt-1 text-xs font-semibold uppercase text-charcoal-600">
+                                      {report.templateProfileId} /{" "}
+                                      {report.templateVersionLabel}
+                                    </p>
+                                  </div>
+                                  <span className="rounded-md bg-charcoal-900 px-2.5 py-1 text-xs font-semibold uppercase text-sand-50">
+                                    Export {readiness.exportStatus}
+                                  </span>
+                                </div>
+                                {report.missingDataSummary ? (
+                                  <p className="mt-2 text-sm leading-6 text-charcoal-600">
+                                    {report.missingDataSummary}
+                                  </p>
+                                ) : null}
+                                <ReadinessSummary summary={readiness} />
+                              </div>
+                            );
+                          })
                         )}
                       </div>
                     </div>
@@ -429,6 +447,82 @@ function SummaryChip({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ReadinessSummary({
+  summary,
+}: {
+  summary: ReturnType<typeof buildAppbReportReadinessSummary>;
+}) {
+  const visibleCounts = summary.statusCounts.filter((count) => count.count > 0);
+
+  return (
+    <div className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-ochre-700">
+            Readiness checklist
+          </p>
+          <p className="mt-1 text-sm font-semibold text-charcoal-950">
+            Export blocked
+          </p>
+          {summary.templateVersion ? (
+            <p className="mt-1 text-xs leading-5 text-charcoal-600">
+              Matched to {summary.templateVersion.label}
+            </p>
+          ) : null}
+        </div>
+        <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+          {summary.items.length} checks
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {visibleCounts.map((statusCount) => (
+          <span
+            className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+            key={statusCount.status}
+          >
+            {formatStatus(statusCount.status)}: {statusCount.count}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-2 lg:grid-cols-2">
+        {summary.topBlockers.slice(0, 3).map((item) => (
+          <div
+            className="rounded-md border border-earth-200 bg-earth-50 p-3"
+            key={`${item.category}-${item.label}-${item.status}`}
+          >
+            <p className="text-xs font-semibold uppercase text-charcoal-600">
+              {formatStatus(item.status)}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-charcoal-950">
+              {item.label}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-charcoal-600">
+              {item.reason}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {summary.nextActions.length > 0 ? (
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase text-charcoal-500">
+            Next actions
+          </p>
+          <ul className="mt-2 space-y-1">
+            {summary.nextActions.map((action) => (
+              <li className="text-xs leading-5 text-charcoal-600" key={action}>
+                {action}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Panel({
   children,
   title,
@@ -446,6 +540,13 @@ function Panel({
 
 function formatCycle(cycle: string) {
   return cycle
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatStatus(status: string) {
+  return status
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
