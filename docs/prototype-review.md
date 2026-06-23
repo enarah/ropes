@@ -53,6 +53,9 @@ Vehicles records, and the initial authentication foundation.
 - APP&B report readiness summaries now show safe per-report status counts, top
   blockers and next actions without exposing finance, personnel, narrative or
   workbook values.
+- APP&B manual report field capture foundation adds organisation-scoped
+  report-only manual values with bounded status/type/sensitivity, guarded
+  updates and safe audit metadata while keeping export blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

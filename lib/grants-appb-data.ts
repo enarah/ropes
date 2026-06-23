@@ -33,10 +33,20 @@ export type GrantReportingPeriodOverview = {
 
 export type AppbReportOverview = {
   id: string;
+  manualFields: AppbManualFieldOverview[];
   missingDataSummary?: string;
   status: string;
   templateProfileId: string;
   templateVersionLabel: string;
+};
+
+export type AppbManualFieldOverview = {
+  fieldGroup: string;
+  fieldId: string;
+  fieldLabel: string;
+  fieldType: string;
+  sensitivity: string;
+  status: string;
 };
 
 export async function getGrantsAppbOverview(
@@ -102,6 +112,22 @@ export async function getGrantsAppbOverview(
               },
               select: {
                 id: true,
+                manualFieldValues: {
+                  orderBy: {
+                    updatedAt: "desc",
+                  },
+                  select: {
+                    fieldGroup: true,
+                    fieldId: true,
+                    fieldLabel: true,
+                    fieldType: true,
+                    sensitivity: true,
+                    status: true,
+                  },
+                  where: {
+                    organisationId: organisation.id,
+                  },
+                },
                 missingDataSummary: true,
                 status: true,
                 templateProfileId: true,
@@ -151,6 +177,14 @@ export async function getGrantsAppbOverview(
         reportingPeriods: grant.reportingPeriods.map((period) => ({
           appbReports: period.appbReports.map((report) => ({
             id: report.id,
+            manualFields: report.manualFieldValues.map((field) => ({
+              fieldGroup: field.fieldGroup,
+              fieldId: field.fieldId,
+              fieldLabel: field.fieldLabel,
+              fieldType: formatEnumLabel(field.fieldType),
+              sensitivity: formatEnumLabel(field.sensitivity),
+              status: formatEnumLabel(field.status),
+            })),
             missingDataSummary: report.missingDataSummary ?? undefined,
             status: formatEnumLabel(report.status),
             templateProfileId: report.templateProfileId,

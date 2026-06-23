@@ -150,6 +150,34 @@ enum AppbReportStatus {
   EXPORTED
 }
 
+enum AppbManualFieldStatus {
+  BLANK
+  DRAFT
+  ENTERED
+  NEEDS_REVIEW
+  REVIEWED
+  NOT_APPLICABLE
+}
+
+enum AppbManualFieldSensitivity {
+  NORMAL
+  FINANCE
+  PERSONNEL
+  NARRATIVE
+  SENSITIVE
+}
+
+enum AppbManualFieldType {
+  SHORT_TEXT
+  LONG_TEXT
+  NUMBER
+  CURRENCY
+  DATE
+  YES_NO
+  SELECT
+  ROW_GROUP_PLACEHOLDER
+}
+
 enum AuditAction {
   CREATED
   UPDATED
@@ -192,6 +220,7 @@ model Organisation {
   grants                    Grant[]
   grantReportingPeriods     GrantReportingPeriod[]
   appbReports               AppbReport[]
+  appbManualFieldValues     AppbManualFieldValue[]
   auditLogs                 AuditLog[]
 }
 
@@ -723,6 +752,7 @@ model Grant {
   rangerProgram          RangerProgram?         @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
   reportingPeriods       GrantReportingPeriod[]
   appbReports            AppbReport[]
+  appbManualFieldValues  AppbManualFieldValue[]
 
   @@index([organisationId])
   @@index([projectId])
@@ -734,21 +764,22 @@ model Grant {
 }
 
 model GrantReportingPeriod {
-  id             String                     @id @default(cuid())
-  organisationId String
-  grantId        String
-  label          String
-  cycle          GrantReportingCycle
-  startsOn       DateTime
-  endsOn         DateTime
-  dueOn          DateTime?
-  status         GrantReportingPeriodStatus @default(DRAFT)
-  isDemo         Boolean                    @default(false)
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
-  organisation   Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  grant          Grant                      @relation(fields: [grantId], references: [id], onDelete: Cascade)
-  appbReports    AppbReport[]
+  id                String                     @id @default(cuid())
+  organisationId    String
+  grantId           String
+  label             String
+  cycle             GrantReportingCycle
+  startsOn          DateTime
+  endsOn            DateTime
+  dueOn             DateTime?
+  status            GrantReportingPeriodStatus @default(DRAFT)
+  isDemo            Boolean                    @default(false)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  organisation      Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant             Grant                      @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  appbReports       AppbReport[]
+  manualFieldValues AppbManualFieldValue[]
 
   @@index([organisationId])
   @@index([grantId])
@@ -758,28 +789,65 @@ model GrantReportingPeriod {
 }
 
 model AppbReport {
-  id                   String               @id @default(cuid())
+  id                   String                 @id @default(cuid())
   organisationId       String
   grantId              String
   reportingPeriodId    String
   templateProfileId    String
   templateVersionLabel String
-  status               AppbReportStatus     @default(DRAFT)
+  status               AppbReportStatus       @default(DRAFT)
   manualFieldSummary   String?
   missingDataSummary   String?
   exportedAt           DateTime?
-  isDemo               Boolean              @default(false)
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  organisation         Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  grant                Grant                @relation(fields: [grantId], references: [id], onDelete: Cascade)
-  reportingPeriod      GrantReportingPeriod @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  isDemo               Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  organisation         Organisation           @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant                Grant                  @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  reportingPeriod      GrantReportingPeriod   @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  manualFieldValues    AppbManualFieldValue[]
 
   @@index([organisationId])
   @@index([grantId])
   @@index([reportingPeriodId])
   @@index([status])
   @@index([organisationId, grantId, reportingPeriodId])
+}
+
+model AppbManualFieldValue {
+  id                String                     @id @default(cuid())
+  organisationId    String
+  grantId           String
+  reportingPeriodId String
+  appbReportId      String
+  fieldId           String
+  fieldLabel        String
+  fieldGroup        String
+  fieldType         AppbManualFieldType
+  sensitivity       AppbManualFieldSensitivity
+  status            AppbManualFieldStatus      @default(BLANK)
+  valueText         String?
+  valueNumber       Decimal?                   @db.Decimal(12, 2)
+  valueDate         DateTime?
+  notes             String?
+  isDemo            Boolean                    @default(false)
+  createdByUserId   String?
+  updatedByUserId   String?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  organisation      Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant             Grant                      @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  reportingPeriod   GrantReportingPeriod       @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  appbReport        AppbReport                 @relation(fields: [appbReportId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, appbReportId, fieldId])
+  @@index([organisationId])
+  @@index([grantId])
+  @@index([reportingPeriodId])
+  @@index([appbReportId])
+  @@index([fieldGroup])
+  @@index([status])
+  @@index([sensitivity])
 }
 
 model AuditLog {

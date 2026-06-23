@@ -4,7 +4,11 @@ import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { organisationHasCapability } from "@/lib/capability-registry";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
-import { buildAppbReportReadinessSummary } from "@/lib/appb-readiness";
+import {
+  buildAppbManualFieldDefinitions,
+  buildAppbReportReadinessSummary,
+  type AppbManualFieldDefinition,
+} from "@/lib/appb-readiness";
 import {
   appbFutureConcepts,
   appbGeneratedWorkbookPlaceholder,
@@ -14,7 +18,11 @@ import {
   appbTemplateProfiles,
   appbTemplateVersions,
 } from "@/lib/appb-reporting";
-import { getGrantsAppbOverview } from "@/lib/grants-appb-data";
+import {
+  type AppbReportOverview,
+  getGrantsAppbOverview,
+} from "@/lib/grants-appb-data";
+import { upsertAppbManualFieldValueAction } from "./actions";
 
 type AppbReportingPageProps = {
   searchParams?: Promise<{
@@ -186,6 +194,8 @@ export default async function AppbReportingPage({
                               period,
                               report,
                             });
+                            const manualFieldDefinitions =
+                              buildAppbManualFieldDefinitions(report, period);
 
                             return (
                               <div
@@ -212,6 +222,11 @@ export default async function AppbReportingPage({
                                   </p>
                                 ) : null}
                                 <ReadinessSummary summary={readiness} />
+                                <ManualFieldSummary
+                                  definitions={manualFieldDefinitions}
+                                  organisationSlug={access.organisation.slug}
+                                  report={report}
+                                />
                               </div>
                             );
                           })
@@ -523,6 +538,177 @@ function ReadinessSummary({
   );
 }
 
+function ManualFieldSummary({
+  definitions,
+  organisationSlug,
+  report,
+}: {
+  definitions: AppbManualFieldDefinition[];
+  organisationSlug: string;
+  report: AppbReportOverview;
+}) {
+  if (definitions.length === 0) {
+    return null;
+  }
+
+  const enteredCount = report.manualFields.filter((field) =>
+    ["Entered", "Reviewed", "Not Applicable"].includes(field.status),
+  ).length;
+  const statusCounts = countByStatus(report.manualFields.map((field) => field.status));
+  const definitionById = new Map(
+    definitions.map((definition) => [definition.fieldId, definition]),
+  );
+  const editableDefinitions = definitions.slice(0, 8);
+
+  return (
+    <div className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-ochre-700">
+            Manual report fields
+          </p>
+          <p className="mt-1 text-sm font-semibold text-charcoal-950">
+            {enteredCount} of {definitions.length} entered or reviewed
+          </p>
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            Report-only values support readiness but do not make workbook export
+            available.
+          </p>
+        </div>
+        <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+          Values hidden
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {statusCounts.length === 0 ? (
+          <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+            No manual values yet
+          </span>
+        ) : (
+          statusCounts.map((count) => (
+            <span
+              className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+              key={count.status}
+            >
+              {count.status}: {count.count}
+            </span>
+          ))
+        )}
+      </div>
+
+      {report.manualFields.length > 0 ? (
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {report.manualFields.slice(0, 4).map((field) => {
+            const definition = definitionById.get(field.fieldId);
+
+            return (
+              <div
+                className="rounded-md border border-earth-200 bg-earth-50 p-3"
+                key={field.fieldId}
+              >
+                <p className="text-xs font-semibold uppercase text-charcoal-600">
+                  {field.status} / {field.sensitivity}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-charcoal-950">
+                  {field.fieldLabel}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-charcoal-600">
+                  {formatStatus(definition?.fieldGroup ?? field.fieldGroup)}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <form action={upsertAppbManualFieldValueAction} className="mt-3 space-y-3">
+        <input name="organisationSlug" type="hidden" value={organisationSlug} />
+        <input name="appbReportId" type="hidden" value={report.id} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm font-semibold text-charcoal-700">
+            Field
+            <select
+              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+              name="fieldId"
+              required
+            >
+              {editableDefinitions.map((definition) => (
+                <option key={definition.fieldId} value={definition.fieldId}>
+                  {definition.fieldLabel}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-sm font-semibold text-charcoal-700">
+            Status
+            <select
+              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+              name="status"
+              required
+            >
+              <option value="DRAFT">Draft</option>
+              <option value="ENTERED">Entered</option>
+              <option value="NEEDS_REVIEW">Needs review</option>
+              <option value="REVIEWED">Reviewed</option>
+              <option value="NOT_APPLICABLE">Not applicable</option>
+              <option value="BLANK">Blank</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="text-sm font-semibold text-charcoal-700">
+            Short text
+            <input
+              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+              maxLength={500}
+              name="valueText"
+              placeholder="Stored, not shown in summaries"
+            />
+          </label>
+          <label className="text-sm font-semibold text-charcoal-700">
+            Number
+            <input
+              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+              name="valueNumber"
+              placeholder="Optional"
+              step="0.01"
+              type="number"
+            />
+          </label>
+          <label className="text-sm font-semibold text-charcoal-700">
+            Date
+            <input
+              className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+              name="valueDate"
+              type="date"
+            />
+          </label>
+        </div>
+
+        <label className="block text-sm font-semibold text-charcoal-700">
+          Safe note
+          <textarea
+            className="mt-1 min-h-20 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+            maxLength={300}
+            name="notes"
+            placeholder="Optional short report note; not shown in compact summaries"
+          />
+        </label>
+
+        <button
+          className="inline-flex rounded-md bg-charcoal-900 px-4 py-2 text-sm font-semibold text-sand-50"
+          type="submit"
+        >
+          Save manual field
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function Panel({
   children,
   title,
@@ -548,6 +734,23 @@ function formatCycle(cycle: string) {
 function formatStatus(status: string) {
   return status
     .split("-")
+    .join(" ")
+    .split("_")
+    .join(" ")
+    .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function countByStatus(statuses: string[]) {
+  const counts = new Map<string, number>();
+
+  for (const status of statuses) {
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+
+  return [...counts.entries()].map(([status, count]) => ({
+    count,
+    status,
+  }));
 }

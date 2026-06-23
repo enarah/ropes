@@ -5,6 +5,7 @@ import {
   type AppbTemplateVersion,
 } from "@/lib/appb-reporting";
 import type {
+  AppbManualFieldOverview,
   AppbReportOverview,
   GrantOverview,
   GrantReportingPeriodOverview,
@@ -60,6 +61,31 @@ export type AppbReportReadinessSummary = {
   topBlockers: AppbReadinessItem[];
 };
 
+export type AppbManualFieldDefinition = {
+  fieldGroup: string;
+  fieldId: string;
+  fieldLabel: string;
+  fieldType: AppbManualFieldTypeValue;
+  sensitivity: AppbManualFieldSensitivityValue;
+};
+
+export type AppbManualFieldSensitivityValue =
+  | "NORMAL"
+  | "FINANCE"
+  | "PERSONNEL"
+  | "NARRATIVE"
+  | "SENSITIVE";
+
+export type AppbManualFieldTypeValue =
+  | "SHORT_TEXT"
+  | "LONG_TEXT"
+  | "NUMBER"
+  | "CURRENCY"
+  | "DATE"
+  | "YES_NO"
+  | "SELECT"
+  | "ROW_GROUP_PLACEHOLDER";
+
 type AppbReadinessInput = {
   grant: GrantOverview;
   organisationName: string;
@@ -83,7 +109,7 @@ export function buildAppbReportReadinessSummary({
   period,
   report,
 }: AppbReadinessInput): AppbReportReadinessSummary {
-  const templateVersion = findTemplateVersion(report, period);
+  const templateVersion = findAppbTemplateVersion(report, period);
 
   if (!templateVersion) {
     const items: AppbReadinessItem[] = [
@@ -144,7 +170,28 @@ export function buildAppbReportReadinessSummary({
   return summarize(items, templateVersion);
 }
 
-function findTemplateVersion(
+export function buildAppbManualFieldDefinitions(
+  report: AppbReportOverview,
+  period: GrantReportingPeriodOverview,
+): AppbManualFieldDefinition[] {
+  const templateVersion = findAppbTemplateVersion(report, period);
+
+  if (!templateVersion) {
+    return [];
+  }
+
+  return templateVersion.fields
+    .filter((field) => field.flags.includes("manualOnly"))
+    .map((field) => ({
+      fieldGroup: categoryForField(field),
+      fieldId: field.id,
+      fieldLabel: field.label,
+      fieldType: fieldTypeForManualField(field),
+      sensitivity: sensitivityForManualField(field),
+    }));
+}
+
+export function findAppbTemplateVersion(
   report: AppbReportOverview,
   period: GrantReportingPeriodOverview,
 ) {
@@ -198,14 +245,7 @@ function readinessItemForField({
   }
 
   if (field.flags.includes("manualOnly")) {
-    return {
-      category,
-      label: field.label,
-      nextAction: "Keep this as manual review until ROPES explicitly owns the data.",
-      reason:
-        "This field group is manual-only and may include finance, personnel, narrative or report-only content.",
-      status: "manual-required",
-    };
+    return readinessItemForManualField(field, category, report.manualFields);
   }
 
   if (isFutureSource(field.sourceType)) {
@@ -255,6 +295,47 @@ function readinessItemForField({
     label: field.label,
     nextAction: "No action needed for this structured field.",
     reason: availability.reason,
+    status: "ready",
+  };
+}
+
+function readinessItemForManualField(
+  field: AppbTemplateField,
+  category: AppbReadinessCategory,
+  manualFields: AppbManualFieldOverview[],
+): AppbReadinessItem {
+  const value = manualFields.find((manualField) => manualField.fieldId === field.id);
+  const status = normaliseManualStatus(value?.status);
+
+  if (!value || status === "blank") {
+    return {
+      category,
+      label: field.label,
+      nextAction:
+        "Enter or mark this report-only manual field in the APP&B manual field section.",
+      reason:
+        "This manual-only field has no report-scoped value yet.",
+      status: "manual-required",
+    };
+  }
+
+  if (status === "draft" || status === "needs-review") {
+    return {
+      category,
+      label: field.label,
+      nextAction:
+        "Review this report-only manual field before treating it as complete.",
+      reason: `Manual field status is ${value.status}.`,
+      status: "manual-required",
+    };
+  }
+
+  return {
+    category,
+    label: field.label,
+    nextAction:
+      "Keep export blocked until exact workbook ranges and export rules are implemented.",
+    reason: `Manual field status is ${value.status}; this supports readiness only.`,
     status: "ready",
   };
 }
@@ -364,6 +445,51 @@ function categoryForField(field: AppbTemplateField): AppbReadinessCategory {
   }
 }
 
+function sensitivityForManualField(
+  field: AppbTemplateField,
+): AppbManualFieldSensitivityValue {
+  const category = categoryForField(field);
+
+  if (category === "manual-finance") {
+    return "FINANCE";
+  }
+
+  if (category === "manual-wage-personnel") {
+    return "PERSONNEL";
+  }
+
+  if (category === "manual-narrative") {
+    return "NARRATIVE";
+  }
+
+  if (field.id.includes("asset") || field.id.includes("fee-for-service")) {
+    return "SENSITIVE";
+  }
+
+  return "NORMAL";
+}
+
+function fieldTypeForManualField(field: AppbTemplateField): AppbManualFieldTypeValue {
+  const category = categoryForField(field);
+
+  if (field.id.includes("asset") || field.id.includes("fee-for-service")) {
+    return "ROW_GROUP_PLACEHOLDER";
+  }
+
+  if (category === "manual-finance") {
+    return "CURRENCY";
+  }
+
+  if (
+    category === "manual-narrative" ||
+    category === "manual-wage-personnel"
+  ) {
+    return "LONG_TEXT";
+  }
+
+  return "SHORT_TEXT";
+}
+
 function isFutureSource(sourceType: AppbFieldSourceType) {
   return (
     sourceType === "derived" ||
@@ -440,6 +566,10 @@ function normaliseLabel(value: string) {
     .replace(/\b(copy|placeholder|review|template)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normaliseManualStatus(value: string | undefined) {
+  return value?.toLowerCase().replace(/\s+/g, "-") ?? "blank";
 }
 
 function cycleFromLabel(value: string) {
