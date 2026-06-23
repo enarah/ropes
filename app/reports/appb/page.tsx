@@ -232,12 +232,12 @@ export default async function AppbReportingPage({
       <Panel title="Template mapping metadata">
         <div className="grid gap-3 md:grid-cols-4">
           <SummaryChip
-            label="Fields"
-            value={String(appbTemplateMappingSummary.fieldCount)}
+            label="Sheets"
+            value={String(appbTemplateMappingSummary.sheetCount)}
           />
           <SummaryChip
-            label="Mappings"
-            value={String(appbTemplateMappingSummary.mappingCount)}
+            label="Fields"
+            value={String(appbTemplateMappingSummary.fieldCount)}
           />
           <SummaryChip
             label="Repeatable tables"
@@ -265,7 +265,7 @@ export default async function AppbReportingPage({
                   </p>
                 </div>
                 <span className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-charcoal-700">
-                  {version.fields.length} fields
+                  {version.sheets.length} sheets / {version.fields.length} fields
                 </span>
               </div>
               <p className="mt-2 text-sm leading-6 text-charcoal-600">
@@ -274,6 +274,33 @@ export default async function AppbReportingPage({
               <p className="mt-2 text-sm leading-6 text-charcoal-600">
                 {version.discoveryNotes}
               </p>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {version.sheets.map((sheet) => (
+                  <div className="rounded-md bg-white p-3" key={sheet.id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-semibold text-charcoal-950">
+                        {sheet.name}
+                      </p>
+                      <span className="rounded-md bg-earth-50 px-2 py-1 text-xs font-semibold uppercase text-charcoal-600">
+                        {sheet.state ?? "unknown"}
+                      </span>
+                    </div>
+                    {sheet.dimensions ? (
+                      <p className="mt-1 text-xs leading-5 text-charcoal-600">
+                        {sheet.dimensions.rows} rows x{" "}
+                        {sheet.dimensions.columns} columns /{" "}
+                        {sheet.dimensions.formulaCellCount} formulas /{" "}
+                        {sheet.dimensions.mergedRangeCount} merged ranges
+                      </p>
+                    ) : null}
+                    <p className="mt-1 text-xs leading-5 text-charcoal-600">
+                      {sheet.protectionDetected
+                        ? "Protection detected"
+                        : "Protection not detected"}
+                    </p>
+                  </div>
+                ))}
+              </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {version.exportReadinessChecks.map((check) => (
                   <div

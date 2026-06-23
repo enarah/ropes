@@ -288,6 +288,10 @@ The current app includes:
 - Local APP&B workbook inspection tooling via `npm run appb:inspect`, producing
   reviewed JSON/Markdown structural summaries without committing source
   workbooks or running XLSX parsing in app runtime
+- Verified APP&B workbook mapping metadata with reviewed sheet inventories,
+  common sections, formula-protected placeholders, manual-only areas and
+  repeatable table candidates while keeping exact cell/range mapping and export
+  blocked
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

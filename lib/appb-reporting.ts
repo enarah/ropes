@@ -56,7 +56,10 @@ export type AppbTemplateFieldFlag =
   | "exportBlockedUntilMapped";
 
 export type AppbCellRangeReference = {
-  discoveryStatus: "needs-workbook-inspection" | "known";
+  discoveryStatus:
+    | "needs-workbook-inspection"
+    | "needs-range-review"
+    | "known";
   label: string;
   sheetId: string;
   a1Reference?: string;
@@ -65,9 +68,19 @@ export type AppbCellRangeReference = {
 
 export type AppbWorkbookSheet = {
   description: string;
+  dimensions?: {
+    columns: number;
+    formulaCellCount: number;
+    mergedRangeCount: number;
+    nonEmptyCellCount: number;
+    rows: number;
+  };
   id: string;
   name: string;
+  protectionDetected?: boolean;
+  reviewNotes?: string[];
   sourceConfidence: "filename-only" | "workbook-inspected";
+  state?: "visible" | "hidden" | "very-hidden";
 };
 
 export type AppbTemplateSection = {
@@ -201,114 +214,581 @@ export const appbTemplateProfiles: AppbTemplateProfile[] = [
   },
 ];
 
-const sharedDiscoverySheets: AppbWorkbookSheet[] = [
-  {
-    description:
-      "Expected workbook identity, funder, program and organisation details. Exact tab name still needs workbook inspection.",
-    id: "workbook-identity",
-    name: "Workbook identity",
-    sourceConfidence: "filename-only",
-  },
-  {
-    description:
-      "Expected planning or reporting content for projects, activities, outputs and evidence. Exact tab structure still needs workbook inspection.",
-    id: "program-reporting",
-    name: "Program reporting",
-    sourceConfidence: "filename-only",
-  },
-  {
-    description:
-      "Expected budget, acquittal or financial summary area. ROPES should not populate this until finance requirements are explicitly scoped.",
-    id: "budget-acquittal",
-    name: "Budget and acquittal",
-    sourceConfidence: "filename-only",
-  },
+type VerifiedSheetInput = {
+  columns: number;
+  description: string;
+  formulaCellCount: number;
+  id: string;
+  mergedRangeCount: number;
+  name: string;
+  nonEmptyCellCount: number;
+  protectionDetected: boolean;
+  reviewNotes?: string[];
+  rows: number;
+  state: "visible" | "hidden" | "very-hidden";
+};
+
+function verifiedSheet(input: VerifiedSheetInput): AppbWorkbookSheet {
+  return {
+    description: input.description,
+    dimensions: {
+      columns: input.columns,
+      formulaCellCount: input.formulaCellCount,
+      mergedRangeCount: input.mergedRangeCount,
+      nonEmptyCellCount: input.nonEmptyCellCount,
+      rows: input.rows,
+    },
+    id: input.id,
+    name: input.name,
+    protectionDetected: input.protectionDetected,
+    reviewNotes: input.reviewNotes,
+    sourceConfidence: "workbook-inspected",
+    state: input.state,
+  };
+}
+
+const sheetDescriptions = {
+  annualBudget:
+    "Verified annual budget sheet. Finance values remain manual and formulas are treated as protected until exact writable ranges are reviewed.",
+  assetRegister:
+    "Verified asset register sheet. Asset rows are likely manual-only until asset ownership and reporting fields are explicitly scoped.",
+  expenditure:
+    "Verified expenditure report sheet. Finance/acquittal fields stay manual until budget and acquittal logic is implemented.",
+  feeForService:
+    "Verified fee-for-service report sheet. Activity rows are likely repeatable, but exact ranges need review.",
+  hide:
+    "Verified lookup/reference sheet containing dropdown and reference content. This should not be treated as a report output sheet.",
+  projectPlan:
+    "Verified project plan and activity report sheet for program planning, activity/progress rows and narrative areas.",
+  reportType:
+    "Verified report setup sheet for APP&B/report type, program selection and workbook identity fields.",
+  wage:
+    "Verified wage budget and employee data/demographics sheet. Personnel fields stay manual-only until workforce reporting is scoped.",
+};
+
+const annualPlanning2025Sheets: AppbWorkbookSheet[] = [
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.hide,
+    formulaCellCount: 0,
+    id: "hide",
+    mergedRangeCount: 20,
+    name: "Hide",
+    nonEmptyCellCount: 208,
+    protectionDetected: false,
+    rows: 36,
+    state: "hidden",
+  }),
+  verifiedSheet({
+    columns: 11,
+    description: sheetDescriptions.reportType,
+    formulaCellCount: 1,
+    id: "report-type",
+    mergedRangeCount: 25,
+    name: "Report Type",
+    nonEmptyCellCount: 194,
+    protectionDetected: true,
+    rows: 33,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 4,
+    description: sheetDescriptions.projectPlan,
+    formulaCellCount: 7,
+    id: "project-plan-activity-report",
+    mergedRangeCount: 49,
+    name: "Project Plan & Activity Report",
+    nonEmptyCellCount: 312,
+    protectionDetected: true,
+    rows: 115,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 12,
+    description: sheetDescriptions.annualBudget,
+    formulaCellCount: 13,
+    id: "annual-budget",
+    mergedRangeCount: 62,
+    name: "2025-26 FY Annual Budget",
+    nonEmptyCellCount: 229,
+    protectionDetected: true,
+    rows: 57,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.wage,
+    formulaCellCount: 67,
+    id: "wage-budget-report",
+    mergedRangeCount: 32,
+    name: "Wage Budget and Report",
+    nonEmptyCellCount: 308,
+    protectionDetected: false,
+    reviewNotes: [
+      "Formula-heavy personnel and wage areas must be reviewed even when sheet protection metadata is not detected.",
+    ],
+    rows: 43,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 3,
+    description: sheetDescriptions.feeForService,
+    formulaCellCount: 5,
+    id: "fee-for-service-report",
+    mergedRangeCount: 8,
+    name: "Fee-for-Service Report",
+    nonEmptyCellCount: 41,
+    protectionDetected: false,
+    rows: 15,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.expenditure,
+    formulaCellCount: 53,
+    id: "expenditure-report",
+    mergedRangeCount: 53,
+    name: "Expenditure Report",
+    nonEmptyCellCount: 380,
+    protectionDetected: true,
+    rows: 46,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 19,
+    description: sheetDescriptions.assetRegister,
+    formulaCellCount: 2,
+    id: "asset-register",
+    mergedRangeCount: 62,
+    name: "Asset Register",
+    nonEmptyCellCount: 134,
+    protectionDetected: true,
+    rows: 44,
+    state: "visible",
+  }),
 ];
 
-const sharedDiscoverySections: AppbTemplateSection[] = [
+const annualPlanning2024Sheets: AppbWorkbookSheet[] = [
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.hide,
+    formulaCellCount: 0,
+    id: "hide",
+    mergedRangeCount: 11,
+    name: "Hide",
+    nonEmptyCellCount: 193,
+    protectionDetected: false,
+    reviewNotes: [
+      "This inspected workbook has the reference sheet visible, so visibility needs reviewer confirmation before export work.",
+    ],
+    rows: 35,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 10,
+    description: sheetDescriptions.reportType,
+    formulaCellCount: 0,
+    id: "report-type",
+    mergedRangeCount: 19,
+    name: "Report Type",
+    nonEmptyCellCount: 155,
+    protectionDetected: true,
+    rows: 27,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 4,
+    description: sheetDescriptions.projectPlan,
+    formulaCellCount: 6,
+    id: "project-plan-activity-report",
+    mergedRangeCount: 45,
+    name: "Project Plan & Activity Report",
+    nonEmptyCellCount: 382,
+    protectionDetected: true,
+    rows: 113,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 11,
+    description: sheetDescriptions.annualBudget,
+    formulaCellCount: 14,
+    id: "annual-budget",
+    mergedRangeCount: 48,
+    name: "24-25 FY Annual Budget",
+    nonEmptyCellCount: 206,
+    protectionDetected: true,
+    rows: 53,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.expenditure,
+    formulaCellCount: 69,
+    id: "expenditure-report",
+    mergedRangeCount: 62,
+    name: "Expenditure Report",
+    nonEmptyCellCount: 487,
+    protectionDetected: true,
+    rows: 54,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 19,
+    description: sheetDescriptions.assetRegister,
+    formulaCellCount: 1,
+    id: "asset-register",
+    mergedRangeCount: 62,
+    name: "Asset Register",
+    nonEmptyCellCount: 133,
+    protectionDetected: true,
+    rows: 44,
+    state: "visible",
+  }),
+];
+
+const midYear2025Sheets: AppbWorkbookSheet[] = [
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.hide,
+    formulaCellCount: 0,
+    id: "hide",
+    mergedRangeCount: 20,
+    name: "Hide",
+    nonEmptyCellCount: 208,
+    protectionDetected: false,
+    rows: 36,
+    state: "hidden",
+  }),
+  verifiedSheet({
+    columns: 11,
+    description: sheetDescriptions.reportType,
+    formulaCellCount: 1,
+    id: "report-type",
+    mergedRangeCount: 25,
+    name: "Report Type",
+    nonEmptyCellCount: 194,
+    protectionDetected: false,
+    reviewNotes: [
+      "Mid-year inspection did not expose protection metadata; formulas and manual areas still need range review.",
+    ],
+    rows: 33,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 4,
+    description: sheetDescriptions.projectPlan,
+    formulaCellCount: 7,
+    id: "project-plan-activity-report",
+    mergedRangeCount: 49,
+    name: "Project Plan & Activity Report",
+    nonEmptyCellCount: 401,
+    protectionDetected: false,
+    rows: 115,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 12,
+    description: sheetDescriptions.annualBudget,
+    formulaCellCount: 13,
+    id: "annual-budget",
+    mergedRangeCount: 62,
+    name: "2025-26 FY Annual Budget",
+    nonEmptyCellCount: 229,
+    protectionDetected: false,
+    rows: 57,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.wage,
+    formulaCellCount: 66,
+    id: "wage-budget-report",
+    mergedRangeCount: 32,
+    name: "Wage Budget and Report",
+    nonEmptyCellCount: 331,
+    protectionDetected: false,
+    rows: 43,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 3,
+    description: sheetDescriptions.feeForService,
+    formulaCellCount: 5,
+    id: "fee-for-service-report",
+    mergedRangeCount: 8,
+    name: "Fee-for-Service Report",
+    nonEmptyCellCount: 41,
+    protectionDetected: false,
+    rows: 15,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.expenditure,
+    formulaCellCount: 53,
+    id: "expenditure-report",
+    mergedRangeCount: 53,
+    name: "Expenditure Report",
+    nonEmptyCellCount: 383,
+    protectionDetected: false,
+    rows: 46,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 19,
+    description: sheetDescriptions.assetRegister,
+    formulaCellCount: 2,
+    id: "asset-register",
+    mergedRangeCount: 62,
+    name: "Asset Register",
+    nonEmptyCellCount: 173,
+    protectionDetected: false,
+    rows: 44,
+    state: "visible",
+  }),
+];
+
+const annualAcquittal2025Sheets: AppbWorkbookSheet[] = [
+  verifiedSheet({
+    columns: 2,
+    description: sheetDescriptions.hide,
+    formulaCellCount: 0,
+    id: "hide",
+    mergedRangeCount: 0,
+    name: "Hide",
+    nonEmptyCellCount: 9,
+    protectionDetected: false,
+    rows: 5,
+    state: "hidden",
+  }),
+  verifiedSheet({
+    columns: 10,
+    description: sheetDescriptions.reportType,
+    formulaCellCount: 0,
+    id: "report-type",
+    mergedRangeCount: 19,
+    name: "Report Type",
+    nonEmptyCellCount: 152,
+    protectionDetected: true,
+    rows: 25,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 4,
+    description: sheetDescriptions.projectPlan,
+    formulaCellCount: 6,
+    id: "project-plan-activity-report",
+    mergedRangeCount: 48,
+    name: "Project Plan & Activity Report",
+    nonEmptyCellCount: 390,
+    protectionDetected: true,
+    rows: 112,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 11,
+    description: sheetDescriptions.annualBudget,
+    formulaCellCount: 16,
+    id: "annual-budget",
+    mergedRangeCount: 47,
+    name: "25-26 FY Annual Budget",
+    nonEmptyCellCount: 207,
+    protectionDetected: true,
+    rows: 52,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 15,
+    description: sheetDescriptions.expenditure,
+    formulaCellCount: 47,
+    id: "expenditure-report",
+    mergedRangeCount: 60,
+    name: "Expenditure Report",
+    nonEmptyCellCount: 479,
+    protectionDetected: true,
+    rows: 53,
+    state: "visible",
+  }),
+  verifiedSheet({
+    columns: 19,
+    description: sheetDescriptions.assetRegister,
+    formulaCellCount: 1,
+    id: "asset-register",
+    mergedRangeCount: 64,
+    name: "Asset Register",
+    nonEmptyCellCount: 239,
+    protectionDetected: true,
+    rows: 47,
+    state: "visible",
+  }),
+];
+
+const sharedVerifiedSections: AppbTemplateSection[] = [
   {
     description:
-      "Identifies the organisation, funder, program type, grant and reporting period represented by the workbook.",
+      "APP&B/report type setup, version control, program selection and workbook identity metadata.",
     fieldIds: [
       "organisation-name",
       "grant-title",
       "program-type",
       "reporting-period",
+      "appb-report-status",
+      "manual-report-setup",
+      "report-type-formula-pull-through",
     ],
-    id: "identity-and-scope",
-    sheetId: "workbook-identity",
-    title: "Identity and scope",
+    id: "report-type-setup",
+    sheetId: "report-type",
+    title: "APP&B / report type setup",
   },
   {
     description:
-      "Captures project, ranger program, planned or completed activities and evidence references.",
+      "Project plan, activity report, 12-month plan, progress narrative and future activity/evidence summaries.",
     fieldIds: [
       "project-name",
       "ranger-program",
       "activity-summary",
       "fulcrum-evidence-summary",
+      "project-activity-narrative",
+      "project-detail-formula-pull-through",
     ],
-    id: "activities-and-evidence",
-    sheetId: "program-reporting",
-    title: "Activities and evidence",
+    id: "project-plan-activity",
+    sheetId: "project-plan-activity-report",
+    title: "Project plan and activity report",
   },
   {
     description:
-      "Manual or future finance fields that must be protected from accidental export until budget/acquittal work is scoped.",
-    fieldIds: ["manual-budget-summary", "formula-total"],
-    id: "finance-and-formulas",
-    sheetId: "budget-acquittal",
-    title: "Finance and formulas",
+      "Annual budget / financial-year annual budget fields and finance formulas.",
+    fieldIds: ["manual-budget-summary", "budget-total-formulas"],
+    id: "annual-budget",
+    sheetId: "annual-budget",
+    title: "Annual budget",
+  },
+  {
+    description:
+      "Wage budget, employee data and demographic reporting areas. Personnel data remains manual-only.",
+    fieldIds: ["wage-personnel-manual-fields", "wage-total-formulas"],
+    id: "wage-employee-demographics",
+    sheetId: "wage-budget-report",
+    title: "Wage budget and employee data/demographics",
+  },
+  {
+    description:
+      "Fee-for-service report rows for future scoped activity reporting.",
+    fieldIds: ["fee-for-service-manual-fields", "fee-service-formulas"],
+    id: "fee-for-service",
+    sheetId: "fee-for-service-report",
+    title: "Fee-for-service report",
+  },
+  {
+    description:
+      "Expenditure report, acquittal finance fields and notes. These stay manual until finance ownership is scoped.",
+    fieldIds: [
+      "expenditure-manual-fields",
+      "finance-acquittal-notes",
+      "expenditure-formulas",
+    ],
+    id: "expenditure-report",
+    sheetId: "expenditure-report",
+    title: "Expenditure report",
+  },
+  {
+    description:
+      "Asset register fields and instructions. Asset rows stay manual until asset reporting is scoped.",
+    fieldIds: ["asset-register-manual-fields", "asset-register-formulas"],
+    id: "asset-register",
+    sheetId: "asset-register",
+    title: "Asset register",
+  },
+  {
+    description:
+      "Hidden lookup/reference content for programs, report types, capacity-building examples and instructions.",
+    fieldIds: ["hidden-lookup-reference-fields"],
+    id: "hidden-reference",
+    sheetId: "hide",
+    title: "Hidden lookup/reference content",
   },
 ];
 
-const sharedDiscoveryFields: AppbTemplateField[] = [
+const sharedVerifiedFields: AppbTemplateField[] = [
   {
-    cellReference: needsInspection("workbook-identity", "Organisation name"),
+    cellReference: needsRangeReview("report-type", "Organisation name"),
     dataPath: "Organisation.name",
     description: "Selected organisation name for the tenant-scoped workbook.",
     flags: ["required", "structured", "exportBlockedUntilMapped"],
     id: "organisation-name",
     label: "Organisation name",
     scope: "organisation",
-    sectionId: "identity-and-scope",
+    sectionId: "report-type-setup",
     sourceType: "organisation",
   },
   {
-    cellReference: needsInspection("workbook-identity", "Grant title"),
+    cellReference: needsRangeReview("report-type", "Grant title"),
     dataPath: "Grant.title",
     description: "Grant or funding agreement title selected for this report.",
     flags: ["required", "structured", "exportBlockedUntilMapped"],
     id: "grant-title",
     label: "Grant title",
     scope: "grant",
-    sectionId: "identity-and-scope",
+    sectionId: "report-type-setup",
     sourceType: "grant",
   },
   {
-    cellReference: needsInspection("workbook-identity", "Program type"),
+    cellReference: needsRangeReview("report-type", "Program type"),
     dataPath: "Grant.programType",
     description: "Program type such as IRP, IPA, MDBIRR or other.",
     flags: ["required", "structured", "exportBlockedUntilMapped"],
     id: "program-type",
     label: "Program type",
     scope: "grant",
-    sectionId: "identity-and-scope",
+    sectionId: "report-type-setup",
     sourceType: "grant",
   },
   {
-    cellReference: needsInspection("workbook-identity", "Reporting period"),
+    cellReference: needsRangeReview("report-type", "Reporting period"),
     dataPath: "GrantReportingPeriod.label",
     description: "Grant-scoped reporting period label and cycle.",
     flags: ["required", "structured", "exportBlockedUntilMapped"],
     id: "reporting-period",
     label: "Reporting period",
     scope: "reporting-period",
-    sectionId: "identity-and-scope",
+    sectionId: "report-type-setup",
     sourceType: "grantReportingPeriod",
   },
   {
-    cellReference: needsInspection("program-reporting", "Project name"),
+    cellReference: needsRangeReview("report-type", "APP&B report status"),
+    dataPath: "AppbReport.status",
+    description: "Status of the grant-scoped APP&B report instance in ROPES.",
+    flags: ["structured", "exportBlockedUntilMapped"],
+    id: "appb-report-status",
+    label: "APP&B report status",
+    scope: "appb-report",
+    sectionId: "report-type-setup",
+    sourceType: "appbReport",
+  },
+  {
+    cellReference: needsRangeReview("report-type", "Manual report setup fields"),
+    description:
+      "Report setup fields appear manual-only until workbook labels and writable ranges are reviewed.",
+    flags: ["required", "manualOnly", "exportBlockedUntilMapped"],
+    id: "manual-report-setup",
+    label: "Manual report setup fields",
+    scope: "manual-report-only",
+    sectionId: "report-type-setup",
+    sourceType: "manual",
+  },
+  {
+    cellReference: needsRangeReview("report-type", "Report type formula cells"),
+    description:
+      "Identity/detail pull-through formulas must be protected from overwrite during future export.",
+    flags: ["formulaProtected", "exportBlockedUntilMapped"],
+    id: "report-type-formula-pull-through",
+    label: "Report type formula cells",
+    scope: "manual-report-only",
+    sectionId: "report-type-setup",
+    sourceType: "formulaProtected",
+  },
+  {
+    cellReference: needsRangeReview("project-plan-activity-report", "Project name"),
     dataPath: "Project.name",
     description:
       "Linked project name where the grant is associated with a ROPES project.",
@@ -316,11 +796,11 @@ const sharedDiscoveryFields: AppbTemplateField[] = [
     id: "project-name",
     label: "Project name",
     scope: "grant",
-    sectionId: "activities-and-evidence",
+    sectionId: "project-plan-activity",
     sourceType: "project",
   },
   {
-    cellReference: needsInspection("program-reporting", "Ranger program"),
+    cellReference: needsRangeReview("project-plan-activity-report", "Ranger program"),
     dataPath: "RangerProgram.name",
     description:
       "Linked ranger program name where the grant is associated with a ROPES program.",
@@ -328,80 +808,358 @@ const sharedDiscoveryFields: AppbTemplateField[] = [
     id: "ranger-program",
     label: "Ranger program",
     scope: "grant",
-    sectionId: "activities-and-evidence",
+    sectionId: "project-plan-activity",
     sourceType: "rangerProgram",
   },
   {
-    cellReference: needsInspection("program-reporting", "Activity summary"),
+    cellReference: needsRangeReview("project-plan-activity-report", "Activity summary"),
     description:
       "Future derived summary from trips, itinerary rows and trip reports once reporting logic exists.",
     flags: ["derived", "repeatable", "exportBlockedUntilMapped"],
     id: "activity-summary",
     label: "Activity summary",
     scope: "appb-report",
-    sectionId: "activities-and-evidence",
+    sectionId: "project-plan-activity",
     sourceType: "derived",
   },
   {
-    cellReference: needsInspection("program-reporting", "Fulcrum evidence summary"),
+    cellReference: needsRangeReview(
+      "project-plan-activity-report",
+      "Fulcrum evidence summary",
+    ),
     description:
       "Future evidence summary from organisation-scoped Fulcrum records linked to grant activity.",
     flags: ["derived", "repeatable", "exportBlockedUntilMapped"],
     id: "fulcrum-evidence-summary",
     label: "Fulcrum evidence summary",
     scope: "appb-report",
-    sectionId: "activities-and-evidence",
+    sectionId: "project-plan-activity",
     sourceType: "fulcrumRecord",
   },
   {
-    cellReference: needsInspection("budget-acquittal", "Manual budget summary"),
+    cellReference: needsRangeReview(
+      "project-plan-activity-report",
+      "Project/activity narrative areas",
+    ),
+    description:
+      "Free-text project and activity narrative areas stay manual until report-specific text ownership and limits are scoped.",
+    flags: ["manualOnly", "exportBlockedUntilMapped"],
+    id: "project-activity-narrative",
+    label: "Project/activity narrative",
+    scope: "manual-report-only",
+    sectionId: "project-plan-activity",
+    sourceType: "manual",
+  },
+  {
+    cellReference: needsRangeReview(
+      "project-plan-activity-report",
+      "Project detail formula cells",
+    ),
+    description:
+      "Formula cells in project/detail areas must be protected from overwrite during future export.",
+    flags: ["formulaProtected", "exportBlockedUntilMapped"],
+    id: "project-detail-formula-pull-through",
+    label: "Project detail formula cells",
+    scope: "manual-report-only",
+    sectionId: "project-plan-activity",
+    sourceType: "formulaProtected",
+  },
+  {
+    cellReference: needsRangeReview("annual-budget", "Manual budget summary"),
     description:
       "Budget or acquittal values should remain manual until finance data ownership is explicitly implemented.",
     flags: ["required", "manualOnly", "exportBlockedUntilMapped"],
     id: "manual-budget-summary",
     label: "Manual budget summary",
     scope: "manual-report-only",
-    sectionId: "finance-and-formulas",
+    sectionId: "annual-budget",
     sourceType: "manual",
   },
   {
-    cellReference: needsInspection("budget-acquittal", "Formula total"),
+    cellReference: needsRangeReview("annual-budget", "Budget total formulas"),
     description:
-      "Formula cells must be detected and protected from overwrite during any future export.",
+      "Annual budget formula cells must be detected and protected from overwrite during any future export.",
     flags: ["formulaProtected", "exportBlockedUntilMapped"],
-    id: "formula-total",
-    label: "Formula total",
+    id: "budget-total-formulas",
+    label: "Budget total formulas",
     scope: "manual-report-only",
-    sectionId: "finance-and-formulas",
+    sectionId: "annual-budget",
     sourceType: "formulaProtected",
   },
+  {
+    cellReference: needsRangeReview(
+      "wage-budget-report",
+      "Wage/personnel manual fields",
+    ),
+    description:
+      "Wage, FTE and demographic fields remain manual-only until workforce reporting is explicitly scoped.",
+    flags: ["manualOnly", "exportBlockedUntilMapped"],
+    id: "wage-personnel-manual-fields",
+    label: "Wage/personnel manual fields",
+    scope: "manual-report-only",
+    sectionId: "wage-employee-demographics",
+    sourceType: "manual",
+  },
+  {
+    cellReference: needsRangeReview("wage-budget-report", "Wage total formulas"),
+    description: "Wage and employee-data formula cells must be protected.",
+    flags: ["formulaProtected", "exportBlockedUntilMapped"],
+    id: "wage-total-formulas",
+    label: "Wage total formulas",
+    scope: "manual-report-only",
+    sectionId: "wage-employee-demographics",
+    sourceType: "formulaProtected",
+  },
+  {
+    cellReference: needsRangeReview(
+      "fee-for-service-report",
+      "Fee-for-service manual rows",
+    ),
+    description:
+      "Fee-for-service activity rows are likely manual until activity-source rules are scoped.",
+    flags: ["manualOnly", "repeatable", "exportBlockedUntilMapped"],
+    id: "fee-for-service-manual-fields",
+    label: "Fee-for-service manual rows",
+    scope: "manual-report-only",
+    sectionId: "fee-for-service",
+    sourceType: "manual",
+  },
+  {
+    cellReference: needsRangeReview(
+      "fee-for-service-report",
+      "Fee-for-service formula cells",
+    ),
+    description: "Fee-for-service formula cells must be protected from overwrite.",
+    flags: ["formulaProtected", "exportBlockedUntilMapped"],
+    id: "fee-service-formulas",
+    label: "Fee-for-service formulas",
+    scope: "manual-report-only",
+    sectionId: "fee-for-service",
+    sourceType: "formulaProtected",
+  },
+  {
+    cellReference: needsRangeReview("expenditure-report", "Expenditure fields"),
+    description:
+      "Expenditure fields remain manual-only until budget/acquittal finance logic is explicitly implemented.",
+    flags: ["required", "manualOnly", "exportBlockedUntilMapped"],
+    id: "expenditure-manual-fields",
+    label: "Expenditure manual fields",
+    scope: "manual-report-only",
+    sectionId: "expenditure-report",
+    sourceType: "manual",
+  },
+  {
+    cellReference: needsRangeReview(
+      "expenditure-report",
+      "Finance/acquittal notes",
+    ),
+    description:
+      "Finance/acquittal notes stay manual and must not be exposed in summaries.",
+    flags: ["manualOnly", "exportBlockedUntilMapped"],
+    id: "finance-acquittal-notes",
+    label: "Finance/acquittal notes",
+    scope: "manual-report-only",
+    sectionId: "expenditure-report",
+    sourceType: "manual",
+  },
+  {
+    cellReference: needsRangeReview(
+      "expenditure-report",
+      "Expenditure formula cells",
+    ),
+    description:
+      "Expenditure report formula cells must be protected from overwrite.",
+    flags: ["formulaProtected", "exportBlockedUntilMapped"],
+    id: "expenditure-formulas",
+    label: "Expenditure formulas",
+    scope: "manual-report-only",
+    sectionId: "expenditure-report",
+    sourceType: "formulaProtected",
+  },
+  {
+    cellReference: needsRangeReview("asset-register", "Asset register fields"),
+    description:
+      "Asset register fields remain manual until asset reporting and ownership rules are scoped.",
+    flags: ["manualOnly", "repeatable", "exportBlockedUntilMapped"],
+    id: "asset-register-manual-fields",
+    label: "Asset register manual fields",
+    scope: "manual-report-only",
+    sectionId: "asset-register",
+    sourceType: "manual",
+  },
+  {
+    cellReference: needsRangeReview("asset-register", "Asset register formula cells"),
+    description: "Asset register formula cells must be protected from overwrite.",
+    flags: ["formulaProtected", "exportBlockedUntilMapped"],
+    id: "asset-register-formulas",
+    label: "Asset register formulas",
+    scope: "manual-report-only",
+    sectionId: "asset-register",
+    sourceType: "formulaProtected",
+  },
+  {
+    cellReference: needsRangeReview("hide", "Lookup/dropdown source fields"),
+    description:
+      "Hidden lookup and dropdown source fields should inform mapping review but should not be exported as report output.",
+    flags: ["manualOnly", "exportBlockedUntilMapped"],
+    id: "hidden-lookup-reference-fields",
+    label: "Lookup/dropdown source fields",
+    scope: "manual-report-only",
+    sectionId: "hidden-reference",
+    sourceType: "manual",
+  },
 ];
 
-const sharedRepeatableTables: AppbRepeatableTable[] = [
+const sharedVerifiedRepeatableTables: AppbRepeatableTable[] = [
   {
-    anchorReference: needsInspection("program-reporting", "Activity rows"),
+    anchorReference: needsRangeReview("report-type", "Version-control rows"),
     description:
-      "Future repeatable rows for trips, activities, outputs or evidence once the actual workbook range is inspected.",
+      "Version-control rows are likely repeatable metadata rows and need exact range review.",
+    fieldSourceType: "manual",
+    id: "version-control-rows",
+    label: "Version-control rows",
+    rowIdentity: "One row per workbook/template version note where present.",
+    sectionId: "report-type-setup",
+  },
+  {
+    anchorReference: needsRangeReview("report-type", "Report setup rows"),
+    description:
+      "Report setup and metadata rows identify funder, program, report type and grant context.",
+    fieldSourceType: "manual",
+    id: "report-setup-metadata-rows",
+    label: "Report setup / metadata rows",
+    rowIdentity: "One row per reviewed setup label/value pair where applicable.",
+    sectionId: "report-type-setup",
+  },
+  {
+    anchorReference: needsRangeReview(
+      "project-plan-activity-report",
+      "Project plan/activity rows",
+    ),
+    description:
+      "Future repeatable rows for project plans, activities, outputs or evidence once the exact workbook range is reviewed.",
     fieldSourceType: "derived",
-    id: "activity-output-rows",
-    label: "Activity/output rows",
-    rowIdentity: "One row per mapped activity, trip, output or evidence item.",
-    sectionId: "activities-and-evidence",
+    id: "project-plan-activity-rows",
+    label: "Project plan/activity rows",
+    rowIdentity: "One row per mapped project activity, output or evidence item.",
+    sectionId: "project-plan-activity",
   },
   {
-    anchorReference: needsInspection("program-reporting", "Evidence rows"),
+    anchorReference: needsRangeReview(
+      "project-plan-activity-report",
+      "Activity output/progress rows",
+    ),
     description:
-      "Future repeatable evidence rows for Fulcrum records or activity report references.",
-    fieldSourceType: "fulcrumRecord",
-    id: "evidence-rows",
-    label: "Evidence rows",
-    rowIdentity: "One row per mapped evidence record or grouped evidence summary.",
-    sectionId: "activities-and-evidence",
+      "Mid-year and annual progress rows are likely repeatable, but source rules need explicit review.",
+    fieldSourceType: "future",
+    id: "activity-output-progress-rows",
+    label: "Activity output/progress rows",
+    rowIdentity: "One row per reviewed output or progress item.",
+    sectionId: "project-plan-activity",
+  },
+  {
+    anchorReference: needsRangeReview("annual-budget", "Budget line items"),
+    description:
+      "Budget line items remain manual until budget/acquittal finance logic is scoped.",
+    fieldSourceType: "manual",
+    id: "budget-line-items",
+    label: "Budget line items",
+    rowIdentity: "One row per budget line item in the reviewed workbook range.",
+    sectionId: "annual-budget",
+  },
+  {
+    anchorReference: needsRangeReview(
+      "wage-budget-report",
+      "Wage/FTE/demographic rows",
+    ),
+    description:
+      "Wage, FTE and demographic rows are likely repeatable but remain manual-only.",
+    fieldSourceType: "manual",
+    id: "wage-fte-demographic-rows",
+    label: "Wage/FTE/demographic rows",
+    rowIdentity: "One row per wage, FTE or demographic record where present.",
+    sectionId: "wage-employee-demographics",
+  },
+  {
+    anchorReference: needsRangeReview(
+      "fee-for-service-report",
+      "Fee-for-service activity rows",
+    ),
+    description:
+      "Fee-for-service rows are likely repeatable activity rows and need exact range review.",
+    fieldSourceType: "manual",
+    id: "fee-for-service-activity-rows",
+    label: "Fee-for-service activity rows",
+    rowIdentity: "One row per fee-for-service activity where present.",
+    sectionId: "fee-for-service",
+  },
+  {
+    anchorReference: needsRangeReview("expenditure-report", "Expenditure rows"),
+    description:
+      "Expenditure rows remain manual until finance/acquittal data ownership is scoped.",
+    fieldSourceType: "manual",
+    id: "expenditure-report-rows",
+    label: "Expenditure rows",
+    rowIdentity: "One row per expenditure or acquittal line item.",
+    sectionId: "expenditure-report",
+  },
+  {
+    anchorReference: needsRangeReview("asset-register", "Asset register rows"),
+    description:
+      "Asset register rows remain manual until asset reporting is scoped.",
+    fieldSourceType: "manual",
+    id: "asset-register-rows",
+    label: "Asset register rows",
+    rowIdentity: "One row per asset register entry.",
+    sectionId: "asset-register",
+  },
+  {
+    anchorReference: needsRangeReview("hide", "Hidden lookup/dropdown rows"),
+    description:
+      "Hidden lookup and dropdown source rows should inform validation, not output generation.",
+    fieldSourceType: "manual",
+    id: "hidden-lookup-dropdown-rows",
+    label: "Hidden lookup/dropdown rows",
+    rowIdentity: "One row per lookup/dropdown source value where reviewed.",
+    sectionId: "hidden-reference",
   },
 ];
 
-const sharedTemplateMappings: AppbTemplateMapping[] = sharedDiscoveryFields.map(
-  (field) => ({
+function metadataForSheets(sheets: AppbWorkbookSheet[]) {
+  const sheetIds = new Set(sheets.map((sheet) => sheet.id));
+  const sections = sharedVerifiedSections.filter((section) =>
+    sheetIds.has(section.sheetId),
+  );
+  const sectionIds = new Set(sections.map((section) => section.id));
+  const fields = sharedVerifiedFields.filter((field) =>
+    sectionIds.has(field.sectionId),
+  );
+  const repeatableTables = sharedVerifiedRepeatableTables.filter((table) =>
+    sectionIds.has(table.sectionId),
+  );
+  const manualFields = fields
+    .filter(
+      (field) =>
+        field.flags.includes("manualOnly") ||
+        field.flags.includes("formulaProtected"),
+    )
+    .map((field) => ({
+      fieldId: field.id,
+      reason: manualFieldReason(field),
+    }));
+
+  return {
+    fields,
+    manualFields,
+    mappings: buildMappings(fields),
+    repeatableTables,
+    sections,
+    sheets,
+  };
+}
+
+function buildMappings(fields: AppbTemplateField[]): AppbTemplateMapping[] {
+  return fields.map((field) => ({
     fieldId: field.id,
     id: `${field.id}-mapping`,
     reviewStatus: field.flags.includes("formulaProtected")
@@ -410,28 +1168,31 @@ const sharedTemplateMappings: AppbTemplateMapping[] = sharedDiscoveryFields.map(
     sourcePath: field.dataPath,
     sourceType: field.sourceType,
     targetReference: field.cellReference,
-  }),
-);
+  }));
+}
 
-const sharedManualFields: AppbManualField[] = [
-  {
-    fieldId: "manual-budget-summary",
-    reason:
-      "ROPES does not yet own budget/acquittal finance data, so these fields stay manual.",
-  },
-  {
-    fieldId: "formula-total",
-    reason:
-      "Formula cells need workbook inspection and protection before export can write nearby values.",
-  },
-];
+function manualFieldReason(field: AppbTemplateField) {
+  if (field.flags.includes("formulaProtected")) {
+    return "Formula cells require exact range review and must be protected from overwrite before export can be enabled.";
+  }
+
+  if (field.id.includes("budget") || field.id.includes("expenditure")) {
+    return "ROPES does not yet own budget/acquittal finance data, so these fields stay manual.";
+  }
+
+  if (field.id.includes("wage")) {
+    return "ROPES does not yet own wage, FTE or personnel-demographic reporting data, so these fields stay manual.";
+  }
+
+  return "The reviewed workbook structure indicates this area should remain manual until a later scoped mapping decision.";
+}
 
 const sharedReadinessChecks: AppbExportReadinessCheck[] = [
   {
     description:
-      "The actual XLSX workbook has not been inspected in app code, so sheet names, cell addresses, ranges and protection settings are unverified.",
-    id: "workbook-inspection-required",
-    label: "Workbook inspection required",
+      "Workbook sheet structure has been inspected, but exact writable cells, named ranges and formula boundaries still require range review.",
+    id: "range-review-required",
+    label: "Range review required",
     status: "blocked",
   },
   {
@@ -443,78 +1204,85 @@ const sharedReadinessChecks: AppbExportReadinessCheck[] = [
   },
   {
     description:
-      "Budget/acquittal fields remain manual until a future finance data model is explicitly scoped.",
-    id: "finance-fields-manual",
-    label: "Finance fields manual",
+      "Budget/acquittal, wage/personnel, narrative and asset-register fields remain manual until later data ownership work is scoped.",
+    id: "manual-only-areas-review-required",
+    label: "Manual-only areas review required",
     status: "manual-review",
   },
 ];
 
+const annualPlanning2025Metadata = metadataForSheets(annualPlanning2025Sheets);
+const annualPlanning2024Metadata = metadataForSheets(annualPlanning2024Sheets);
+const midYear2025Metadata = metadataForSheets(midYear2025Sheets);
+const annualAcquittal2025Metadata = metadataForSheets(
+  annualAcquittal2025Sheets,
+);
+
 export const appbTemplateVersions: AppbTemplateVersion[] = [
   {
     discoveryNotes:
-      "Conservative annual planning metadata based on source filename only. Detailed sheet, range, formula and protection inspection remains a follow-up.",
+      "Verified structural metadata from reviewed local inspection. Exact writable cells, named ranges and formula boundaries still require range review before export.",
     exportReadinessChecks: sharedReadinessChecks,
-    fields: sharedDiscoveryFields,
+    fields: annualPlanning2025Metadata.fields,
     id: "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
     label: "2025-26 annual planning template",
-    mappings: sharedTemplateMappings,
-    manualFields: sharedManualFields,
+    mappings: annualPlanning2025Metadata.mappings,
+    manualFields: annualPlanning2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
-    repeatableTables: sharedRepeatableTables,
+    repeatableTables: annualPlanning2025Metadata.repeatableTables,
     reportingCycle: "annual-planning",
-    sections: sharedDiscoverySections,
-    sheets: sharedDiscoverySheets,
+    sections: annualPlanning2025Metadata.sections,
+    sheets: annualPlanning2025Metadata.sheets,
     sourceTemplateFileName:
       "APP&B - IRP, IPA and MDBIRR template - for 2025-26(3).xlsx",
   },
   {
     discoveryNotes:
-      "Organisation-specific IRP workbook example. Metadata is not treated as authoritative until the workbook is inspected.",
+      "Verified structural metadata from reviewed local inspection. The Hide/reference sheet was visible in this example and needs reviewer confirmation before export work.",
     exportReadinessChecks: sharedReadinessChecks,
-    fields: sharedDiscoveryFields,
+    fields: annualPlanning2024Metadata.fields,
     id: "niaa-irp-expansion-2024-25-annual-planning",
     label: "2024-25 IRP expansion annual planning example",
-    mappings: sharedTemplateMappings,
-    manualFields: sharedManualFields,
+    mappings: annualPlanning2024Metadata.mappings,
+    manualFields: annualPlanning2024Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
-    repeatableTables: sharedRepeatableTables,
+    repeatableTables: annualPlanning2024Metadata.repeatableTables,
     reportingCycle: "annual-planning",
-    sections: sharedDiscoverySections,
-    sheets: sharedDiscoverySheets,
+    sections: annualPlanning2024Metadata.sections,
+    sheets: annualPlanning2024Metadata.sheets,
     sourceTemplateFileName: "NAC APP&B - IRP Round 1 of Expansion-2024-25.xlsx",
   },
   {
     discoveryNotes:
-      "Mid-year progress reporting metadata based on source filename only. Repeatable activity/progress tables require workbook inspection.",
+      "Verified structural metadata from reviewed local inspection. Protection metadata was not detected on the mid-year workbook, so formulas and manual areas still need range review.",
     exportReadinessChecks: sharedReadinessChecks,
-    fields: sharedDiscoveryFields,
+    fields: midYear2025Metadata.fields,
     id: "niaa-irp-ipa-mdbirr-2025-26-mid-year",
     label: "2025-26 mid-year progress template",
-    mappings: sharedTemplateMappings,
-    manualFields: sharedManualFields,
+    mappings: midYear2025Metadata.mappings,
+    manualFields: midYear2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
-    repeatableTables: sharedRepeatableTables,
+    repeatableTables: midYear2025Metadata.repeatableTables,
     reportingCycle: "mid-year-progress",
-    sections: sharedDiscoverySections,
-    sheets: sharedDiscoverySheets,
+    sections: midYear2025Metadata.sections,
+    sheets: midYear2025Metadata.sheets,
     sourceTemplateFileName:
       "APP&B - IRP, IPA and MDBIRR template - 25-26 mid Year.xlsx",
   },
   {
     discoveryNotes:
-      "Annual report/acquittal metadata based on source filename only. Export stays blocked until formulas, protected cells and manual finance fields are reviewed.",
+      "Verified structural metadata from reviewed local inspection. This annual report/acquittal example uses the smaller sheet set without wage or fee-for-service tabs.",
     exportReadinessChecks: sharedReadinessChecks,
-    fields: sharedDiscoveryFields,
+    fields: annualAcquittal2025Metadata.fields,
     id: "niaa-irp-ipa-mdbirr-2025-26-annual-acquittal",
     label: "2025-26 annual report/acquittal template",
-    mappings: sharedTemplateMappings,
-    manualFields: sharedManualFields,
+    mappings: annualAcquittal2025Metadata.mappings,
+    manualFields: annualAcquittal2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
-    repeatableTables: sharedRepeatableTables,
+    repeatableTables: annualAcquittal2025Metadata.repeatableTables,
     reportingCycle: "annual-acquittal",
-    sections: sharedDiscoverySections,
-    sheets: sharedDiscoverySheets,
+    sections: annualAcquittal2025Metadata.sections,
+    sheets: annualAcquittal2025Metadata.sheets,
     sourceTemplateFileName:
       "2025-26 Annual Report July-June Raukkan EA ALT - 4-IQXOB1V.xlsx",
   },
@@ -551,6 +1319,23 @@ export const appbTemplateMappingSummary = {
   ),
   repeatableTableCount: appbTemplateVersions.reduce(
     (count, version) => count + version.repeatableTables.length,
+    0,
+  ),
+  sheetCount: appbTemplateVersions.reduce(
+    (count, version) => count + version.sheets.length,
+    0,
+  ),
+  sheetProtectionDetectedCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count + version.sheets.filter((sheet) => sheet.protectionDetected).length,
+    0,
+  ),
+  formulaSheetCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count +
+      version.sheets.filter(
+        (sheet) => (sheet.dimensions?.formulaCellCount ?? 0) > 0,
+      ).length,
     0,
   ),
   versionCount: appbTemplateVersions.length,
@@ -683,12 +1468,12 @@ export const appbRopesDataSources: AppbRopesDataSource[] = [
   },
 ];
 
-function needsInspection(
+function needsRangeReview(
   sheetId: string,
   label: string,
 ): AppbCellRangeReference {
   return {
-    discoveryStatus: "needs-workbook-inspection",
+    discoveryStatus: "needs-range-review",
     label,
     sheetId,
   };
