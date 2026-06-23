@@ -285,6 +285,9 @@ The current app includes:
   expected sheets, sections, fields, repeatable tables, manual/formula-protected
   field flags and export-readiness blockers, without parsing or generating XLSX
   files
+- Local APP&B workbook inspection tooling via `npm run appb:inspect`, producing
+  reviewed JSON/Markdown structural summaries without committing source
+  workbooks or running XLSX parsing in app runtime
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
@@ -342,8 +345,8 @@ user-linked trip participants, approval notifications, vehicle maintenance work
 orders, maintenance scheduling, decommission workflows, vehicle booking
 approval workflow, automatic booking blocking from defects or maintenance, trip
 dashboards, reporting, full server-side booking calendar/scheduling features,
-APP&B workbook parsing/export, verified cell/range mapping, budget/acquittal
-finance logic, a full Grants module,
+APP&B workbook export, verified production cell/range mapping,
+budget/acquittal finance logic, a full Grants module,
 PDF/DOCX TMP/JMP export, live SPOT/GARMIN tracking, SPOT/finder integration,
 Google Calendar sync, TMP/JMP notifications, full maintenance planning, full
 defect timelines or persisted resolution notes, broad Fulcrum sync, media/photo

@@ -92,6 +92,18 @@ Initial metadata examples cover the known source workbook names for annual plann
 - manual-only finance/acquittal fields are reviewed
 - mappings are checked against selected organisation, grant and reporting period scope
 
+## Local Workbook Inspection
+
+ROPES includes a developer-only workbook inspection script:
+
+```bash
+npm run appb:inspect -- --markdown --out docs/appb-inspections /path/to/workbook.xlsx
+```
+
+See `docs/appb-workbook-inspection.md` for the local workflow and review rules. The tool inspects local `.xlsx` files and outputs safe structural summaries with sheet names, dimensions, hidden sheet state, non-empty cell counts, likely labels, formulas, merged ranges, protection indicators where available, repeatable table candidates and mapping follow-up notes.
+
+The script is intentionally separate from app runtime. It does not store uploaded templates, does not generate workbooks and does not make export safe by itself. Inspection output must be reviewed before committing.
+
 ## Future Data Concepts
 
 The first persisted concepts are:
