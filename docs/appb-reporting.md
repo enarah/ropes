@@ -29,7 +29,7 @@ The source-process references are:
 
 Future template inspection should identify major sheets, annual-planning tabs, mid-year/progress tabs, annual report/acquittal tabs, funder-standard fields, organisation-specific fields, grant/program-specific fields, reporting-period fields and stable cell/range mapping identifiers.
 
-The current metadata is conservative. The source workbook files are treated as business-process references by filename; the app does not claim exact sheet names, cell addresses, formulas or protected ranges until the workbooks are inspected in a later scoped task.
+The current metadata now includes reviewed structural facts from local workbook inspection. The source workbook files remain external reference files and are not committed. The app still does not claim exact writable cells, named ranges or export-safe formula boundaries until those ranges are reviewed in a later scoped task.
 
 ## Capability Model
 
@@ -66,6 +66,43 @@ Capability checks remain separate from tenant guards:
 
 Missing future data includes budgets, milestones, outputs, acquittals, detailed report-specific manual fields and template mapping records.
 
+## Verified Workbook Structure
+
+Reviewed inspection output confirms these common workbook tabs:
+
+- `Hide`
+- `Report Type`
+- `Project Plan & Activity Report`
+- annual budget sheet, with year-specific names such as `2025-26 FY Annual Budget`
+- `Expenditure Report`
+- `Asset Register`
+
+The 2025-26 annual planning and mid-year IRP/IPA/MDBIRR workbooks also include:
+
+- `Wage Budget and Report`
+- `Fee-for-Service Report`
+
+The inspected annual report/acquittal workbook uses the smaller sheet set without wage or fee-for-service tabs.
+
+Safe structural metadata in `lib/appb-reporting.ts` records sheet visibility, dimensions, non-empty cell counts, merged range counts, formula counts and protection detection signals. These are review aids only. A visible `Hide` sheet in one inspected workbook and missing protection metadata in the mid-year workbook are both treated as review signals, not export permissions.
+
+Common verified sections now include:
+
+- APP&B / report type setup
+- version control and program selection
+- project plan and activity report
+- 12 month project plan
+- annual budget / financial-year annual budget
+- wage budget and employee data/demographics
+- fee-for-service report
+- expenditure report
+- asset register and asset register instructions
+- hidden lookup/reference content
+
+Formula-heavy areas are represented as formula-protected placeholders. Manual-only placeholders cover report setup, free-text project/activity narrative, finance/acquittal, wage/personnel and asset-register areas. Repeatable table candidates cover project plan/activity rows, progress rows, budget line items, wage/FTE/demographic rows, fee-for-service rows, expenditure rows, asset register rows and hidden lookup/dropdown rows.
+
+Exact cells and ranges remain marked `needs-range-review`, and all export-readiness checks remain blocked.
+
 ## Template Mapping Metadata
 
 The code-level metadata in `lib/appb-reporting.ts` describes:
@@ -81,14 +118,13 @@ The code-level metadata in `lib/appb-reporting.ts` describes:
 - `AppbExportReadinessCheck`: blocker or review check before export can be enabled.
 - `AppbGeneratedWorkbook`: disabled placeholder for future safe export metadata.
 
-Cell and range references support a `needs-workbook-inspection` discovery state. This lets ROPES represent a mapping target without pretending to know a final A1 cell, named range, locked cell or protected formula.
+Cell and range references support `needs-workbook-inspection` and `needs-range-review` discovery states. This lets ROPES represent a verified sheet or section without pretending to know a final A1 cell, named range, locked cell or protected formula boundary.
 
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 
-- the actual workbook tabs are inventoried
-- named sections and repeatable tables are confirmed
+- exact named sections and repeatable table ranges are reviewed
 - required cells and ranges are mapped
-- formulas and protected/manual cells are identified
+- formulas and protected/manual cells are confirmed
 - manual-only finance/acquittal fields are reviewed
 - mappings are checked against selected organisation, grant and reporting period scope
 

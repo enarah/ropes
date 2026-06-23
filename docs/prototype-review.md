@@ -47,6 +47,9 @@ Vehicles records, and the initial authentication foundation.
 - Local APP&B workbook inspection tooling can produce reviewed structural JSON
   or Markdown summaries for local XLSX files, separate from app runtime and
   without committing source workbooks.
+- Verified APP&B workbook mapping metadata now records reviewed sheet
+  inventories, common sections, formula-protected placeholders, manual-only
+  areas and repeatable table candidates while keeping export blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
