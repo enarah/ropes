@@ -314,6 +314,79 @@ async function main() {
     ],
   });
 
+  const seededAppbReports = await prisma.appbReport.findMany({
+    select: {
+      grantId: true,
+      id: true,
+      reportingPeriodId: true,
+      templateVersionLabel: true,
+    },
+    where: {
+      organisationId: partner.id,
+    },
+  });
+  const irpPlanningReport = seededAppbReports.find(
+    (report) =>
+      report.templateVersionLabel === "2025-26 annual planning template",
+  );
+  const irpMidYearReport = seededAppbReports.find(
+    (report) => report.templateVersionLabel === "2025-26 mid-year template",
+  );
+
+  if (irpPlanningReport) {
+    await prisma.appbManualFieldValue.createMany({
+      data: [
+        {
+          appbReportId: irpPlanningReport.id,
+          fieldGroup: "manual-finance",
+          fieldId: "manual-budget-summary",
+          fieldLabel: "Manual budget summary",
+          fieldType: "CURRENCY",
+          grantId: irpPlanningReport.grantId,
+          isDemo: true,
+          notes: "Fake demo note: budget summary needs finance review.",
+          organisationId: partner.id,
+          reportingPeriodId: irpPlanningReport.reportingPeriodId,
+          sensitivity: "FINANCE",
+          status: "NEEDS_REVIEW",
+        },
+        {
+          appbReportId: irpPlanningReport.id,
+          fieldGroup: "manual-narrative",
+          fieldId: "project-activity-narrative",
+          fieldLabel: "Project/activity narrative",
+          fieldType: "LONG_TEXT",
+          grantId: irpPlanningReport.grantId,
+          isDemo: true,
+          notes: "Fake demo note: coordinator has entered a short narrative.",
+          organisationId: partner.id,
+          reportingPeriodId: irpPlanningReport.reportingPeriodId,
+          sensitivity: "NARRATIVE",
+          status: "ENTERED",
+        },
+      ],
+    });
+  }
+
+  if (irpMidYearReport) {
+    await prisma.appbManualFieldValue.create({
+      data: {
+        appbReportId: irpMidYearReport.id,
+        fieldGroup: "manual-wage-personnel",
+        fieldId: "wage-personnel-manual-fields",
+        fieldLabel: "Wage/personnel manual fields",
+        fieldType: "LONG_TEXT",
+        grantId: irpMidYearReport.grantId,
+        isDemo: true,
+        notes: "Fake demo note: wage/personnel summary marked not applicable.",
+        organisationId: partner.id,
+        reportingPeriodId: irpMidYearReport.reportingPeriodId,
+        sensitivity: "PERSONNEL",
+        status: "NOT_APPLICABLE",
+      },
+    });
+  }
+
   const trip = await prisma.trip.create({
     data: {
       organisationId: partner.id,

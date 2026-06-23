@@ -295,6 +295,10 @@ The current app includes:
 - Read-only APP&B report readiness summaries on `/reports/appb`, showing safe
   status counts, top blockers and next actions for each report without exposing
   finance, personnel, narrative or workbook values
+- APP&B manual report field capture foundation with organisation-scoped
+  `AppbManualFieldValue` records, bounded status/type/sensitivity values,
+  safe summary counts, guarded updates and audit metadata without exposing raw
+  sensitive values in compact cards
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

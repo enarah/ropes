@@ -105,7 +105,7 @@ Exact cells and ranges remain marked `needs-range-review`, and all export-readin
 
 ## Report Readiness Checklist
 
-`lib/appb-readiness.ts` adds a read-only readiness layer for each persisted `AppbReport` shown on `/reports/appb`.
+`lib/appb-readiness.ts` adds a readiness layer for each persisted `AppbReport` shown on `/reports/appb`.
 
 For a selected organisation, grant, reporting period and APP&B report, the readiness summary:
 
@@ -148,7 +148,29 @@ Readiness categories are:
 - `repeatable-table`
 - `export-readiness`
 
-This layer is intentionally read-only. It does not add schema, write actions, workbook export, XLSX generation, mapping admin UI, finance/acquittal calculations, wage/personnel capture, AI calls or integrations.
+Manual-only readiness items can now use persisted `AppbManualFieldValue` records where they exist. A manual field marked `ENTERED`, `REVIEWED` or `NOT_APPLICABLE` can support readiness wording for that field, but export remains blocked by range review, formula protection and export-readiness checks.
+
+## Manual Report Field Capture
+
+`AppbManualFieldValue` stores report-only manual values scoped to:
+
+- organisation
+- grant
+- grant reporting period
+- APP&B report
+- metadata field ID
+
+Each value records a bounded status, field type and sensitivity:
+
+- statuses: `BLANK`, `DRAFT`, `ENTERED`, `NEEDS_REVIEW`, `REVIEWED`, `NOT_APPLICABLE`
+- sensitivities: `NORMAL`, `FINANCE`, `PERSONNEL`, `NARRATIVE`, `SENSITIVE`
+- field types: `SHORT_TEXT`, `LONG_TEXT`, `NUMBER`, `CURRENCY`, `DATE`, `YES_NO`, `SELECT`, `ROW_GROUP_PLACEHOLDER`
+
+Manual field values are not finance/accounting source-of-truth records, wage/personnel system-of-record records, workbook export mappings or range mappings. They support report readiness only.
+
+The `/reports/appb` page shows compact manual-field status counts and field labels. It does not show stored finance, personnel, narrative, sensitive or workbook values in summary cards. The small save form is tenant-guarded, APP&B capability-gated and records safe audit metadata only: organisation, report, field ID, field group, sensitivity, status and action type. Raw manual values are not written to audit metadata.
+
+This foundation still does not add workbook export, XLSX generation, uploaded-template storage, mapping admin UI, finance/acquittal calculations, wage/personnel system-of-record features, AI calls or external integrations.
 
 ## Template Mapping Metadata
 
