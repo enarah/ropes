@@ -56,6 +56,9 @@ Vehicles records, and the initial authentication foundation.
 - APP&B manual report field capture foundation adds organisation-scoped
   report-only manual values with bounded status/type/sensitivity, guarded
   updates and safe audit metadata while keeping export blocked.
+- APP&B manual field UX refinement groups editable fields by category, adds
+  status/sensitivity labels and uses field-type-specific controls while keeping
+  compact summaries value-free.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

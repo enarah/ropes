@@ -183,7 +183,7 @@ export function buildAppbManualFieldDefinitions(
   return templateVersion.fields
     .filter((field) => field.flags.includes("manualOnly"))
     .map((field) => ({
-      fieldGroup: categoryForField(field),
+      fieldGroup: manualFieldGroupForField(field),
       fieldId: field.id,
       fieldLabel: field.label,
       fieldType: fieldTypeForManualField(field),
@@ -444,6 +444,35 @@ function categoryForField(field: AppbTemplateField): AppbReadinessCategory {
       return "export-readiness";
   }
 }
+
+function manualFieldGroupForField(field: AppbTemplateField) {
+  if (field.id.includes("budget") || field.id.includes("expenditure")) {
+    return "manual-finance";
+  }
+
+  if (field.id.includes("wage")) {
+    return "manual-wage-personnel";
+  }
+
+  if (field.id.includes("narrative")) {
+    return "manual-narrative";
+  }
+
+  if (field.id.includes("fee-for-service")) {
+    return "fee-for-service-rows";
+  }
+
+  if (field.id.includes("asset")) {
+    return "asset-register-rows";
+  }
+
+  if (field.id.includes("report-setup")) {
+    return "report-setup";
+  }
+
+  return "other-report-only";
+}
+
 
 function sensitivityForManualField(
   field: AppbTemplateField,
