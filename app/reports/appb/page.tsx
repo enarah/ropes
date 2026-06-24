@@ -571,8 +571,8 @@ function ManualFieldSummary({
           Edit manual report fields
         </summary>
         <p className="mt-2 text-xs leading-5 text-charcoal-600">
-          Manual values support readiness only. Sensitive values are edited here
-          and stay out of compact report cards, URLs and audit metadata.
+          Editing context: existing values are loaded here so status-only
+          changes can preserve them. Compact report cards stay value-free.
         </p>
         <AppbManualFieldEditor
           groups={groups}
@@ -722,15 +722,23 @@ function AppbManualFieldGroupCard({
                 </div>
               </div>
 
+              <AppbManualFieldSensitiveEditWarning
+                sensitivity={definition.sensitivity}
+              />
+
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <AppbManualFieldReviewState currentField={currentField} />
-                <AppbManualFieldValueInput definition={definition} />
+                <AppbManualFieldValueInput
+                  currentField={currentField}
+                  definition={definition}
+                />
               </div>
 
               <label className="mt-3 block text-sm font-semibold text-charcoal-700">
                 Safe note
                 <textarea
                   className="mt-1 min-h-20 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+                  defaultValue={currentField?.notes ?? ""}
                   maxLength={300}
                   name="notes"
                   placeholder="Optional note; not shown in compact summaries"
@@ -777,8 +785,10 @@ function AppbManualFieldReviewState({
 }
 
 function AppbManualFieldValueInput({
+  currentField,
   definition,
 }: {
+  currentField?: AppbManualFieldOverview;
   definition: AppbManualFieldDefinition;
 }) {
   if (definition.fieldType === "ROW_GROUP_PLACEHOLDER") {
@@ -801,6 +811,7 @@ function AppbManualFieldValueInput({
         Long text
         <textarea
           className="mt-1 min-h-24 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          defaultValue={currentField?.valueText ?? ""}
           maxLength={500}
           name="valueText"
           placeholder="Stored, not shown in compact summaries"
@@ -815,6 +826,7 @@ function AppbManualFieldValueInput({
         {definition.fieldType === "CURRENCY" ? "Currency value" : "Number"}
         <input
           className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          defaultValue={currentField?.valueNumber ?? ""}
           name="valueNumber"
           placeholder="Stored, not shown in compact summaries"
           step={definition.fieldType === "CURRENCY" ? "0.01" : "1"}
@@ -830,6 +842,7 @@ function AppbManualFieldValueInput({
         Date
         <input
           className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          defaultValue={currentField?.valueDate ?? ""}
           name="valueDate"
           type="date"
         />
@@ -843,6 +856,7 @@ function AppbManualFieldValueInput({
         Yes/no
         <select
           className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          defaultValue={yesNoValueForSelect(currentField?.valueText)}
           name="valueText"
         >
           <option value="">Select</option>
@@ -858,11 +872,30 @@ function AppbManualFieldValueInput({
       {definition.fieldType === "SELECT" ? "Select value" : "Short text"}
       <input
         className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+        defaultValue={currentField?.valueText ?? ""}
         maxLength={500}
         name="valueText"
         placeholder="Stored, not shown in compact summaries"
       />
     </label>
+  );
+}
+
+function AppbManualFieldSensitiveEditWarning({
+  sensitivity,
+}: {
+  sensitivity: string;
+}) {
+  const message = sensitiveEditWarning(sensitivity);
+
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p className="mt-3 rounded-md border border-ochre-200 bg-white px-3 py-2 text-xs leading-5 text-charcoal-700">
+      {message}
+    </p>
   );
 }
 
@@ -977,8 +1010,28 @@ function helperTextForManualField(definition: AppbManualFieldDefinition) {
   return "Stored value supports readiness only; export remains blocked.";
 }
 
+function sensitiveEditWarning(sensitivity: string) {
+  switch (sensitivity) {
+    case "FINANCE":
+      return "Finance values are report-only and are not accounting source records.";
+    case "PERSONNEL":
+      return "Personnel values are report-only and are not wage or personnel system-of-record data.";
+    case "NARRATIVE":
+      return "Narrative values are only shown in this editing context and remain hidden from compact summaries.";
+    case "SENSITIVE":
+      return "Sensitive report-only values stay out of compact cards, URLs and audit metadata.";
+    default:
+      return null;
+  }
+}
+
 function statusValueForSelect(status: string | undefined) {
   return status?.toUpperCase().replace(/\s+/g, "_") ?? "BLANK";
+}
+
+function yesNoValueForSelect(value: string | undefined) {
+  const normalised = value?.toLowerCase();
+  return normalised === "yes" || normalised === "no" ? normalised : "";
 }
 
 function Panel({

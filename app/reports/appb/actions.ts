@@ -28,6 +28,13 @@ const manualFieldStatusValues = [
   "NOT_APPLICABLE",
 ] as const;
 
+type ExistingManualFieldValue = {
+  notes: string | null;
+  valueDate: Date | null;
+  valueNumber: Prisma.Decimal | null;
+  valueText: string | null;
+} | null;
+
 class AppbManualFieldValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -154,7 +161,13 @@ export async function upsertAppbManualFieldValueAction(formData: FormData) {
 
     const status = getAllowedStatus(formData);
     const existing = await prisma.appbManualFieldValue.findUnique({
-      select: { id: true },
+      select: {
+        id: true,
+        notes: true,
+        valueDate: true,
+        valueNumber: true,
+        valueText: true,
+      },
       where: {
         organisationId_appbReportId_fieldId: {
           appbReportId: appbReport.id,
@@ -163,7 +176,7 @@ export async function upsertAppbManualFieldValueAction(formData: FormData) {
         },
       },
     });
-    const valueData = getManualValueData(formData, definition, status);
+    const valueData = getManualValueData(formData, definition, status, existing);
     const manualFieldValue = await prisma.appbManualFieldValue.upsert({
       create: {
         ...valueData,
@@ -240,23 +253,34 @@ function getManualValueData(
   formData: FormData,
   definition: AppbManualFieldDefinition,
   status: AppbManualFieldStatus,
+  existing: ExistingManualFieldValue,
 ) {
-  if (status === "BLANK" || status === "NOT_APPLICABLE") {
+  if (status === "BLANK") {
     return {
-      notes: getOptionalLimitedString(formData, "notes", 300),
+      notes: null,
       valueDate: null,
       valueNumber: null,
       valueText: null,
     };
   }
 
-  const notes = getOptionalLimitedString(formData, "notes", 300);
+  const notes = getOptionalLimitedString(formData, "notes", 300) ?? existing?.notes ?? null;
+
+  if (status === "NOT_APPLICABLE") {
+    return {
+      notes,
+      valueDate: null,
+      valueNumber: null,
+      valueText: null,
+    };
+  }
 
   if (definition.fieldType === "NUMBER" || definition.fieldType === "CURRENCY") {
     return {
       notes,
       valueDate: null,
-      valueNumber: getOptionalDecimal(formData, "valueNumber"),
+      valueNumber:
+        getOptionalDecimal(formData, "valueNumber") ?? existing?.valueNumber ?? null,
       valueText: null,
     };
   }
@@ -264,7 +288,7 @@ function getManualValueData(
   if (definition.fieldType === "DATE") {
     return {
       notes,
-      valueDate: getOptionalDate(formData, "valueDate"),
+      valueDate: getOptionalDate(formData, "valueDate") ?? existing?.valueDate ?? null,
       valueNumber: null,
       valueText: null,
     };
@@ -274,7 +298,10 @@ function getManualValueData(
     notes,
     valueDate: null,
     valueNumber: null,
-    valueText: getOptionalLimitedString(formData, "valueText", 500),
+    valueText:
+      getOptionalLimitedString(formData, "valueText", 500) ??
+      existing?.valueText ??
+      null,
   };
 }
 

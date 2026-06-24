@@ -302,6 +302,9 @@ The current app includes:
 - APP&B manual field UX refinement with grouped editing cards, status and
   sensitivity labels, and field-type-specific inputs while keeping compact
   summaries value-free and export blocked
+- APP&B manual field value preservation that preloads existing values only in
+  the editing context, preserves values on status-only changes and keeps
+  compact summaries value-free
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

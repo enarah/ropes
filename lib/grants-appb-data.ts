@@ -45,8 +45,12 @@ export type AppbManualFieldOverview = {
   fieldId: string;
   fieldLabel: string;
   fieldType: string;
+  notes?: string;
   sensitivity: string;
   status: string;
+  valueDate?: string;
+  valueNumber?: string;
+  valueText?: string;
 };
 
 export async function getGrantsAppbOverview(
@@ -121,8 +125,12 @@ export async function getGrantsAppbOverview(
                     fieldId: true,
                     fieldLabel: true,
                     fieldType: true,
+                    notes: true,
                     sensitivity: true,
                     status: true,
+                    valueDate: true,
+                    valueNumber: true,
+                    valueText: true,
                   },
                   where: {
                     organisationId: organisation.id,
@@ -182,8 +190,14 @@ export async function getGrantsAppbOverview(
               fieldId: field.fieldId,
               fieldLabel: field.fieldLabel,
               fieldType: formatEnumLabel(field.fieldType),
+              notes: field.notes ?? undefined,
               sensitivity: formatEnumLabel(field.sensitivity),
               status: formatEnumLabel(field.status),
+              valueDate: field.valueDate
+                ? formatDateInputValue(field.valueDate)
+                : undefined,
+              valueNumber: field.valueNumber?.toString(),
+              valueText: field.valueText ?? undefined,
             })),
             missingDataSummary: report.missingDataSummary ?? undefined,
             status: formatEnumLabel(report.status),
@@ -230,4 +244,8 @@ function formatShortDate(value: Date) {
     month: "short",
     year: "numeric",
   }).format(value);
+}
+
+function formatDateInputValue(value: Date) {
+  return value.toISOString().slice(0, 10);
 }
