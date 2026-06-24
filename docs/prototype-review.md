@@ -62,6 +62,9 @@ Vehicles records, and the initial authentication foundation.
 - APP&B manual field value preservation now preloads existing values only in
   the editing context, keeps compact summaries value-free and preserves stored
   values on status-only changes.
+- APP&B manual field explicit clear controls make value and note clearing
+  intentional through a clear action selector while keeping audit metadata
+  value-free and workbook export blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

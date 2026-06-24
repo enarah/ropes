@@ -305,6 +305,8 @@ The current app includes:
 - APP&B manual field value preservation that preloads existing values only in
   the editing context, preserves values on status-only changes and keeps
   compact summaries value-free
+- APP&B manual field explicit clear controls for intentionally clearing values,
+  notes or both while keeping compact summaries and audit metadata value-free
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

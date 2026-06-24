@@ -28,12 +28,31 @@ const manualFieldStatusValues = [
   "NOT_APPLICABLE",
 ] as const;
 
+const manualFieldClearModeValues = [
+  "PRESERVE_EXISTING",
+  "REPLACE_VALUE",
+  "CLEAR_VALUE",
+  "CLEAR_NOTE",
+  "CLEAR_VALUE_AND_NOTE",
+  "MARK_BLANK",
+  "MARK_NOT_APPLICABLE",
+] as const;
+
+type AppbManualFieldClearMode = (typeof manualFieldClearModeValues)[number];
+
 type ExistingManualFieldValue = {
   notes: string | null;
   valueDate: Date | null;
   valueNumber: Prisma.Decimal | null;
   valueText: string | null;
 } | null;
+
+type ManualFieldValueData = {
+  notes: string | null;
+  valueDate: Date | null;
+  valueNumber: Prisma.Decimal | null;
+  valueText: string | null;
+};
 
 class AppbManualFieldValidationError extends Error {
   constructor(message: string) {
@@ -159,7 +178,9 @@ export async function upsertAppbManualFieldValueAction(formData: FormData) {
       );
     }
 
-    const status = getAllowedStatus(formData);
+    const requestedStatus = getAllowedStatus(formData);
+    const clearMode = getAllowedClearMode(formData);
+    const status = statusForClearMode(requestedStatus, clearMode);
     const existing = await prisma.appbManualFieldValue.findUnique({
       select: {
         id: true,
@@ -176,7 +197,13 @@ export async function upsertAppbManualFieldValueAction(formData: FormData) {
         },
       },
     });
-    const valueData = getManualValueData(formData, definition, status, existing);
+    const valueData = getManualValueData(
+      formData,
+      definition,
+      status,
+      existing,
+      clearMode,
+    );
     const manualFieldValue = await prisma.appbManualFieldValue.upsert({
       create: {
         ...valueData,
@@ -221,6 +248,7 @@ export async function upsertAppbManualFieldValueAction(formData: FormData) {
         actionType: existing ? "updated" : "created",
         appbReportId: appbReport.id,
         event: "appb_manual_field_value_upserted",
+        clearMode,
         fieldGroup: definition.fieldGroup,
         fieldId: definition.fieldId,
         sensitivity: definition.sensitivity,
@@ -254,8 +282,9 @@ function getManualValueData(
   definition: AppbManualFieldDefinition,
   status: AppbManualFieldStatus,
   existing: ExistingManualFieldValue,
-) {
-  if (status === "BLANK") {
+  clearMode: AppbManualFieldClearMode,
+): ManualFieldValueData {
+  if (status === "BLANK" || clearMode === "MARK_BLANK") {
     return {
       notes: null,
       valueDate: null,
@@ -264,9 +293,24 @@ function getManualValueData(
     };
   }
 
-  const notes = getOptionalLimitedString(formData, "notes", 300) ?? existing?.notes ?? null;
+  if (clearMode === "CLEAR_VALUE_AND_NOTE") {
+    return {
+      notes: null,
+      valueDate: null,
+      valueNumber: null,
+      valueText: null,
+    };
+  }
 
-  if (status === "NOT_APPLICABLE") {
+  const submittedValue = getSubmittedValueData(formData, definition);
+  const preservedValue = getPreservedValueData(existing);
+  const submittedNotes = getOptionalLimitedString(formData, "notes", 300);
+  const notes =
+    clearMode === "CLEAR_NOTE"
+      ? null
+      : (submittedNotes ?? existing?.notes ?? null);
+
+  if (status === "NOT_APPLICABLE" || clearMode === "MARK_NOT_APPLICABLE") {
     return {
       notes,
       valueDate: null,
@@ -275,34 +319,95 @@ function getManualValueData(
     };
   }
 
-  if (definition.fieldType === "NUMBER" || definition.fieldType === "CURRENCY") {
+  if (clearMode === "CLEAR_VALUE") {
     return {
       notes,
       valueDate: null,
-      valueNumber:
-        getOptionalDecimal(formData, "valueNumber") ?? existing?.valueNumber ?? null,
+      valueNumber: null,
+      valueText: null,
+    };
+  }
+
+  if (clearMode === "CLEAR_NOTE") {
+    return {
+      notes,
+      ...preservedValue,
+    };
+  }
+
+  if (clearMode === "REPLACE_VALUE") {
+    return {
+      notes,
+      ...submittedValue,
+    };
+  }
+
+  return {
+    notes,
+    valueDate: submittedValue.valueDate ?? preservedValue.valueDate,
+    valueNumber: submittedValue.valueNumber ?? preservedValue.valueNumber,
+    valueText: submittedValue.valueText ?? preservedValue.valueText,
+  };
+}
+
+function getSubmittedValueData(
+  formData: FormData,
+  definition: AppbManualFieldDefinition,
+): Omit<ManualFieldValueData, "notes"> {
+  if (definition.fieldType === "NUMBER" || definition.fieldType === "CURRENCY") {
+    return {
+      valueDate: null,
+      valueNumber: getOptionalDecimal(formData, "valueNumber"),
       valueText: null,
     };
   }
 
   if (definition.fieldType === "DATE") {
     return {
-      notes,
-      valueDate: getOptionalDate(formData, "valueDate") ?? existing?.valueDate ?? null,
+      valueDate: getOptionalDate(formData, "valueDate"),
+      valueNumber: null,
+      valueText: null,
+    };
+  }
+
+  if (definition.fieldType === "ROW_GROUP_PLACEHOLDER") {
+    return {
+      valueDate: null,
       valueNumber: null,
       valueText: null,
     };
   }
 
   return {
-    notes,
     valueDate: null,
     valueNumber: null,
-    valueText:
-      getOptionalLimitedString(formData, "valueText", 500) ??
-      existing?.valueText ??
-      null,
+    valueText: getOptionalLimitedString(formData, "valueText", 500),
   };
+}
+
+function getPreservedValueData(
+  existing: ExistingManualFieldValue,
+): Omit<ManualFieldValueData, "notes"> {
+  return {
+    valueDate: existing?.valueDate ?? null,
+    valueNumber: existing?.valueNumber ?? null,
+    valueText: existing?.valueText ?? null,
+  };
+}
+
+function statusForClearMode(
+  status: AppbManualFieldStatus,
+  clearMode: AppbManualFieldClearMode,
+): AppbManualFieldStatus {
+  if (clearMode === "MARK_BLANK") {
+    return "BLANK";
+  }
+
+  if (clearMode === "MARK_NOT_APPLICABLE") {
+    return "NOT_APPLICABLE";
+  }
+
+  return status;
 }
 
 function getAllowedStatus(formData: FormData): AppbManualFieldStatus {
@@ -313,6 +418,20 @@ function getAllowedStatus(formData: FormData): AppbManualFieldStatus {
   }
 
   return value as AppbManualFieldStatus;
+}
+
+function getAllowedClearMode(formData: FormData): AppbManualFieldClearMode {
+  const value =
+    getOptionalString(formData, "clearMode")?.toUpperCase() ??
+    "PRESERVE_EXISTING";
+
+  if (!manualFieldClearModeValues.includes(value as AppbManualFieldClearMode)) {
+    throw new AppbManualFieldValidationError(
+      "Manual field clear action is invalid.",
+    );
+  }
+
+  return value as AppbManualFieldClearMode;
 }
 
 function getOptionalDate(formData: FormData, key: string) {
