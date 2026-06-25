@@ -187,7 +187,13 @@ choosing `NOT_APPLICABLE` clears typed values while allowing a short safe note.
 Finance, personnel, narrative and sensitive fields show editing warnings that
 the values are report-only and are not source-of-truth records.
 
-The save flow is tenant-guarded, APP&B capability-gated and records safe audit metadata only: organisation, report, field ID, field group, sensitivity, status and action type. Raw manual values are not written to audit metadata.
+Manual field forms now include an explicit clear action that defaults to
+preserving existing values. Users can intentionally replace a value, clear the
+typed value, clear the note, clear both value and note, mark the field blank or
+mark it not applicable. Destructive actions are labelled in the editing context;
+compact summaries still show counts and statuses only.
+
+The save flow is tenant-guarded, APP&B capability-gated and records safe audit metadata only: organisation, report, field ID, field group, sensitivity, status, clear mode and action type. Raw manual values are not written to audit metadata.
 
 This foundation still does not add workbook export, XLSX generation, uploaded-template storage, mapping admin UI, finance/acquittal calculations, wage/personnel system-of-record features, AI calls or external integrations.
 

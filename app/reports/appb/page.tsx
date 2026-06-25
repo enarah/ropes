@@ -734,6 +734,8 @@ function AppbManualFieldGroupCard({
                 />
               </div>
 
+              <AppbManualFieldClearModeControl />
+
               <label className="mt-3 block text-sm font-semibold text-charcoal-700">
                 Safe note
                 <textarea
@@ -780,6 +782,38 @@ function AppbManualFieldReviewState({
         <option value="REVIEWED">Reviewed</option>
         <option value="NOT_APPLICABLE">Not applicable</option>
       </select>
+      <span className="mt-1 block text-xs leading-5 text-charcoal-600">
+        Blank clears values and notes. Not applicable clears typed values and
+        can keep a short safe note.
+      </span>
+    </label>
+  );
+}
+
+function AppbManualFieldClearModeControl() {
+  return (
+    <label className="mt-3 block text-sm font-semibold text-charcoal-700">
+      Clear action
+      <select
+        className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+        defaultValue="PRESERVE_EXISTING"
+        name="clearMode"
+      >
+        <option value="PRESERVE_EXISTING">Preserve existing value</option>
+        <option value="REPLACE_VALUE">Replace with submitted value</option>
+        <option value="CLEAR_VALUE">Clear typed value only</option>
+        <option value="CLEAR_NOTE">Clear note only</option>
+        <option value="CLEAR_VALUE_AND_NOTE">Clear value and note</option>
+        <option value="MARK_BLANK">Mark blank and clear all</option>
+        <option value="MARK_NOT_APPLICABLE">
+          Mark not applicable and clear value
+        </option>
+      </select>
+      <span className="mt-1 block text-xs leading-5 text-charcoal-600">
+        Destructive clear actions run only when selected here or when the status
+        is saved as blank or not applicable. Audit records the action, not the
+        raw value.
+      </span>
     </label>
   );
 }
