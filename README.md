@@ -307,6 +307,9 @@ The current app includes:
   compact summaries value-free
 - APP&B manual field explicit clear controls for intentionally clearing values,
   notes or both while keeping compact summaries and audit metadata value-free
+- APP&B exact workbook range mapping metadata with safe status counts for
+  review-needed, formula-blocked, hidden-sheet and repeatable targets while
+  workbook export remains blocked
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

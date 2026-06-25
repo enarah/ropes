@@ -207,12 +207,33 @@ The code-level metadata in `lib/appb-reporting.ts` describes:
 - `AppbTemplateSection`: logical section within a sheet.
 - `AppbTemplateField`: required, manual, derived, structured or formula-protected field.
 - `AppbTemplateMapping`: future stable connection between ROPES data and workbook cells/ranges.
+- `AppbWorkbookRangeMapping`: exact cell/range metadata for one field or repeatable table target.
+- `AppbWorkbookCellTarget`: single-cell, merged-cell anchor, named range, formula, hidden lookup or unsupported target.
+- `AppbWorkbookRepeatableRange`: repeatable row/column target metadata that stays blocked until expansion rules are defined.
 - `AppbRepeatableTable`: future repeatable rows such as activities, outputs or evidence.
 - `AppbManualField`: field that must remain manually entered until ROPES owns the data.
 - `AppbExportReadinessCheck`: blocker or review check before export can be enabled.
 - `AppbGeneratedWorkbook`: disabled placeholder for future safe export metadata.
 
 Cell and range references support `needs-workbook-inspection` and `needs-range-review` discovery states. This lets ROPES represent a verified sheet or section without pretending to know a final A1 cell, named range, locked cell or protected formula boundary.
+
+Exact range mapping metadata now distinguishes:
+
+- single-cell structured fields
+- manual report-only fields
+- repeatable row/column range candidates
+- formula-protected cells
+- hidden lookup/reference sheet targets
+- unsupported or export-blocked targets
+- mappings that still need human review
+
+Range mapping statuses include `unmapped`, `needs-review`, `reviewed`,
+`blocked-formula`, `blocked-hidden-sheet`, `blocked-unsupported` and
+`ready-for-future-export`. Readiness summaries only treat range review as
+resolved when a mapping is `reviewed` or `ready-for-future-export`. Formula,
+hidden-sheet, repeatable and unsupported mappings remain blocked or
+review-required. Export remains blocked regardless of mapping status in this
+foundation.
 
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 

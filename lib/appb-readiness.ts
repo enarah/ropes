@@ -1,8 +1,11 @@
 import {
   appbTemplateVersions,
+  findAppbRangeMappingForField,
+  isAppbRangeMappingResolved,
   type AppbFieldSourceType,
   type AppbTemplateField,
   type AppbTemplateVersion,
+  type AppbWorkbookRangeMapping,
 } from "@/lib/appb-reporting";
 import type {
   AppbManualFieldOverview,
@@ -136,6 +139,7 @@ export function buildAppbReportReadinessSummary({
         organisationName,
         period,
         report,
+        templateVersion,
       }),
     ),
     ...templateVersion.repeatableTables.map((table) => ({
@@ -225,14 +229,17 @@ function readinessItemForField({
   organisationName,
   period,
   report,
+  templateVersion,
 }: {
   field: AppbTemplateField;
   grant: GrantOverview;
   organisationName: string;
   period: GrantReportingPeriodOverview;
   report: AppbReportOverview;
+  templateVersion: AppbTemplateVersion;
 }): AppbReadinessItem {
   const category = categoryForField(field);
+  const rangeMapping = findAppbRangeMappingForField(templateVersion, field.id);
 
   if (field.flags.includes("formulaProtected")) {
     return {
@@ -245,7 +252,12 @@ function readinessItemForField({
   }
 
   if (field.flags.includes("manualOnly")) {
-    return readinessItemForManualField(field, category, report.manualFields);
+    return readinessItemForManualField(
+      field,
+      category,
+      report.manualFields,
+      rangeMapping,
+    );
   }
 
   if (isFutureSource(field.sourceType)) {
@@ -278,14 +290,15 @@ function readinessItemForField({
     };
   }
 
-  if (field.cellReference.discoveryStatus === "needs-range-review") {
+  if (!isAppbRangeMappingResolved(rangeMapping)) {
     return {
       category,
       label: field.label,
       nextAction:
         "Review the exact workbook cell or range before future export writes.",
-      reason:
-        "The structured data exists, but the verified workbook range has not been mapped.",
+      reason: rangeMapping
+        ? rangeMappingReason(rangeMapping)
+        : "The structured data exists, but no exact workbook range mapping exists yet.",
       status: "range-review-required",
     };
   }
@@ -303,6 +316,7 @@ function readinessItemForManualField(
   field: AppbTemplateField,
   category: AppbReadinessCategory,
   manualFields: AppbManualFieldOverview[],
+  rangeMapping: AppbWorkbookRangeMapping | undefined,
 ): AppbReadinessItem {
   const value = manualFields.find((manualField) => manualField.fieldId === field.id);
   const status = normaliseManualStatus(value?.status);
@@ -330,6 +344,19 @@ function readinessItemForManualField(
     };
   }
 
+  if (!isAppbRangeMappingResolved(rangeMapping)) {
+    return {
+      category,
+      label: field.label,
+      nextAction:
+        "Review the exact workbook cell or range before future export writes.",
+      reason: rangeMapping
+        ? rangeMappingReason(rangeMapping)
+        : "The manual value exists, but no exact workbook range mapping exists yet.",
+      status: "range-review-required",
+    };
+  }
+
   return {
     category,
     label: field.label,
@@ -338,6 +365,24 @@ function readinessItemForManualField(
     reason: `Manual field status is ${value.status}; this supports readiness only.`,
     status: "ready",
   };
+}
+
+function rangeMappingReason(mapping: AppbWorkbookRangeMapping) {
+  switch (mapping.status) {
+    case "reviewed":
+    case "ready-for-future-export":
+      return "Exact workbook range mapping has been reviewed.";
+    case "blocked-formula":
+      return "The mapped workbook target is formula-protected and must not be overwritten.";
+    case "blocked-hidden-sheet":
+      return "The mapped workbook target is on a hidden lookup/reference sheet.";
+    case "blocked-unsupported":
+      return "The mapped workbook target is not supported for future export.";
+    case "unmapped":
+      return "This field is intentionally unmapped until workbook range review.";
+    case "needs-review":
+      return "The workbook sheet is known, but the exact cell or range still needs review.";
+  }
 }
 
 function structuredAvailability({

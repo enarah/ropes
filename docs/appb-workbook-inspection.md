@@ -56,9 +56,16 @@ Prefer committing reviewed structural summaries only. Keep raw workbooks and unr
 Reviewed inspection output can inform future updates to `lib/appb-reporting.ts`:
 
 - replace `needs-workbook-inspection` references with verified sheet/cell/range mappings
+- add `AppbWorkbookRangeMapping` records for exact cell/range targets once reviewed
+- keep uncertain target cells as `needs-review` or `unmapped`
+- block formula-protected, hidden lookup/reference and unsupported targets
 - mark formula-protected fields
 - confirm repeatable table anchors and row identity
 - identify manual-only fields that ROPES should not populate
 - keep export blocked until mappings are reviewed
+
+Merged cells should only be mapped through explicit anchor targets. Repeatable
+tables should remain review-required until start/end ranges and expansion rules
+are known.
 
 Workbook inspection remains separate from export. The script does not parse files in app runtime, does not store uploaded templates and does not generate workbooks.
