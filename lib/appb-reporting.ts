@@ -117,6 +117,99 @@ export type AppbTemplateMapping = {
   targetReference: AppbCellRangeReference;
 };
 
+export type AppbWorkbookRangeMappingStatus =
+  | "unmapped"
+  | "needs-review"
+  | "reviewed"
+  | "blocked-formula"
+  | "blocked-hidden-sheet"
+  | "blocked-unsupported"
+  | "ready-for-future-export";
+
+export type AppbWorkbookTargetType =
+  | "single-cell"
+  | "merged-cell-anchor"
+  | "repeatable-row-range"
+  | "repeatable-column-range"
+  | "named-range"
+  | "formula-cell"
+  | "hidden-lookup"
+  | "unsupported";
+
+export type AppbWorkbookRangeReviewStatus = {
+  reviewedBy?: string;
+  reviewedOn?: string;
+  status: AppbWorkbookRangeMappingStatus;
+};
+
+export type AppbWorkbookCellTarget = {
+  a1Reference?: string;
+  namedRange?: string;
+  requiresMergedCellAnchor: boolean;
+  sheetId: string;
+  sheetName: string;
+  targetType: AppbWorkbookTargetType;
+};
+
+export type AppbWorkbookRepeatableRange = {
+  endReference?: string;
+  expansionRule: "not-defined" | "fixed-row-count" | "append-rows";
+  sheetId: string;
+  sheetName: string;
+  startReference?: string;
+  targetType: "repeatable-row-range" | "repeatable-column-range";
+};
+
+export type AppbWorkbookFormulaProtectionRule = {
+  description: string;
+  fieldId?: string;
+  id: string;
+  sheetId: string;
+  status: "blocked-formula";
+};
+
+export type AppbWorkbookHiddenSheetRule = {
+  description: string;
+  id: string;
+  sheetId: string;
+  status: "blocked-hidden-sheet";
+};
+
+export type AppbWorkbookExportBlocker = {
+  description: string;
+  id: string;
+  status: AppbWorkbookRangeMappingStatus;
+};
+
+export type AppbWorkbookRangeMapping = {
+  blocker?: AppbWorkbookExportBlocker;
+  cellTarget?: AppbWorkbookCellTarget;
+  fieldId?: string;
+  formulaProtectionRule?: AppbWorkbookFormulaProtectionRule;
+  hiddenSheetRule?: AppbWorkbookHiddenSheetRule;
+  id: string;
+  label: string;
+  repeatableRange?: AppbWorkbookRepeatableRange;
+  repeatableTableId?: string;
+  review: AppbWorkbookRangeReviewStatus;
+  reviewNotes: string[];
+  sourceType: AppbFieldSourceType;
+  status: AppbWorkbookRangeMappingStatus;
+  targetType: AppbWorkbookTargetType;
+};
+
+export type AppbWorkbookRangeMappingStatusCount = {
+  count: number;
+  status: AppbWorkbookRangeMappingStatus;
+};
+
+export type AppbWorkbookRangeMappingSummary = {
+  exportBlocked: true;
+  statusCounts: AppbWorkbookRangeMappingStatusCount[];
+  total: number;
+  unresolvedCount: number;
+};
+
 export type AppbRepeatableTable = {
   anchorReference: AppbCellRangeReference;
   description: string;
@@ -148,6 +241,7 @@ export type AppbTemplateVersion = {
   mappings: AppbTemplateMapping[];
   manualFields: AppbManualField[];
   profileId: string;
+  rangeMappings: AppbWorkbookRangeMapping[];
   repeatableTables: AppbRepeatableTable[];
   reportingCycle: AppbReportingCycle;
   sections: AppbTemplateSection[];
@@ -1152,6 +1246,7 @@ function metadataForSheets(sheets: AppbWorkbookSheet[]) {
     fields,
     manualFields,
     mappings: buildMappings(fields),
+    rangeMappings: buildRangeMappings(fields, repeatableTables, sheets),
     repeatableTables,
     sections,
     sheets,
@@ -1169,6 +1264,183 @@ function buildMappings(fields: AppbTemplateField[]): AppbTemplateMapping[] {
     sourceType: field.sourceType,
     targetReference: field.cellReference,
   }));
+}
+
+function buildRangeMappings(
+  fields: AppbTemplateField[],
+  repeatableTables: AppbRepeatableTable[],
+  sheets: AppbWorkbookSheet[],
+): AppbWorkbookRangeMapping[] {
+  const sheetById = new Map(sheets.map((sheet) => [sheet.id, sheet]));
+
+  return [
+    ...fields.map((field) => buildFieldRangeMapping(field, sheetById)),
+    ...repeatableTables.map((table) =>
+      buildRepeatableRangeMapping(table, sheetById),
+    ),
+  ];
+}
+
+function buildFieldRangeMapping(
+  field: AppbTemplateField,
+  sheetById: Map<string, AppbWorkbookSheet>,
+): AppbWorkbookRangeMapping {
+  const sheet = sheetById.get(field.cellReference.sheetId);
+  const sheetName = sheet?.name ?? field.cellReference.sheetId;
+  const base = {
+    fieldId: field.id,
+    id: `${field.id}-range-mapping`,
+    label: field.label,
+    review: { status: "needs-review" as AppbWorkbookRangeMappingStatus },
+    reviewNotes: [
+      "Exact workbook cell or range remains unreviewed. Do not use this mapping for export.",
+    ],
+    sourceType: field.sourceType,
+  };
+
+  if (field.flags.includes("formulaProtected")) {
+    return {
+      ...base,
+      cellTarget: {
+        requiresMergedCellAnchor: false,
+        sheetId: field.cellReference.sheetId,
+        sheetName,
+        targetType: "formula-cell",
+      },
+      formulaProtectionRule: {
+        description:
+          "Formula cells are blocked from future writes until explicitly reviewed.",
+        fieldId: field.id,
+        id: `${field.id}-formula-protection`,
+        sheetId: field.cellReference.sheetId,
+        status: "blocked-formula",
+      },
+      review: { status: "blocked-formula" },
+      status: "blocked-formula",
+      targetType: "formula-cell",
+    };
+  }
+
+  if (sheet?.state === "hidden" || sheet?.state === "very-hidden") {
+    return {
+      ...base,
+      cellTarget: {
+        requiresMergedCellAnchor: false,
+        sheetId: field.cellReference.sheetId,
+        sheetName,
+        targetType: "hidden-lookup",
+      },
+      hiddenSheetRule: {
+        description:
+          "Hidden lookup/reference sheets are blocked unless reviewed in a later scoped mapping PR.",
+        id: `${field.id}-hidden-sheet-rule`,
+        sheetId: field.cellReference.sheetId,
+        status: "blocked-hidden-sheet",
+      },
+      review: { status: "blocked-hidden-sheet" },
+      status: "blocked-hidden-sheet",
+      targetType: "hidden-lookup",
+    };
+  }
+
+  if (field.flags.includes("repeatable")) {
+    return {
+      ...base,
+      blocker: {
+        description:
+          "Repeatable field expansion rules are not defined, so this target cannot be exported.",
+        id: `${field.id}-repeatable-blocker`,
+        status: "needs-review",
+      },
+      repeatableRange: {
+        expansionRule: "not-defined",
+        sheetId: field.cellReference.sheetId,
+        sheetName,
+        targetType: "repeatable-row-range",
+      },
+      status: "needs-review",
+      targetType: "repeatable-row-range",
+    };
+  }
+
+  return {
+    ...base,
+    cellTarget: {
+      a1Reference: field.cellReference.a1Reference,
+      namedRange: field.cellReference.namedRange,
+      requiresMergedCellAnchor: true,
+      sheetId: field.cellReference.sheetId,
+      sheetName,
+      targetType: field.cellReference.namedRange ? "named-range" : "single-cell",
+    },
+    status:
+      field.cellReference.discoveryStatus === "known"
+        ? "reviewed"
+        : "needs-review",
+    review: {
+      status:
+        field.cellReference.discoveryStatus === "known"
+          ? "reviewed"
+          : "needs-review",
+    },
+    targetType: field.cellReference.namedRange ? "named-range" : "single-cell",
+  };
+}
+
+function buildRepeatableRangeMapping(
+  table: AppbRepeatableTable,
+  sheetById: Map<string, AppbWorkbookSheet>,
+): AppbWorkbookRangeMapping {
+  const sheet = sheetById.get(table.anchorReference.sheetId);
+  const sheetName = sheet?.name ?? table.anchorReference.sheetId;
+  const hidden = sheet?.state === "hidden" || sheet?.state === "very-hidden";
+
+  if (hidden) {
+    return {
+      hiddenSheetRule: {
+        description:
+          "Hidden lookup/reference repeatable ranges are blocked from output mapping.",
+        id: `${table.id}-hidden-sheet-rule`,
+        sheetId: table.anchorReference.sheetId,
+        status: "blocked-hidden-sheet",
+      },
+      id: `${table.id}-range-mapping`,
+      label: table.label,
+      repeatableTableId: table.id,
+      review: { status: "blocked-hidden-sheet" },
+      reviewNotes: [
+        "Hidden lookup/reference sheet; do not treat as report output without review.",
+      ],
+      sourceType: table.fieldSourceType,
+      status: "blocked-hidden-sheet",
+      targetType: "hidden-lookup",
+    };
+  }
+
+  return {
+    blocker: {
+      description:
+        "Repeatable row or column expansion rules are not defined in this metadata foundation.",
+      id: `${table.id}-repeatable-blocker`,
+      status: "needs-review",
+    },
+    id: `${table.id}-range-mapping`,
+    label: table.label,
+    repeatableRange: {
+      expansionRule: "not-defined",
+      sheetId: table.anchorReference.sheetId,
+      sheetName,
+      targetType: "repeatable-row-range",
+    },
+    repeatableTableId: table.id,
+    review: { status: "needs-review" },
+    reviewNotes: [
+      "Repeatable table candidate requires exact start/end range and row identity review.",
+    ],
+    sourceType: table.fieldSourceType,
+    status: "needs-review",
+    targetType: "repeatable-row-range",
+  };
 }
 
 function manualFieldReason(field: AppbTemplateField) {
@@ -1218,6 +1490,51 @@ const annualAcquittal2025Metadata = metadataForSheets(
   annualAcquittal2025Sheets,
 );
 
+const rangeMappingStatuses: AppbWorkbookRangeMappingStatus[] = [
+  "unmapped",
+  "needs-review",
+  "reviewed",
+  "blocked-formula",
+  "blocked-hidden-sheet",
+  "blocked-unsupported",
+  "ready-for-future-export",
+];
+
+export function buildAppbWorkbookRangeMappingSummary(
+  version: AppbTemplateVersion,
+): AppbWorkbookRangeMappingSummary {
+  const statusCounts = rangeMappingStatuses.map((status) => ({
+    count: version.rangeMappings.filter((mapping) => mapping.status === status)
+      .length,
+    status,
+  }));
+
+  return {
+    exportBlocked: true,
+    statusCounts,
+    total: version.rangeMappings.length,
+    unresolvedCount: version.rangeMappings.filter(
+      (mapping) => !isAppbRangeMappingResolved(mapping),
+    ).length,
+  };
+}
+
+export function findAppbRangeMappingForField(
+  version: AppbTemplateVersion,
+  fieldId: string,
+) {
+  return version.rangeMappings.find((mapping) => mapping.fieldId === fieldId);
+}
+
+export function isAppbRangeMappingResolved(
+  mapping: AppbWorkbookRangeMapping | undefined,
+) {
+  return (
+    mapping?.status === "reviewed" ||
+    mapping?.status === "ready-for-future-export"
+  );
+}
+
 export const appbTemplateVersions: AppbTemplateVersion[] = [
   {
     discoveryNotes:
@@ -1229,6 +1546,7 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     mappings: annualPlanning2025Metadata.mappings,
     manualFields: annualPlanning2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
+    rangeMappings: annualPlanning2025Metadata.rangeMappings,
     repeatableTables: annualPlanning2025Metadata.repeatableTables,
     reportingCycle: "annual-planning",
     sections: annualPlanning2025Metadata.sections,
@@ -1246,6 +1564,7 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     mappings: annualPlanning2024Metadata.mappings,
     manualFields: annualPlanning2024Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
+    rangeMappings: annualPlanning2024Metadata.rangeMappings,
     repeatableTables: annualPlanning2024Metadata.repeatableTables,
     reportingCycle: "annual-planning",
     sections: annualPlanning2024Metadata.sections,
@@ -1262,6 +1581,7 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     mappings: midYear2025Metadata.mappings,
     manualFields: midYear2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
+    rangeMappings: midYear2025Metadata.rangeMappings,
     repeatableTables: midYear2025Metadata.repeatableTables,
     reportingCycle: "mid-year-progress",
     sections: midYear2025Metadata.sections,
@@ -1279,6 +1599,7 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     mappings: annualAcquittal2025Metadata.mappings,
     manualFields: annualAcquittal2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
+    rangeMappings: annualAcquittal2025Metadata.rangeMappings,
     repeatableTables: annualAcquittal2025Metadata.repeatableTables,
     reportingCycle: "annual-acquittal",
     sections: annualAcquittal2025Metadata.sections,
@@ -1298,6 +1619,22 @@ export const appbGeneratedWorkbookPlaceholder: AppbGeneratedWorkbookPlaceholder 
   };
 
 export const appbTemplateMappingSummary = {
+  blockedFormulaRangeMappingCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count +
+      version.rangeMappings.filter(
+        (mapping) => mapping.status === "blocked-formula",
+      ).length,
+    0,
+  ),
+  blockedHiddenSheetRangeMappingCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count +
+      version.rangeMappings.filter(
+        (mapping) => mapping.status === "blocked-hidden-sheet",
+      ).length,
+    0,
+  ),
   blockedReadinessChecks: appbTemplateVersions.reduce(
     (count, version) =>
       count +
@@ -1315,6 +1652,25 @@ export const appbTemplateMappingSummary = {
   ),
   mappingCount: appbTemplateVersions.reduce(
     (count, version) => count + version.mappings.length,
+    0,
+  ),
+  rangeMappingCount: appbTemplateVersions.reduce(
+    (count, version) => count + version.rangeMappings.length,
+    0,
+  ),
+  rangeMappingNeedsReviewCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count +
+      version.rangeMappings.filter((mapping) => mapping.status === "needs-review")
+        .length,
+    0,
+  ),
+  rangeMappingReviewedCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count +
+      version.rangeMappings.filter((mapping) =>
+        isAppbRangeMappingResolved(mapping),
+      ).length,
     0,
   ),
   repeatableTableCount: appbTemplateVersions.reduce(
@@ -1385,6 +1741,21 @@ export const appbFutureConcepts: AppbFutureConcept[] = [
   {
     description: "Stable mapping from ROPES fields to workbook sheets, cells or sections.",
     name: "AppbTemplateMapping",
+  },
+  {
+    description:
+      "Exact cell, named range or repeatable workbook target metadata with review status.",
+    name: "AppbWorkbookRangeMapping",
+  },
+  {
+    description:
+      "Single-cell, merged-anchor, formula, hidden lookup or unsupported workbook target.",
+    name: "AppbWorkbookCellTarget",
+  },
+  {
+    description:
+      "Repeatable workbook row/column range that remains blocked until expansion rules are reviewed.",
+    name: "AppbWorkbookRepeatableRange",
   },
   {
     description: "Repeatable row/table mapping such as activities, outputs or evidence.",

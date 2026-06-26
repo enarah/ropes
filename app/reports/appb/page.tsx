@@ -7,6 +7,7 @@ import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
   buildAppbManualFieldDefinitions,
   buildAppbReportReadinessSummary,
+  findAppbTemplateVersion,
   type AppbManualFieldDefinition,
 } from "@/lib/appb-readiness";
 import {
@@ -17,6 +18,8 @@ import {
   appbTemplateMappingSummary,
   appbTemplateProfiles,
   appbTemplateVersions,
+  buildAppbWorkbookRangeMappingSummary,
+  type AppbTemplateVersion,
 } from "@/lib/appb-reporting";
 import {
   type AppbManualFieldOverview,
@@ -197,6 +200,10 @@ export default async function AppbReportingPage({
                             });
                             const manualFieldDefinitions =
                               buildAppbManualFieldDefinitions(report, period);
+                            const templateVersion = findAppbTemplateVersion(
+                              report,
+                              period,
+                            );
 
                             return (
                               <div
@@ -223,6 +230,11 @@ export default async function AppbReportingPage({
                                   </p>
                                 ) : null}
                                 <ReadinessSummary summary={readiness} />
+                                {templateVersion ? (
+                                  <RangeMappingSummary
+                                    templateVersion={templateVersion}
+                                  />
+                                ) : null}
                                 <ManualFieldSummary
                                   definitions={manualFieldDefinitions}
                                   organisationSlug={access.organisation.slug}
@@ -278,8 +290,12 @@ export default async function AppbReportingPage({
             value={String(appbTemplateMappingSummary.repeatableTableCount)}
           />
           <SummaryChip
-            label="Blocked checks"
-            value={String(appbTemplateMappingSummary.blockedReadinessChecks)}
+            label="Range mappings"
+            value={String(appbTemplateMappingSummary.rangeMappingCount)}
+          />
+          <SummaryChip
+            label="Needs review"
+            value={String(appbTemplateMappingSummary.rangeMappingNeedsReviewCount)}
           />
         </div>
 
@@ -308,6 +324,7 @@ export default async function AppbReportingPage({
               <p className="mt-2 text-sm leading-6 text-charcoal-600">
                 {version.discoveryNotes}
               </p>
+              <RangeMappingSummary templateVersion={version} />
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {version.sheets.map((sheet) => (
                   <div className="rounded-md bg-white p-3" key={sheet.id}>
@@ -535,6 +552,48 @@ function ReadinessSummary({
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function RangeMappingSummary({
+  templateVersion,
+}: {
+  templateVersion: AppbTemplateVersion;
+}) {
+  const summary = buildAppbWorkbookRangeMappingSummary(templateVersion);
+  const visibleCounts = summary.statusCounts.filter((count) => count.count > 0);
+
+  return (
+    <div className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-ochre-700">
+            Exact range mappings
+          </p>
+          <p className="mt-1 text-sm font-semibold text-charcoal-950">
+            {summary.unresolvedCount} of {summary.total} need review or are blocked
+          </p>
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            Counts only. Export remains blocked until exact workbook targets and
+            export rules are implemented.
+          </p>
+        </div>
+        <span className="rounded-md bg-charcoal-900 px-2.5 py-1 text-xs font-semibold uppercase text-sand-50">
+          Export blocked
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {visibleCounts.map((statusCount) => (
+          <span
+            className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+            key={statusCount.status}
+          >
+            {formatStatus(statusCount.status)}: {statusCount.count}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
