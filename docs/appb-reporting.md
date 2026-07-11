@@ -211,6 +211,9 @@ The code-level metadata in `lib/appb-reporting.ts` describes:
 - `AppbWorkbookCellTarget`: single-cell, merged-cell anchor, named range, formula, hidden lookup or unsupported target.
 - `AppbWorkbookRepeatableRange`: repeatable row/column target metadata that stays blocked until expansion rules are defined.
 - `AppbRepeatableTable`: future repeatable rows such as activities, outputs or evidence.
+- `AppbRepeatableRangeDefinition`: repeatable table metadata for header rows, data rows, formula rows, row identity and expansion rules.
+- `AppbRepeatableColumnMapping`: future column mapping placeholder for repeatable rows.
+- `AppbRepeatableHeaderRule` / `AppbRepeatableFormulaRowRule`: protected row rules for repeatable table areas.
 - `AppbManualField`: field that must remain manually entered until ROPES owns the data.
 - `AppbExportReadinessCheck`: blocker or review check before export can be enabled.
 - `AppbGeneratedWorkbook`: disabled placeholder for future safe export metadata.
@@ -234,6 +237,22 @@ resolved when a mapping is `reviewed` or `ready-for-future-export`. Formula,
 hidden-sheet, repeatable and unsupported mappings remain blocked or
 review-required. Export remains blocked regardless of mapping status in this
 foundation.
+
+Repeatable table range metadata now distinguishes:
+
+- candidate sheet, section and repeatable table ID
+- source type such as manual, derived, future or Fulcrum-derived
+- header rows that must be protected
+- data rows that still need review
+- total/formula rows that remain blocked
+- row identity placeholders
+- manual-only row groups that must not become structured export rows
+- expansion rules such as `not-defined`, `fixed-row-count`, `append-rows`, `no-export-manual-only` and `blocked`
+
+The current metadata does not claim exact row or column ranges. Repeatable table
+readiness stays blocked or review-required until start/end rows, columns,
+headers, formula rows and expansion behaviour are reviewed. Export remains
+blocked regardless of repeatable metadata status in this foundation.
 
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 

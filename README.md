@@ -310,6 +310,8 @@ The current app includes:
 - APP&B exact workbook range mapping metadata with safe status counts for
   review-needed, formula-blocked, hidden-sheet and repeatable targets while
   workbook export remains blocked
+- APP&B repeatable table range metadata with review-gated header/data/formula
+  row concepts, manual-only row groups and expansion-rule summaries
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
