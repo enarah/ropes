@@ -71,6 +71,10 @@ Vehicles records, and the initial authentication foundation.
 - APP&B repeatable table range metadata now tracks header/data/formula row
   concepts, manual-only row groups and expansion rules while keeping all table
   export blocked pending review.
+- APP&B workbook mapping review workflow foundation now represents value-free
+  review decisions for field mappings and repeatable ranges, with compact
+  review summaries and expandable metadata-only panels while keeping workbook
+  export blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
@@ -158,8 +162,8 @@ Vehicles records, and the initial authentication foundation.
   integrations, AI provider execution and AI credential storage are still
   future work.
 - APP&B workbook export, template upload storage, budget/acquittal finance
-  logic, production workbook cell/range mapping and full Grants workflows are
-  still future work.
+  logic, persisted mapping review decisions, production workbook cell/range
+  mapping and full Grants workflows are still future work.
 - Shared vehicles across organisations remain intentionally out of scope.
 - Maintenance work orders, maintenance scheduling, full maintenance planning
   and decommission workflows are not implemented yet.

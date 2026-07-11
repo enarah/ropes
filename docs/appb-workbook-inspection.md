@@ -66,6 +66,13 @@ Reviewed inspection output can inform future updates to `lib/appb-reporting.ts`:
 - identify manual-only fields that ROPES should not populate
 - keep export blocked until mappings are reviewed
 
+Reviewed workbook facts can also feed the APP&B mapping review workflow
+metadata. Review decisions should stay value-free and should record only safe
+labels, target kind, mapping ID, review status, decision, reviewer/timestamp
+placeholders and short safe notes. Do not copy workbook cell values, manual
+report values, finance details, personnel details or narrative text into review
+notes or audit metadata.
+
 Merged cells should only be mapped through explicit anchor targets. Repeatable
 tables should remain review-required until start/end ranges and expansion rules
 are known. Total or formula rows must be explicitly protected, and hidden lookup
