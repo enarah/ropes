@@ -153,7 +153,7 @@ export type AppbWorkbookCellTarget = {
 
 export type AppbWorkbookRepeatableRange = {
   endReference?: string;
-  expansionRule: "not-defined" | "fixed-row-count" | "append-rows";
+  expansionRule: AppbRepeatableExpansionRule;
   sheetId: string;
   sheetName: string;
   startReference?: string;
@@ -210,6 +210,96 @@ export type AppbWorkbookRangeMappingSummary = {
   unresolvedCount: number;
 };
 
+export type AppbRepeatableRangeStatus = AppbWorkbookRangeMappingStatus;
+
+export type AppbRepeatableExpansionRule =
+  | "not-defined"
+  | "fixed-row-count"
+  | "append-rows"
+  | "no-export-manual-only"
+  | "blocked";
+
+export type AppbRepeatableRowIdentity = {
+  description: string;
+  fieldIds: string[];
+  status: "needs-review" | "reviewed";
+};
+
+export type AppbRepeatableColumnMapping = {
+  columnReference?: string;
+  fieldId?: string;
+  label: string;
+  status: AppbRepeatableRangeStatus;
+};
+
+export type AppbRepeatableHeaderRule = {
+  description: string;
+  headerRows?: string;
+  protected: true;
+  status: AppbRepeatableRangeStatus;
+};
+
+export type AppbRepeatableFormulaRowRule = {
+  description: string;
+  formulaRows?: string;
+  protected: true;
+  status: "blocked-formula";
+};
+
+export type AppbRepeatableManualRowGroup = {
+  description: string;
+  fieldSourceType: AppbFieldSourceType;
+  status: AppbRepeatableRangeStatus;
+};
+
+export type AppbRepeatableExportBlocker = {
+  description: string;
+  id: string;
+  status: AppbRepeatableRangeStatus;
+};
+
+export type AppbRepeatableRangeDefinition = {
+  columnMappings: AppbRepeatableColumnMapping[];
+  dataRows?: string;
+  endColumn?: string;
+  endRow?: string;
+  expansionRule: AppbRepeatableExpansionRule;
+  exportBlockers: AppbRepeatableExportBlocker[];
+  fieldSourceType: AppbFieldSourceType;
+  formulaRowRule: AppbRepeatableFormulaRowRule;
+  headerRule: AppbRepeatableHeaderRule;
+  id: string;
+  label: string;
+  manualRowGroup?: AppbRepeatableManualRowGroup;
+  repeatableTableId: string;
+  reviewNotes: string[];
+  rowIdentity: AppbRepeatableRowIdentity;
+  sectionId: string;
+  sheetId: string;
+  sheetName: string;
+  startColumn?: string;
+  startRow?: string;
+  status: AppbRepeatableRangeStatus;
+  templateVersionId?: string;
+};
+
+export type AppbRepeatableRangeStatusCount = {
+  count: number;
+  status: AppbRepeatableRangeStatus;
+};
+
+export type AppbRepeatableRangeSummary = {
+  exportBlocked: true;
+  expansionRuleCounts: Array<{
+    count: number;
+    expansionRule: AppbRepeatableExpansionRule;
+  }>;
+  manualOnlyCount: number;
+  statusCounts: AppbRepeatableRangeStatusCount[];
+  total: number;
+  unresolvedCount: number;
+};
+
 export type AppbRepeatableTable = {
   anchorReference: AppbCellRangeReference;
   description: string;
@@ -242,6 +332,7 @@ export type AppbTemplateVersion = {
   manualFields: AppbManualField[];
   profileId: string;
   rangeMappings: AppbWorkbookRangeMapping[];
+  repeatableRangeDefinitions: AppbRepeatableRangeDefinition[];
   repeatableTables: AppbRepeatableTable[];
   reportingCycle: AppbReportingCycle;
   sections: AppbTemplateSection[];
@@ -1247,6 +1338,10 @@ function metadataForSheets(sheets: AppbWorkbookSheet[]) {
     manualFields,
     mappings: buildMappings(fields),
     rangeMappings: buildRangeMappings(fields, repeatableTables, sheets),
+    repeatableRangeDefinitions: buildRepeatableRangeDefinitions(
+      repeatableTables,
+      sheets,
+    ),
     repeatableTables,
     sections,
     sheets,
@@ -1443,6 +1538,95 @@ function buildRepeatableRangeMapping(
   };
 }
 
+function buildRepeatableRangeDefinitions(
+  repeatableTables: AppbRepeatableTable[],
+  sheets: AppbWorkbookSheet[],
+): AppbRepeatableRangeDefinition[] {
+  const sheetById = new Map(sheets.map((sheet) => [sheet.id, sheet]));
+
+  return repeatableTables.map((table) =>
+    buildRepeatableRangeDefinition(table, sheetById),
+  );
+}
+
+function buildRepeatableRangeDefinition(
+  table: AppbRepeatableTable,
+  sheetById: Map<string, AppbWorkbookSheet>,
+): AppbRepeatableRangeDefinition {
+  const sheet = sheetById.get(table.anchorReference.sheetId);
+  const sheetName = sheet?.name ?? table.anchorReference.sheetId;
+  const hidden = sheet?.state === "hidden" || sheet?.state === "very-hidden";
+  const manualOnly = table.fieldSourceType === "manual";
+  const status: AppbRepeatableRangeStatus = hidden
+    ? "blocked-hidden-sheet"
+    : "needs-review";
+  const expansionRule: AppbRepeatableExpansionRule = hidden
+    ? "blocked"
+    : manualOnly
+      ? "no-export-manual-only"
+      : "not-defined";
+
+  return {
+    columnMappings: [
+      {
+        label: "Repeatable table columns",
+        status: hidden ? "blocked-hidden-sheet" : "needs-review",
+      },
+    ],
+    expansionRule,
+    exportBlockers: [
+      {
+        description: hidden
+          ? "Hidden lookup/reference repeatable areas are not report output targets."
+          : "Start/end rows, columns and expansion behaviour require review before export.",
+        id: `${table.id}-repeatable-export-blocker`,
+        status,
+      },
+    ],
+    fieldSourceType: table.fieldSourceType,
+    formulaRowRule: {
+      description:
+        "Total and formula rows must be identified and protected before any future export.",
+      protected: true,
+      status: "blocked-formula",
+    },
+    headerRule: {
+      description:
+        "Header rows must be reviewed and protected from data writes before export.",
+      protected: true,
+      status,
+    },
+    id: `${table.id}-repeatable-range-definition`,
+    label: table.label,
+    manualRowGroup: manualOnly
+      ? {
+          description:
+            "Manual-only row group. ROPES may track readiness, but must not treat this as structured export data.",
+          fieldSourceType: table.fieldSourceType,
+          status,
+        }
+      : undefined,
+    repeatableTableId: table.id,
+    reviewNotes: [
+      hidden
+        ? "Hidden/reference sheet candidate remains blocked."
+        : "Exact start/end rows and columns are not claimed by this metadata foundation.",
+      manualOnly
+        ? "Manual-only rows remain report-only and are not structured export rows."
+        : "Future structured, derived or Fulcrum-derived rows need a later data-source rule.",
+    ],
+    rowIdentity: {
+      description: table.rowIdentity,
+      fieldIds: [],
+      status: "needs-review",
+    },
+    sectionId: table.sectionId,
+    sheetId: table.anchorReference.sheetId,
+    sheetName,
+    status,
+  };
+}
+
 function manualFieldReason(field: AppbTemplateField) {
   if (field.flags.includes("formulaProtected")) {
     return "Formula cells require exact range review and must be protected from overwrite before export can be enabled.";
@@ -1500,6 +1684,14 @@ const rangeMappingStatuses: AppbWorkbookRangeMappingStatus[] = [
   "ready-for-future-export",
 ];
 
+const repeatableExpansionRules: AppbRepeatableExpansionRule[] = [
+  "not-defined",
+  "fixed-row-count",
+  "append-rows",
+  "no-export-manual-only",
+  "blocked",
+];
+
 export function buildAppbWorkbookRangeMappingSummary(
   version: AppbTemplateVersion,
 ): AppbWorkbookRangeMappingSummary {
@@ -1515,6 +1707,36 @@ export function buildAppbWorkbookRangeMappingSummary(
     total: version.rangeMappings.length,
     unresolvedCount: version.rangeMappings.filter(
       (mapping) => !isAppbRangeMappingResolved(mapping),
+    ).length,
+  };
+}
+
+export function buildAppbRepeatableRangeSummary(
+  version: AppbTemplateVersion,
+): AppbRepeatableRangeSummary {
+  const statusCounts = rangeMappingStatuses.map((status) => ({
+    count: version.repeatableRangeDefinitions.filter(
+      (definition) => definition.status === status,
+    ).length,
+    status,
+  }));
+  const expansionRuleCounts = repeatableExpansionRules.map((expansionRule) => ({
+    count: version.repeatableRangeDefinitions.filter(
+      (definition) => definition.expansionRule === expansionRule,
+    ).length,
+    expansionRule,
+  }));
+
+  return {
+    exportBlocked: true,
+    expansionRuleCounts,
+    manualOnlyCount: version.repeatableRangeDefinitions.filter(
+      (definition) => definition.expansionRule === "no-export-manual-only",
+    ).length,
+    statusCounts,
+    total: version.repeatableRangeDefinitions.length,
+    unresolvedCount: version.repeatableRangeDefinitions.filter(
+      (definition) => !isAppbRepeatableRangeResolved(definition),
     ).length,
   };
 }
@@ -1535,6 +1757,34 @@ export function isAppbRangeMappingResolved(
   );
 }
 
+export function isAppbRepeatableRangeResolved(
+  definition: AppbRepeatableRangeDefinition | undefined,
+) {
+  return (
+    definition?.status === "reviewed" ||
+    definition?.status === "ready-for-future-export"
+  );
+}
+
+export function findAppbRepeatableRangeDefinition(
+  version: AppbTemplateVersion,
+  repeatableTableId: string,
+) {
+  return version.repeatableRangeDefinitions.find(
+    (definition) => definition.repeatableTableId === repeatableTableId,
+  );
+}
+
+function withTemplateVersionId(
+  definitions: AppbRepeatableRangeDefinition[],
+  templateVersionId: string,
+) {
+  return definitions.map((definition) => ({
+    ...definition,
+    templateVersionId,
+  }));
+}
+
 export const appbTemplateVersions: AppbTemplateVersion[] = [
   {
     discoveryNotes:
@@ -1547,6 +1797,10 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     manualFields: annualPlanning2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
     rangeMappings: annualPlanning2025Metadata.rangeMappings,
+    repeatableRangeDefinitions: withTemplateVersionId(
+      annualPlanning2025Metadata.repeatableRangeDefinitions,
+      "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+    ),
     repeatableTables: annualPlanning2025Metadata.repeatableTables,
     reportingCycle: "annual-planning",
     sections: annualPlanning2025Metadata.sections,
@@ -1565,6 +1819,10 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     manualFields: annualPlanning2024Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
     rangeMappings: annualPlanning2024Metadata.rangeMappings,
+    repeatableRangeDefinitions: withTemplateVersionId(
+      annualPlanning2024Metadata.repeatableRangeDefinitions,
+      "niaa-irp-expansion-2024-25-annual-planning",
+    ),
     repeatableTables: annualPlanning2024Metadata.repeatableTables,
     reportingCycle: "annual-planning",
     sections: annualPlanning2024Metadata.sections,
@@ -1582,6 +1840,10 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     manualFields: midYear2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
     rangeMappings: midYear2025Metadata.rangeMappings,
+    repeatableRangeDefinitions: withTemplateVersionId(
+      midYear2025Metadata.repeatableRangeDefinitions,
+      "niaa-irp-ipa-mdbirr-2025-26-mid-year",
+    ),
     repeatableTables: midYear2025Metadata.repeatableTables,
     reportingCycle: "mid-year-progress",
     sections: midYear2025Metadata.sections,
@@ -1600,6 +1862,10 @@ export const appbTemplateVersions: AppbTemplateVersion[] = [
     manualFields: annualAcquittal2025Metadata.manualFields,
     profileId: "niaa-irp-ipa-mdbirr-appb",
     rangeMappings: annualAcquittal2025Metadata.rangeMappings,
+    repeatableRangeDefinitions: withTemplateVersionId(
+      annualAcquittal2025Metadata.repeatableRangeDefinitions,
+      "niaa-irp-ipa-mdbirr-2025-26-annual-acquittal",
+    ),
     repeatableTables: annualAcquittal2025Metadata.repeatableTables,
     reportingCycle: "annual-acquittal",
     sections: annualAcquittal2025Metadata.sections,
@@ -1675,6 +1941,26 @@ export const appbTemplateMappingSummary = {
   ),
   repeatableTableCount: appbTemplateVersions.reduce(
     (count, version) => count + version.repeatableTables.length,
+    0,
+  ),
+  repeatableRangeDefinitionCount: appbTemplateVersions.reduce(
+    (count, version) => count + version.repeatableRangeDefinitions.length,
+    0,
+  ),
+  repeatableRangeManualOnlyCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count +
+      version.repeatableRangeDefinitions.filter(
+        (definition) => definition.expansionRule === "no-export-manual-only",
+      ).length,
+    0,
+  ),
+  repeatableRangeNeedsReviewCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count +
+      version.repeatableRangeDefinitions.filter(
+        (definition) => definition.status === "needs-review",
+      ).length,
     0,
   ),
   sheetCount: appbTemplateVersions.reduce(
@@ -1760,6 +2046,26 @@ export const appbFutureConcepts: AppbFutureConcept[] = [
   {
     description: "Repeatable row/table mapping such as activities, outputs or evidence.",
     name: "AppbRepeatableTable",
+  },
+  {
+    description:
+      "Review-gated repeatable table definition with header, data, formula and expansion metadata.",
+    name: "AppbRepeatableRangeDefinition",
+  },
+  {
+    description:
+      "Repeatable table row identity rule used to distinguish future fixed or appendable rows.",
+    name: "AppbRepeatableRowIdentity",
+  },
+  {
+    description:
+      "Column-level mapping placeholder for a repeatable table range.",
+    name: "AppbRepeatableColumnMapping",
+  },
+  {
+    description:
+      "Header and formula row protection rules for repeatable workbook areas.",
+    name: "AppbRepeatableHeaderRule / AppbRepeatableFormulaRowRule",
   },
   {
     description: "Manual-only fields that ROPES should not populate automatically.",

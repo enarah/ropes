@@ -61,11 +61,14 @@ Reviewed inspection output can inform future updates to `lib/appb-reporting.ts`:
 - block formula-protected, hidden lookup/reference and unsupported targets
 - mark formula-protected fields
 - confirm repeatable table anchors and row identity
+- record repeatable table header rows, data rows, formula/total rows and expansion rules only after review
+- keep manual-only row groups separate from structured repeatable export rows
 - identify manual-only fields that ROPES should not populate
 - keep export blocked until mappings are reviewed
 
 Merged cells should only be mapped through explicit anchor targets. Repeatable
 tables should remain review-required until start/end ranges and expansion rules
-are known.
+are known. Total or formula rows must be explicitly protected, and hidden lookup
+or reference repeatable areas must remain blocked from report output mapping.
 
 Workbook inspection remains separate from export. The script does not parse files in app runtime, does not store uploaded templates and does not generate workbooks.

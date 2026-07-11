@@ -1,8 +1,11 @@
 import {
   appbTemplateVersions,
   findAppbRangeMappingForField,
+  findAppbRepeatableRangeDefinition,
   isAppbRangeMappingResolved,
+  isAppbRepeatableRangeResolved,
   type AppbFieldSourceType,
+  type AppbRepeatableRangeDefinition,
   type AppbTemplateField,
   type AppbTemplateVersion,
   type AppbWorkbookRangeMapping,
@@ -142,22 +145,16 @@ export function buildAppbReportReadinessSummary({
         templateVersion,
       }),
     ),
-    ...templateVersion.repeatableTables.map((table) => ({
-      category: "repeatable-table" as const,
-      label: table.label,
-      nextAction:
-        table.fieldSourceType === "manual"
-          ? "Review the repeatable table range before any future export work."
-          : "Define the data source and range mapping for this repeatable table.",
-      reason:
-        table.fieldSourceType === "manual"
-          ? "The table is identified structurally, but exact row ranges are not mapped."
-          : "The table depends on future derived or evidence data-source rules.",
-      status:
-        table.fieldSourceType === "manual"
-          ? ("range-review-required" as const)
-          : ("future-data-source" as const),
-    })),
+    ...templateVersion.repeatableTables.map((table) =>
+      readinessItemForRepeatableTable({
+        definition: findAppbRepeatableRangeDefinition(
+          templateVersion,
+          table.id,
+        ),
+        fieldSourceType: table.fieldSourceType,
+        label: table.label,
+      }),
+    ),
     ...templateVersion.exportReadinessChecks.map((check) => ({
       category: "export-readiness" as const,
       label: check.label,
@@ -367,6 +364,64 @@ function readinessItemForManualField(
   };
 }
 
+function readinessItemForRepeatableTable({
+  definition,
+  fieldSourceType,
+  label,
+}: {
+  definition: AppbRepeatableRangeDefinition | undefined;
+  fieldSourceType: AppbFieldSourceType;
+  label: string;
+}): AppbReadinessItem {
+  if (definition?.status === "blocked-hidden-sheet") {
+    return {
+      category: "repeatable-table",
+      label,
+      nextAction:
+        "Keep hidden lookup/reference repeatable areas blocked from report output mapping.",
+      reason:
+        "The repeatable table candidate is on a hidden lookup/reference sheet.",
+      status: "blocked",
+    };
+  }
+
+  if (definition?.status === "blocked-formula") {
+    return {
+      category: "repeatable-table",
+      label,
+      nextAction: "Protect formula or total rows from future writes.",
+      reason: "The repeatable table candidate includes formula-protected rows.",
+      status: "formula-protected",
+    };
+  }
+
+  if (!isAppbRepeatableRangeResolved(definition)) {
+    return {
+      category: "repeatable-table",
+      label,
+      nextAction:
+        "Review repeatable table start/end rows, headers, data rows and expansion rules.",
+      reason: definition
+        ? repeatableRangeReason(definition)
+        : "Repeatable table range metadata has not been defined.",
+      status:
+        fieldSourceType === "manual"
+          ? "range-review-required"
+          : "future-data-source",
+    };
+  }
+
+  return {
+    category: "repeatable-table",
+    label,
+    nextAction:
+      "Keep export blocked until repeatable export writing is implemented.",
+    reason:
+      "Repeatable range metadata has been reviewed, but workbook export is not implemented.",
+    status: "ready",
+  };
+}
+
 function rangeMappingReason(mapping: AppbWorkbookRangeMapping) {
   switch (mapping.status) {
     case "reviewed":
@@ -382,6 +437,21 @@ function rangeMappingReason(mapping: AppbWorkbookRangeMapping) {
       return "This field is intentionally unmapped until workbook range review.";
     case "needs-review":
       return "The workbook sheet is known, but the exact cell or range still needs review.";
+  }
+}
+
+function repeatableRangeReason(definition: AppbRepeatableRangeDefinition) {
+  switch (definition.expansionRule) {
+    case "no-export-manual-only":
+      return "Manual-only row groups are report-only and are not structured export rows.";
+    case "not-defined":
+      return "Repeatable table expansion rules are not defined.";
+    case "blocked":
+      return "Repeatable table export is blocked for this workbook area.";
+    case "fixed-row-count":
+      return "Fixed-row repeatable behaviour needs final range review.";
+    case "append-rows":
+      return "Append-row repeatable behaviour needs final range review.";
   }
 }
 

@@ -68,6 +68,9 @@ Vehicles records, and the initial authentication foundation.
 - APP&B exact workbook range mapping metadata now tracks reviewed/review-needed,
   formula-blocked, hidden-sheet and repeatable target status counts while
   keeping workbook export blocked.
+- APP&B repeatable table range metadata now tracks header/data/formula row
+  concepts, manual-only row groups and expansion rules while keeping all table
+  export blocked pending review.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

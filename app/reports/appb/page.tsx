@@ -18,6 +18,7 @@ import {
   appbTemplateMappingSummary,
   appbTemplateProfiles,
   appbTemplateVersions,
+  buildAppbRepeatableRangeSummary,
   buildAppbWorkbookRangeMappingSummary,
   type AppbTemplateVersion,
 } from "@/lib/appb-reporting";
@@ -231,9 +232,14 @@ export default async function AppbReportingPage({
                                 ) : null}
                                 <ReadinessSummary summary={readiness} />
                                 {templateVersion ? (
-                                  <RangeMappingSummary
-                                    templateVersion={templateVersion}
-                                  />
+                                  <>
+                                    <RangeMappingSummary
+                                      templateVersion={templateVersion}
+                                    />
+                                    <RepeatableRangeSummary
+                                      templateVersion={templateVersion}
+                                    />
+                                  </>
                                 ) : null}
                                 <ManualFieldSummary
                                   definitions={manualFieldDefinitions}
@@ -287,7 +293,9 @@ export default async function AppbReportingPage({
           />
           <SummaryChip
             label="Repeatable tables"
-            value={String(appbTemplateMappingSummary.repeatableTableCount)}
+            value={String(
+              appbTemplateMappingSummary.repeatableRangeDefinitionCount,
+            )}
           />
           <SummaryChip
             label="Range mappings"
@@ -325,6 +333,7 @@ export default async function AppbReportingPage({
                 {version.discoveryNotes}
               </p>
               <RangeMappingSummary templateVersion={version} />
+              <RepeatableRangeSummary templateVersion={version} />
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {version.sheets.map((sheet) => (
                   <div className="rounded-md bg-white p-3" key={sheet.id}>
@@ -591,6 +600,63 @@ function RangeMappingSummary({
             key={statusCount.status}
           >
             {formatStatus(statusCount.status)}: {statusCount.count}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RepeatableRangeSummary({
+  templateVersion,
+}: {
+  templateVersion: AppbTemplateVersion;
+}) {
+  const summary = buildAppbRepeatableRangeSummary(templateVersion);
+  const visibleStatuses = summary.statusCounts.filter((count) => count.count > 0);
+  const visibleRules = summary.expansionRuleCounts.filter(
+    (count) => count.count > 0,
+  );
+
+  if (summary.total === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-ochre-700">
+            Repeatable table ranges
+          </p>
+          <p className="mt-1 text-sm font-semibold text-charcoal-950">
+            {summary.unresolvedCount} of {summary.total} need review or are blocked
+          </p>
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            Header, data, total/formula and manual-only row groups are tracked
+            as metadata only. Export remains blocked.
+          </p>
+        </div>
+        <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+          Manual-only: {summary.manualOnlyCount}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {visibleStatuses.map((statusCount) => (
+          <span
+            className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+            key={statusCount.status}
+          >
+            {formatStatus(statusCount.status)}: {statusCount.count}
+          </span>
+        ))}
+        {visibleRules.map((ruleCount) => (
+          <span
+            className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-ochre-700"
+            key={ruleCount.expansionRule}
+          >
+            {formatStatus(ruleCount.expansionRule)}: {ruleCount.count}
           </span>
         ))}
       </div>
