@@ -952,6 +952,7 @@ function MappingReviewHistoryDisplay({
 }: {
   review: AppbMappingReview;
 }) {
+  const decisionVersions = review.history?.decisionVersions ?? [];
   const rejectedCounts = review.history?.rejectedNoteReasonCounts ?? [];
 
   if (!review.history) {
@@ -1014,13 +1015,39 @@ function MappingReviewHistoryDisplay({
 
       <div className="mt-3 rounded-md bg-earth-50 p-2">
         <p className="text-xs font-semibold text-charcoal-700">
-          Previous decision history
+          Decision versions
         </p>
-        <p className="mt-1 text-xs leading-5 text-charcoal-600">
-          {review.history.previousDecisionAvailable
-            ? "Previous value-free decisions are available for this target."
-            : "Previous decision records are not available in the current one-row-per-target model."}
-        </p>
+        {decisionVersions.length === 0 ? (
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            Current decision only. No value-free version event is available for
+            this target yet.
+          </p>
+        ) : (
+          <ol className="mt-2 space-y-2">
+            {decisionVersions.map((version, index) => (
+              <li
+                className="rounded-md bg-white p-2 text-xs leading-5 text-charcoal-600"
+                key={`${version.reviewedAt}-${index}`}
+              >
+                <p className="font-semibold text-charcoal-700">
+                  {version.previousDecision
+                    ? `${formatStatus(version.previousDecision)} → ${formatStatus(version.newDecision)}`
+                    : `Current decision only: ${formatStatus(version.newDecision)}`}
+                </p>
+                <p>
+                  Status: {version.previousStatus
+                    ? `${formatStatus(version.previousStatus)} → ${formatStatus(version.newStatus)}`
+                    : formatStatus(version.newStatus)}
+                </p>
+                <p>
+                  {version.reviewerDisplayName ?? "Unknown reviewer"} /{" "}
+                  {formatReviewDate(version.reviewedAt)}
+                </p>
+                {version.safeNote ? <p>{version.safeNote}</p> : null}
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
 
       <div className="mt-3 rounded-md bg-earth-50 p-2">

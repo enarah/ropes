@@ -216,38 +216,39 @@ enum AuditAction {
 }
 
 model Organisation {
-  id                         String                            @id @default(cuid())
-  name                       String
-  slug                       String                            @unique
-  type                       OrganisationType                  @default(PARTNER)
-  isDemo                     Boolean                           @default(false)
-  createdAt                  DateTime                          @default(now())
-  updatedAt                  DateTime                          @updatedAt
-  capabilities               OrganisationCapability[]
-  memberships                Membership[]
-  projects                   Project[]
-  rangerPrograms             RangerProgram[]
-  trips                      Trip[]
-  tripRiskAssessments        TripRiskAssessment[]
-  tripApprovalNotes          TripApprovalNote[]
-  tripParticipants           TripParticipant[]
-  tripVehicleAllocations     TripVehicleAllocation[]
-  tripItineraryItems         TripItineraryItem[]
-  vehicles                   Vehicle[]
-  vehicleBookings            VehicleBooking[]
-  vehicleDefects             VehicleDefect[]
-  vehicleMaintenanceRecords  VehicleMaintenanceRecord[]
-  vehiclePreStartChecklists  VehiclePreStartChecklist[]
-  fulcrumConnections         FulcrumConnection[]
-  fulcrumSyncJobs            FulcrumSyncJob[]
-  fulcrumApps                FulcrumApp[]
-  fulcrumRecords             FulcrumRecord[]
-  grants                     Grant[]
-  grantReportingPeriods      GrantReportingPeriod[]
-  appbReports                AppbReport[]
-  appbManualFieldValues      AppbManualFieldValue[]
-  appbMappingReviewDecisions AppbMappingReviewDecisionRecord[]
-  auditLogs                  AuditLog[]
+  id                               String                                   @id @default(cuid())
+  name                             String
+  slug                             String                                   @unique
+  type                             OrganisationType                         @default(PARTNER)
+  isDemo                           Boolean                                  @default(false)
+  createdAt                        DateTime                                 @default(now())
+  updatedAt                        DateTime                                 @updatedAt
+  capabilities                     OrganisationCapability[]
+  memberships                      Membership[]
+  projects                         Project[]
+  rangerPrograms                   RangerProgram[]
+  trips                            Trip[]
+  tripRiskAssessments              TripRiskAssessment[]
+  tripApprovalNotes                TripApprovalNote[]
+  tripParticipants                 TripParticipant[]
+  tripVehicleAllocations           TripVehicleAllocation[]
+  tripItineraryItems               TripItineraryItem[]
+  vehicles                         Vehicle[]
+  vehicleBookings                  VehicleBooking[]
+  vehicleDefects                   VehicleDefect[]
+  vehicleMaintenanceRecords        VehicleMaintenanceRecord[]
+  vehiclePreStartChecklists        VehiclePreStartChecklist[]
+  fulcrumConnections               FulcrumConnection[]
+  fulcrumSyncJobs                  FulcrumSyncJob[]
+  fulcrumApps                      FulcrumApp[]
+  fulcrumRecords                   FulcrumRecord[]
+  grants                           Grant[]
+  grantReportingPeriods            GrantReportingPeriod[]
+  appbReports                      AppbReport[]
+  appbManualFieldValues            AppbManualFieldValue[]
+  appbMappingReviewDecisions       AppbMappingReviewDecisionRecord[]
+  appbMappingReviewDecisionHistory AppbMappingReviewDecisionHistoryRecord[]
+  auditLogs                        AuditLog[]
 }
 
 model OrganisationCapability {
@@ -817,24 +818,25 @@ model GrantReportingPeriod {
 }
 
 model AppbReport {
-  id                     String                            @id @default(cuid())
-  organisationId         String
-  grantId                String
-  reportingPeriodId      String
-  templateProfileId      String
-  templateVersionLabel   String
-  status                 AppbReportStatus                  @default(DRAFT)
-  manualFieldSummary     String?
-  missingDataSummary     String?
-  exportedAt             DateTime?
-  isDemo                 Boolean                           @default(false)
-  createdAt              DateTime                          @default(now())
-  updatedAt              DateTime                          @updatedAt
-  organisation           Organisation                      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  grant                  Grant                             @relation(fields: [grantId], references: [id], onDelete: Cascade)
-  reportingPeriod        GrantReportingPeriod              @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
-  manualFieldValues      AppbManualFieldValue[]
-  mappingReviewDecisions AppbMappingReviewDecisionRecord[]
+  id                           String                                   @id @default(cuid())
+  organisationId               String
+  grantId                      String
+  reportingPeriodId            String
+  templateProfileId            String
+  templateVersionLabel         String
+  status                       AppbReportStatus                         @default(DRAFT)
+  manualFieldSummary           String?
+  missingDataSummary           String?
+  exportedAt                   DateTime?
+  isDemo                       Boolean                                  @default(false)
+  createdAt                    DateTime                                 @default(now())
+  updatedAt                    DateTime                                 @updatedAt
+  organisation                 Organisation                             @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant                        Grant                                    @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  reportingPeriod              GrantReportingPeriod                     @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  manualFieldValues            AppbManualFieldValue[]
+  mappingReviewDecisions       AppbMappingReviewDecisionRecord[]
+  mappingReviewDecisionHistory AppbMappingReviewDecisionHistoryRecord[]
 
   @@index([organisationId])
   @@index([grantId])
@@ -880,7 +882,7 @@ model AppbManualFieldValue {
 }
 
 model AppbMappingReviewDecisionRecord {
-  id                  String                      @id @default(cuid())
+  id                  String                                   @id @default(cuid())
   organisationId      String
   grantId             String
   reportingPeriodId   String
@@ -895,12 +897,13 @@ model AppbMappingReviewDecisionRecord {
   reviewerDisplayName String?
   reviewedAt          DateTime
   auditMetadataJson   Json?
-  createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
-  organisation        Organisation                @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  grant               Grant                       @relation(fields: [grantId], references: [id], onDelete: Cascade)
-  reportingPeriod     GrantReportingPeriod        @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
-  appbReport          AppbReport                  @relation(fields: [appbReportId], references: [id], onDelete: Cascade)
+  createdAt           DateTime                                 @default(now())
+  updatedAt           DateTime                                 @updatedAt
+  organisation        Organisation                             @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant               Grant                                    @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  reportingPeriod     GrantReportingPeriod                     @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  appbReport          AppbReport                               @relation(fields: [appbReportId], references: [id], onDelete: Cascade)
+  historyRecords      AppbMappingReviewDecisionHistoryRecord[]
 
   @@unique([organisationId, appbReportId, targetKind, targetId])
   @@index([organisationId])
@@ -911,6 +914,35 @@ model AppbMappingReviewDecisionRecord {
   @@index([targetKind])
   @@index([decision])
   @@index([reviewStatus])
+}
+
+model AppbMappingReviewDecisionHistoryRecord {
+  id                   String                          @id @default(cuid())
+  organisationId       String
+  appbReportId         String
+  reviewDecisionId     String
+  templateVersionId    String
+  targetKind           AppbMappingReviewTargetKind
+  targetId             String
+  previousDecision     AppbMappingReviewDecision?
+  previousReviewStatus AppbMappingReviewStatus?
+  newDecision          AppbMappingReviewDecision
+  newReviewStatus      AppbMappingReviewStatus
+  reviewerUserId       String?
+  reviewerDisplayName  String?
+  reviewedAt           DateTime
+  safeNote             String?
+  valueFree            Boolean                         @default(true)
+  createdAt            DateTime                        @default(now())
+  organisation         Organisation                    @relation(fields: [organisationId], references: [id], onDelete: Cascade, map: "AppbReviewHistory_organisationId_fkey")
+  appbReport           AppbReport                      @relation(fields: [appbReportId], references: [id], onDelete: Cascade, map: "AppbReviewHistory_appbReportId_fkey")
+  reviewDecision       AppbMappingReviewDecisionRecord @relation(fields: [reviewDecisionId], references: [id], onDelete: Cascade, map: "AppbReviewHistory_reviewDecisionId_fkey")
+
+  @@index([organisationId], map: "AppbReviewHistory_organisationId_idx")
+  @@index([appbReportId], map: "AppbReviewHistory_appbReportId_idx")
+  @@index([reviewDecisionId], map: "AppbReviewHistory_reviewDecisionId_idx")
+  @@index([templateVersionId], map: "AppbReviewHistory_templateVersionId_idx")
+  @@index([organisationId, appbReportId, targetKind, targetId, reviewedAt], map: "AppbReviewHistory_target_reviewedAt_idx")
 }
 
 model AuditLog {
