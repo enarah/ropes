@@ -23,6 +23,7 @@ import {
   buildAppbRepeatableRangeSummary,
   buildAppbWorkbookRangeMappingSummary,
   type AppbMappingReview,
+  type AppbMappingReviewDecisionHistoryEntry,
   type AppbPersistedMappingReview,
   type AppbTemplateVersion,
 } from "@/lib/appb-reporting";
@@ -35,6 +36,8 @@ import {
   saveAppbMappingReviewDecisionAction,
   upsertAppbManualFieldValueAction,
 } from "./actions";
+
+const APPB_MAPPING_REVIEW_HISTORY_VISIBLE_EVENT_COUNT = 3;
 
 type AppbReportingPageProps = {
   searchParams?: Promise<{
@@ -953,6 +956,16 @@ function MappingReviewHistoryDisplay({
   review: AppbMappingReview;
 }) {
   const decisionVersions = review.history?.decisionVersions ?? [];
+  const recentDecisionVersions = decisionVersions.slice(
+    0,
+    APPB_MAPPING_REVIEW_HISTORY_VISIBLE_EVENT_COUNT,
+  );
+  const olderDecisionVersions = decisionVersions.slice(
+    APPB_MAPPING_REVIEW_HISTORY_VISIBLE_EVENT_COUNT,
+  );
+  const olderDecisionEventLabel = `${olderDecisionVersions.length} older decision ${
+    olderDecisionVersions.length === 1 ? "event" : "events"
+  }`;
   const rejectedCounts = review.history?.rejectedNoteReasonCounts ?? [];
 
   if (!review.history) {
@@ -969,17 +982,24 @@ function MappingReviewHistoryDisplay({
       <summary className="cursor-pointer text-xs font-semibold text-charcoal-950">
         Safe review history
       </summary>
+      <p className="mt-2 text-xs font-semibold uppercase text-ochre-700">
+        Current decision
+      </p>
       <dl className="mt-2 grid gap-2 text-xs text-charcoal-600 sm:grid-cols-2">
         <div>
-          <dt className="font-semibold text-charcoal-700">Current decision</dt>
+          <dt className="font-semibold text-charcoal-700">Decision</dt>
           <dd>{formatStatus(review.decision)}</dd>
         </div>
         <div>
-          <dt className="font-semibold text-charcoal-700">Review status</dt>
+          <dt className="font-semibold text-charcoal-700">Status</dt>
           <dd>{formatStatus(review.status)}</dd>
         </div>
         <div>
-          <dt className="font-semibold text-charcoal-700">Target</dt>
+          <dt className="font-semibold text-charcoal-700">Target label</dt>
+          <dd>{review.label}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-charcoal-700">Target kind / ID</dt>
           <dd>
             {formatStatus(review.targetKind)} / {review.targetId}
           </dd>
@@ -1015,38 +1035,33 @@ function MappingReviewHistoryDisplay({
 
       <div className="mt-3 rounded-md bg-earth-50 p-2">
         <p className="text-xs font-semibold text-charcoal-700">
-          Decision versions
+          Decision version events
         </p>
         {decisionVersions.length === 0 ? (
           <p className="mt-1 text-xs leading-5 text-charcoal-600">
-            Current decision only. No value-free version event is available for
-            this target yet.
+            Current decision only. No previous value-free decision event is
+            available for this target yet.
           </p>
         ) : (
-          <ol className="mt-2 space-y-2">
-            {decisionVersions.map((version, index) => (
-              <li
-                className="rounded-md bg-white p-2 text-xs leading-5 text-charcoal-600"
-                key={`${version.reviewedAt}-${index}`}
-              >
-                <p className="font-semibold text-charcoal-700">
-                  {version.previousDecision
-                    ? `${formatStatus(version.previousDecision)} → ${formatStatus(version.newDecision)}`
-                    : `Current decision only: ${formatStatus(version.newDecision)}`}
-                </p>
-                <p>
-                  Status: {version.previousStatus
-                    ? `${formatStatus(version.previousStatus)} → ${formatStatus(version.newStatus)}`
-                    : formatStatus(version.newStatus)}
-                </p>
-                <p>
-                  {version.reviewerDisplayName ?? "Unknown reviewer"} /{" "}
-                  {formatReviewDate(version.reviewedAt)}
-                </p>
-                {version.safeNote ? <p>{version.safeNote}</p> : null}
-              </li>
-            ))}
-          </ol>
+          <>
+            <p className="mt-1 text-xs leading-5 text-charcoal-600">
+              Most recent value-free events first. Current decision metadata is
+              shown above.
+            </p>
+            <MappingReviewDecisionVersionList
+              versions={recentDecisionVersions}
+            />
+            {olderDecisionVersions.length > 0 ? (
+              <details className="mt-2 rounded-md border border-earth-200 bg-white p-2">
+                <summary className="cursor-pointer text-xs font-semibold text-charcoal-700">
+                  Show {olderDecisionEventLabel}
+                </summary>
+                <MappingReviewDecisionVersionList
+                  versions={olderDecisionVersions}
+                />
+              </details>
+            ) : null}
+          </>
         )}
       </div>
 
@@ -1077,6 +1092,50 @@ function MappingReviewHistoryDisplay({
         and manual APP&B values are never displayed here.
       </p>
     </details>
+  );
+}
+
+function MappingReviewDecisionVersionList({
+  versions,
+}: {
+  versions: AppbMappingReviewDecisionHistoryEntry[];
+}) {
+  return (
+    <ol className="mt-2 space-y-2">
+      {versions.map((version, index) => {
+        const isUpdate = Boolean(
+          version.previousDecision || version.previousStatus,
+        );
+
+        return (
+          <li
+            className="rounded-md bg-white p-2 text-xs leading-5 text-charcoal-600"
+            key={`${version.reviewedAt}-${index}`}
+          >
+            <p className="font-semibold text-charcoal-700">
+              {isUpdate ? "Decision changed" : "Current decision recorded"}
+            </p>
+            <p>
+              Decision:{" "}
+              {version.previousDecision
+                ? `${formatStatus(version.previousDecision)} → ${formatStatus(version.newDecision)}`
+                : formatStatus(version.newDecision)}
+            </p>
+            <p>
+              {version.previousStatus ? "Status changed" : "Status"}:{" "}
+              {version.previousStatus
+                ? `${formatStatus(version.previousStatus)} → ${formatStatus(version.newStatus)}`
+                : formatStatus(version.newStatus)}
+            </p>
+            <p>
+              Reviewed by {version.reviewerDisplayName ?? "Unknown reviewer"} /{" "}
+              {formatReviewDate(version.reviewedAt)}
+            </p>
+            {version.safeNote ? <p>Safe note: {version.safeNote}</p> : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

@@ -77,6 +77,26 @@ test("APP&B mapping review history shapes previous and new decision metadata", (
   assert.equal(version?.valueFree, true);
 });
 
+test("APP&B mapping review history sorts the most recent events first", () => {
+  const versions = shapeAppbMappingReviewDecisionHistory(
+    [
+      historyRecord({ reviewedAt: "2026-07-14T10:00:00.000Z" }),
+      historyRecord({ reviewedAt: "2026-07-16T10:00:00.000Z" }),
+      historyRecord({ reviewedAt: "2026-07-15T10:00:00.000Z" }),
+    ],
+    target,
+  );
+
+  assert.deepEqual(
+    versions.map((version) => version.reviewedAt),
+    [
+      "2026-07-16T10:00:00.000Z",
+      "2026-07-15T10:00:00.000Z",
+      "2026-07-14T10:00:00.000Z",
+    ],
+  );
+});
+
 test("APP&B mapping review history excludes non-value-free and mismatched records", () => {
   const records = [
     historyRecord({ valueFree: false }),

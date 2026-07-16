@@ -32,52 +32,56 @@ export function shapeAppbMappingReviewDecisionHistory(
     templateVersionId: string;
   },
 ): AppbMappingReviewDecisionHistoryEntry[] {
-  return records.flatMap((record) => {
-    const targetKind = formatTargetKind(record.targetKind);
-    const newDecision = formatDecision(record.newDecision);
-    const newStatus = formatStatus(record.newReviewStatus);
-    const previousDecision = record.previousDecision
-      ? formatDecision(record.previousDecision)
-      : undefined;
-    const previousStatus = record.previousReviewStatus
-      ? formatStatus(record.previousReviewStatus)
-      : undefined;
+  return records
+    .flatMap((record) => {
+      const targetKind = formatTargetKind(record.targetKind);
+      const newDecision = formatDecision(record.newDecision);
+      const newStatus = formatStatus(record.newReviewStatus);
+      const previousDecision = record.previousDecision
+        ? formatDecision(record.previousDecision)
+        : undefined;
+      const previousStatus = record.previousReviewStatus
+        ? formatStatus(record.previousReviewStatus)
+        : undefined;
 
-    if (
-      record.valueFree !== true ||
-      record.organisationId !== target.organisationId ||
-      record.appbReportId !== target.appbReportId ||
-      targetKind !== target.targetKind ||
-      record.targetId !== target.targetId ||
-      record.templateVersionId !== target.templateVersionId ||
-      !newDecision ||
-      !newStatus ||
-      (record.previousDecision !== null && !previousDecision) ||
-      (record.previousReviewStatus !== null && !previousStatus)
-    ) {
-      return [];
-    }
+      if (
+        record.valueFree !== true ||
+        record.organisationId !== target.organisationId ||
+        record.appbReportId !== target.appbReportId ||
+        targetKind !== target.targetKind ||
+        record.targetId !== target.targetId ||
+        record.templateVersionId !== target.templateVersionId ||
+        !newDecision ||
+        !newStatus ||
+        (record.previousDecision !== null && !previousDecision) ||
+        (record.previousReviewStatus !== null && !previousStatus)
+      ) {
+        return [];
+      }
 
-    return [
-      {
-        newDecision,
-        newStatus,
-        previousDecision,
-        previousStatus,
-        reviewedAt:
-          record.reviewedAt instanceof Date
-            ? record.reviewedAt.toISOString()
-            : record.reviewedAt,
-        reviewerDisplayName: record.reviewerDisplayName ?? undefined,
-        reviewerUserId: record.reviewerUserId ?? undefined,
-        safeNote: record.safeNote ?? undefined,
-        targetId: record.targetId,
-        targetKind,
-        templateVersionId: record.templateVersionId,
-        valueFree: true,
-      },
-    ];
-  });
+      return [
+        {
+          newDecision,
+          newStatus,
+          previousDecision,
+          previousStatus,
+          reviewedAt:
+            record.reviewedAt instanceof Date
+              ? record.reviewedAt.toISOString()
+              : record.reviewedAt,
+          reviewerDisplayName: record.reviewerDisplayName ?? undefined,
+          reviewerUserId: record.reviewerUserId ?? undefined,
+          safeNote: record.safeNote ?? undefined,
+          targetId: record.targetId,
+          targetKind,
+          templateVersionId: record.templateVersionId,
+          valueFree: true as const,
+        },
+      ];
+    })
+    .sort((first, second) =>
+      second.reviewedAt.localeCompare(first.reviewedAt),
+    );
 }
 
 function formatDecision(

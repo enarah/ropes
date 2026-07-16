@@ -286,12 +286,14 @@ Report-specific review panels also include a safe history section for each
 mapping target. The history section shows the current persisted decision,
 review status, reviewer display name, reviewed timestamp, target kind, target
 ID, template version and stored safe note. It also shows compact value-free
-decision-version events. Creation events identify the current decision only;
-update events show the previous and new decision and review status, reviewer,
-reviewed timestamp and the already-validated safe note. Value-free rejected
-note attempt counts remain a separate section. The history view does not show
-raw audit logs, rejected unsafe note text, workbook values or manual APP&B
-values.
+decision-version events sorted with the most recently reviewed event first.
+The current decision metadata is shown before the event list, including the
+target label, kind and ID. The three most recent events are visible by default;
+older events stay in a local expand-more disclosure. Creation events use
+`Current decision recorded`, while update events use `Decision changed` and
+`Status changed` wording for previous-to-new metadata. Value-free rejected note
+attempt counts remain a separate section. The history view does not show raw
+audit logs, rejected unsafe note text, workbook values or manual APP&B values.
 
 Persisted mapping review decisions are stored in
 `AppbMappingReviewDecisionRecord` and scoped to:
