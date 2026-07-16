@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
+  buildAppbMappingReviewHistoryPageMetadata,
   countOlderAppbMappingReviewHistoryEvents,
+  isValidAppbMappingReviewHistoryOffset,
   shapeAppbMappingReviewDecisionHistory,
   type AppbMappingReviewHistoryRecordInput,
 } from "../lib/appb-mapping-review-history";
@@ -15,6 +17,39 @@ test("APP&B mapping review history reports only unloaded older events", () => {
   assert.equal(countOlderAppbMappingReviewHistoryEvents(8, 3), 5);
   assert.equal(countOlderAppbMappingReviewHistoryEvents(3, 3), 0);
   assert.equal(countOlderAppbMappingReviewHistoryEvents(2, 3), 0);
+});
+
+test("APP&B mapping review history shapes safe load-more metadata", () => {
+  assert.deepEqual(
+    buildAppbMappingReviewHistoryPageMetadata({
+      loadedRecordCount: 3,
+      offset: 3,
+      totalEventCount: 8,
+    }),
+    {
+      nextOffset: 6,
+      remainingCount: 2,
+    },
+  );
+  assert.deepEqual(
+    buildAppbMappingReviewHistoryPageMetadata({
+      loadedRecordCount: 2,
+      offset: 6,
+      totalEventCount: 8,
+    }),
+    {
+      nextOffset: undefined,
+      remainingCount: 0,
+    },
+  );
+});
+
+test("APP&B mapping review history accepts only bounded page offsets", () => {
+  assert.equal(isValidAppbMappingReviewHistoryOffset(3), true);
+  assert.equal(isValidAppbMappingReviewHistoryOffset(10_000), true);
+  assert.equal(isValidAppbMappingReviewHistoryOffset(2), false);
+  assert.equal(isValidAppbMappingReviewHistoryOffset(10_001), false);
+  assert.equal(isValidAppbMappingReviewHistoryOffset(3.5), false);
 });
 
 const target = {

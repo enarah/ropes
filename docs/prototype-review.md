@@ -103,6 +103,11 @@ Vehicles records, and the initial authentication foundation.
   newest value-free events per target and expose a safe older-event count.
   Current decision metadata and rejected-note counts remain separate, and full
   load-more or pagination stays deferred while workbook export remains blocked.
+- APP&B mapping review history load-more now provides an authenticated,
+  tenant- and capability-gated per-target action with bounded three-event
+  offset pages, safe remaining-count metadata and minimal append UI. Current
+  decision metadata and rejected-note counts remain separate, and workbook
+  export remains blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

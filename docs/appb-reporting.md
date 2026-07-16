@@ -291,11 +291,13 @@ The current decision metadata is shown before the event list, including the
 target label, kind and ID. The backend and UI share a three-event default: only
 the three most recent value-free events are loaded for each target. A filtered
 per-target count records how many older events were not loaded, and the local
-disclosure reports that count without fetching older content. Creation events
-use `Current decision recorded`, while update events use `Decision changed` and
-`Status changed` wording for previous-to-new metadata. Value-free rejected note
-attempt counts remain a separate section. The history view does not show raw
-audit logs, rejected unsafe note text, workbook values or manual APP&B values.
+load-more control requests one three-event page at a time for that target.
+Loaded pages are appended below the default events while current decision
+metadata stays separate. Creation events use `Current decision recorded`, while
+update events use `Decision changed` and `Status changed` wording for
+previous-to-new metadata. Value-free rejected note attempt counts remain a
+separate section. The history view does not show raw audit logs, rejected unsafe
+note text, workbook values or manual APP&B values.
 
 Persisted mapping review decisions are stored in
 `AppbMappingReviewDecisionRecord` and scoped to:
@@ -319,8 +321,24 @@ not match the requested target and template version. The nested history query
 is organisation-scoped, filters to `valueFree: true`, orders by reviewed and
 created timestamp newest-first with a deterministic ID tie-break, and takes
 only the shared default event limit. Its filtered relation count supplies
-value-free older-event metadata; full per-target pagination or load-more is
-intentionally deferred.
+value-free older-event metadata; report-wide pagination remains intentionally
+out of scope.
+
+`loadOlderAppbMappingReviewHistoryAction` provides the small per-target
+load-more path. Its request includes organisation slug, APP&B report ID, target
+kind, target ID, template version ID and a bounded offset. Before reading it:
+
+- requires an authenticated active organisation membership
+- confirms the APP&B report belongs to that organisation
+- checks `reporting`, `reporting.appb`, `grants` and `grants.appb` capabilities
+- resolves the organisation/report/target/current-decision/template scope
+- filters history by that decision relation, organisation, report, target,
+  template version and `valueFree: true`
+
+Each request returns at most three safely shaped events in stable newest-first
+order, plus a value-free remaining count and next offset when another page is
+available. It returns no current decision record, rejected-note counts, raw
+audit logs, workbook values, manual APP&B values or rejected unsafe note text.
 
 The save action is tenant-guarded and APP&B capability-gated. Audit metadata
 records safe IDs, target kind, decision, review status and note length only; it

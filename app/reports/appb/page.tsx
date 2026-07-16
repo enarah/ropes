@@ -24,7 +24,6 @@ import {
   buildAppbRepeatableRangeSummary,
   buildAppbWorkbookRangeMappingSummary,
   type AppbMappingReview,
-  type AppbMappingReviewDecisionHistoryEntry,
   type AppbPersistedMappingReview,
   type AppbTemplateVersion,
 } from "@/lib/appb-reporting";
@@ -37,6 +36,10 @@ import {
   saveAppbMappingReviewDecisionAction,
   upsertAppbManualFieldValueAction,
 } from "./actions";
+import {
+  AppbMappingReviewHistoryLoadMore,
+  MappingReviewDecisionVersionList,
+} from "./mapping-review-history-load-more";
 
 type AppbReportingPageProps = {
   searchParams?: Promise<{
@@ -930,7 +933,10 @@ function MappingReviewList({
                 {review.reviewedAt ? ` / ${formatReviewDate(review.reviewedAt)}` : ""}
                 . Export remains blocked.
               </p>
-              <MappingReviewHistoryDisplay review={review} />
+              <MappingReviewHistoryDisplay
+                loadMoreContext={saveContext}
+                review={review}
+              />
               {saveContext ? (
                 <MappingReviewDecisionForm
                   review={review}
@@ -950,8 +956,13 @@ function MappingReviewList({
 }
 
 function MappingReviewHistoryDisplay({
+  loadMoreContext,
   review,
 }: {
+  loadMoreContext?: {
+    organisationSlug: string;
+    reportId: string;
+  };
   review: AppbMappingReview;
 }) {
   const decisionVersions = review.history?.decisionVersions ?? [];
@@ -961,9 +972,6 @@ function MappingReviewHistoryDisplay({
   );
   const olderDecisionVersionCount =
     review.history?.olderDecisionVersionCount ?? 0;
-  const olderDecisionEventLabel = `${olderDecisionVersionCount} older decision ${
-    olderDecisionVersionCount === 1 ? "event" : "events"
-  }`;
   const rejectedCounts = review.history?.rejectedNoteReasonCounts ?? [];
 
   if (!review.history) {
@@ -1049,17 +1057,22 @@ function MappingReviewHistoryDisplay({
             <MappingReviewDecisionVersionList
               versions={recentDecisionVersions}
             />
-            {olderDecisionVersionCount > 0 ? (
-              <details className="mt-2 rounded-md border border-earth-200 bg-white p-2">
-                <summary className="cursor-pointer text-xs font-semibold text-charcoal-700">
-                  {olderDecisionEventLabel} available
-                </summary>
-                <p className="mt-2 text-xs leading-5 text-charcoal-600">
-                  Older value-free event content is not loaded in this compact
-                  report view. A future per-target load-more action can use this
-                  count without exposing history content by default.
-                </p>
-              </details>
+            {olderDecisionVersionCount > 0 && loadMoreContext ? (
+              <AppbMappingReviewHistoryLoadMore
+                initialRemainingCount={olderDecisionVersionCount}
+                requestScope={{
+                  appbReportId: loadMoreContext.reportId,
+                  organisationSlug: loadMoreContext.organisationSlug,
+                  targetId: review.targetId,
+                  targetKind: review.targetKind,
+                  templateVersionId: review.templateVersionId,
+                }}
+              />
+            ) : olderDecisionVersionCount > 0 ? (
+              <p className="mt-2 text-xs leading-5 text-charcoal-600">
+                {olderDecisionVersionCount} older value-free decision events are
+                available in the report-specific history view.
+              </p>
             ) : null}
           </>
         )}
@@ -1092,50 +1105,6 @@ function MappingReviewHistoryDisplay({
         and manual APP&B values are never displayed here.
       </p>
     </details>
-  );
-}
-
-function MappingReviewDecisionVersionList({
-  versions,
-}: {
-  versions: AppbMappingReviewDecisionHistoryEntry[];
-}) {
-  return (
-    <ol className="mt-2 space-y-2">
-      {versions.map((version, index) => {
-        const isUpdate = Boolean(
-          version.previousDecision || version.previousStatus,
-        );
-
-        return (
-          <li
-            className="rounded-md bg-white p-2 text-xs leading-5 text-charcoal-600"
-            key={`${version.reviewedAt}-${index}`}
-          >
-            <p className="font-semibold text-charcoal-700">
-              {isUpdate ? "Decision changed" : "Current decision recorded"}
-            </p>
-            <p>
-              Decision:{" "}
-              {version.previousDecision
-                ? `${formatStatus(version.previousDecision)} → ${formatStatus(version.newDecision)}`
-                : formatStatus(version.newDecision)}
-            </p>
-            <p>
-              {version.previousStatus ? "Status changed" : "Status"}:{" "}
-              {version.previousStatus
-                ? `${formatStatus(version.previousStatus)} → ${formatStatus(version.newStatus)}`
-                : formatStatus(version.newStatus)}
-            </p>
-            <p>
-              Reviewed by {version.reviewerDisplayName ?? "Unknown reviewer"} /{" "}
-              {formatReviewDate(version.reviewedAt)}
-            </p>
-            {version.safeNote ? <p>Safe note: {version.safeNote}</p> : null}
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 
