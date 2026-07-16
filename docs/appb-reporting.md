@@ -214,6 +214,9 @@ The code-level metadata in `lib/appb-reporting.ts` describes:
 - `AppbRepeatableRangeDefinition`: repeatable table metadata for header rows, data rows, formula rows, row identity and expansion rules.
 - `AppbRepeatableColumnMapping`: future column mapping placeholder for repeatable rows.
 - `AppbRepeatableHeaderRule` / `AppbRepeatableFormulaRowRule`: protected row rules for repeatable table areas.
+- `AppbMappingReview`: value-free review metadata for field mappings and repeatable ranges.
+- `AppbMappingReviewDecision`: safe decision labels for future review actions.
+- `AppbMappingReviewSummary`: compact counts for review status, decision and target kind.
 - `AppbManualField`: field that must remain manually entered until ROPES owns the data.
 - `AppbExportReadinessCheck`: blocker or review check before export can be enabled.
 - `AppbGeneratedWorkbook`: disabled placeholder for future safe export metadata.
@@ -253,6 +256,30 @@ The current metadata does not claim exact row or column ranges. Repeatable table
 readiness stays blocked or review-required until start/end rows, columns,
 headers, formula rows and expansion behaviour are reviewed. Export remains
 blocked regardless of repeatable metadata status in this foundation.
+
+Mapping review workflow metadata now represents the future human review layer
+for both field mappings and repeatable range definitions. The current
+foundation is code-level and value-free; it does not persist reviewer decisions
+or enable export.
+
+Review metadata includes:
+
+- target kind: field mapping or repeatable range
+- review status, using the same conservative range statuses
+- review decision, such as keep needs-review, mark reviewed, mark blocked
+  formula, mark blocked hidden sheet, mark blocked unsupported, mark unmapped
+  or mark ready for future export
+- optional reviewer identity and reviewed timestamp placeholders for a later
+  authenticated write workflow
+- short safe review notes
+- value-free audit metadata shape with template version, mapping ID, target
+  kind, status and decision
+
+The `/reports/appb` page shows compact review summaries and expandable
+template-version review panels with labels, statuses, decisions and safe notes
+only. It does not show workbook values or manual report values. A mapping marked
+reviewed or ready-for-future-export can make readiness wording clearer, but
+workbook export remains blocked until a separate export implementation exists.
 
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 
@@ -294,6 +321,7 @@ Likely future concepts:
 - `AppbReportSection`
 - `AppbReportField`
 - `AppbTemplateMapping`
+- `AppbMappingReview`
 - `AppbRepeatableTable`
 - `AppbManualField`
 - `AppbExportReadinessCheck`

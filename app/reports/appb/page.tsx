@@ -18,8 +18,11 @@ import {
   appbTemplateMappingSummary,
   appbTemplateProfiles,
   appbTemplateVersions,
+  buildAppbMappingReviewSummary,
+  buildAppbMappingReviews,
   buildAppbRepeatableRangeSummary,
   buildAppbWorkbookRangeMappingSummary,
+  type AppbMappingReview,
   type AppbTemplateVersion,
 } from "@/lib/appb-reporting";
 import {
@@ -239,6 +242,9 @@ export default async function AppbReportingPage({
                                     <RepeatableRangeSummary
                                       templateVersion={templateVersion}
                                     />
+                                    <MappingReviewSummary
+                                      templateVersion={templateVersion}
+                                    />
                                   </>
                                 ) : null}
                                 <ManualFieldSummary
@@ -282,7 +288,7 @@ export default async function AppbReportingPage({
       </Panel>
 
       <Panel title="Template mapping metadata">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
           <SummaryChip
             label="Sheets"
             value={String(appbTemplateMappingSummary.sheetCount)}
@@ -304,6 +310,14 @@ export default async function AppbReportingPage({
           <SummaryChip
             label="Needs review"
             value={String(appbTemplateMappingSummary.rangeMappingNeedsReviewCount)}
+          />
+          <SummaryChip
+            label="Review items"
+            value={String(appbTemplateMappingSummary.mappingReviewCount)}
+          />
+          <SummaryChip
+            label="Review blocked"
+            value={String(appbTemplateMappingSummary.mappingReviewBlockedCount)}
           />
         </div>
 
@@ -334,6 +348,8 @@ export default async function AppbReportingPage({
               </p>
               <RangeMappingSummary templateVersion={version} />
               <RepeatableRangeSummary templateVersion={version} />
+              <MappingReviewSummary templateVersion={version} />
+              <MappingReviewPanel templateVersion={version} />
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {version.sheets.map((sheet) => (
                   <div className="rounded-md bg-white p-3" key={sheet.id}>
@@ -661,6 +677,158 @@ function RepeatableRangeSummary({
         ))}
       </div>
     </div>
+  );
+}
+
+function MappingReviewSummary({
+  templateVersion,
+}: {
+  templateVersion: AppbTemplateVersion;
+}) {
+  const summary = buildAppbMappingReviewSummary(templateVersion);
+  const visibleStatuses = summary.statusCounts.filter((count) => count.count > 0);
+  const visibleTargets = summary.targetCounts.filter((count) => count.count > 0);
+
+  if (summary.total === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-ochre-700">
+            Mapping review workflow
+          </p>
+          <p className="mt-1 text-sm font-semibold text-charcoal-950">
+            {summary.needsReviewCount} need review / {summary.blockedCount} blocked
+          </p>
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            Review decisions are metadata-only and value-free. Marking a mapping
+            reviewed does not enable workbook export.
+          </p>
+        </div>
+        <span className="rounded-md bg-charcoal-900 px-2.5 py-1 text-xs font-semibold uppercase text-sand-50">
+          Export blocked
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {visibleStatuses.map((statusCount) => (
+          <span
+            className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+            key={statusCount.status}
+          >
+            {formatStatus(statusCount.status)}: {statusCount.count}
+          </span>
+        ))}
+        {visibleTargets.map((targetCount) => (
+          <span
+            className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-ochre-700"
+            key={targetCount.targetKind}
+          >
+            {formatStatus(targetCount.targetKind)}: {targetCount.count}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MappingReviewPanel({
+  templateVersion,
+}: {
+  templateVersion: AppbTemplateVersion;
+}) {
+  const reviews = buildAppbMappingReviews(templateVersion);
+  const fieldReviews = reviews.filter(
+    (review) => review.targetKind === "field-mapping",
+  );
+  const repeatableReviews = reviews.filter(
+    (review) => review.targetKind === "repeatable-range",
+  );
+
+  if (reviews.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <summary className="cursor-pointer text-sm font-semibold text-charcoal-950">
+        Review mapping metadata
+      </summary>
+      <p className="mt-2 text-xs leading-5 text-charcoal-600">
+        Metadata-only review panel. It shows labels, statuses, decisions and safe
+        notes only; workbook values and manual report values stay hidden.
+      </p>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <MappingReviewList reviews={fieldReviews} title="Field mappings" />
+        <MappingReviewList
+          reviews={repeatableReviews}
+          title="Repeatable ranges"
+        />
+      </div>
+    </details>
+  );
+}
+
+function MappingReviewList({
+  reviews,
+  title,
+}: {
+  reviews: AppbMappingReview[];
+  title: string;
+}) {
+  return (
+    <section className="rounded-md border border-earth-200 bg-earth-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-charcoal-950">{title}</p>
+        <span className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+          {reviews.length}
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {reviews.length === 0 ? (
+          <p className="text-xs leading-5 text-charcoal-600">
+            No review records for this category.
+          </p>
+        ) : (
+          reviews.map((review) => (
+            <article
+              className="rounded-md border border-earth-200 bg-white p-3"
+              key={review.id}
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-charcoal-950">
+                    {review.label}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold uppercase text-charcoal-600">
+                    {formatStatus(review.targetKind)} /{" "}
+                    {formatStatus(review.decision)}
+                  </p>
+                </div>
+                <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+                  {formatStatus(review.status)}
+                </span>
+              </div>
+              {review.note ? (
+                <p className="mt-2 text-xs leading-5 text-charcoal-600">
+                  {review.note.text}
+                </p>
+              ) : null}
+              <p className="mt-2 text-xs leading-5 text-charcoal-600">
+                Reviewer and timestamp are represented for the future persisted
+                workflow. This code-level foundation does not record approvals
+                or enable export.
+              </p>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
   );
 }
 

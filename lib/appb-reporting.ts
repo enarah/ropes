@@ -300,6 +300,84 @@ export type AppbRepeatableRangeSummary = {
   unresolvedCount: number;
 };
 
+export type AppbMappingReviewStatus = AppbWorkbookRangeMappingStatus;
+
+export type AppbMappingReviewDecision =
+  | "keep-needs-review"
+  | "mark-reviewed"
+  | "mark-blocked-formula"
+  | "mark-blocked-hidden-sheet"
+  | "mark-blocked-unsupported"
+  | "mark-unmapped"
+  | "mark-ready-for-future-export";
+
+export type AppbMappingReviewTargetKind =
+  | "field-mapping"
+  | "repeatable-range";
+
+export type AppbMappingReviewer = {
+  displayName?: string;
+  source: "metadata-placeholder" | "future-authenticated-user";
+  userId?: string;
+};
+
+export type AppbMappingReviewNote = {
+  isValueFree: true;
+  maxLength: number;
+  text: string;
+};
+
+export type AppbMappingReviewAuditMetadata = {
+  decision: AppbMappingReviewDecision;
+  mappingId: string;
+  status: AppbMappingReviewStatus;
+  targetKind: AppbMappingReviewTargetKind;
+  templateVersionId: string;
+  valueFree: true;
+};
+
+export type AppbMappingReview = {
+  auditMetadata: AppbMappingReviewAuditMetadata;
+  decision: AppbMappingReviewDecision;
+  exportBlocked: true;
+  id: string;
+  label: string;
+  note?: AppbMappingReviewNote;
+  reviewedAt?: string;
+  reviewer?: AppbMappingReviewer;
+  reviewNotes: string[];
+  status: AppbMappingReviewStatus;
+  targetId: string;
+  targetKind: AppbMappingReviewTargetKind;
+  templateVersionId: string;
+};
+
+export type AppbMappingReviewStatusCount = {
+  count: number;
+  status: AppbMappingReviewStatus;
+};
+
+export type AppbMappingReviewDecisionCount = {
+  count: number;
+  decision: AppbMappingReviewDecision;
+};
+
+export type AppbMappingReviewTargetCount = {
+  count: number;
+  targetKind: AppbMappingReviewTargetKind;
+};
+
+export type AppbMappingReviewSummary = {
+  blockedCount: number;
+  decisionCounts: AppbMappingReviewDecisionCount[];
+  exportBlocked: true;
+  needsReviewCount: number;
+  reviewedCount: number;
+  statusCounts: AppbMappingReviewStatusCount[];
+  targetCounts: AppbMappingReviewTargetCount[];
+  total: number;
+};
+
 export type AppbRepeatableTable = {
   anchorReference: AppbCellRangeReference;
   description: string;
@@ -1692,6 +1770,21 @@ const repeatableExpansionRules: AppbRepeatableExpansionRule[] = [
   "blocked",
 ];
 
+const mappingReviewDecisions: AppbMappingReviewDecision[] = [
+  "keep-needs-review",
+  "mark-reviewed",
+  "mark-blocked-formula",
+  "mark-blocked-hidden-sheet",
+  "mark-blocked-unsupported",
+  "mark-unmapped",
+  "mark-ready-for-future-export",
+];
+
+const mappingReviewTargetKinds: AppbMappingReviewTargetKind[] = [
+  "field-mapping",
+  "repeatable-range",
+];
+
 export function buildAppbWorkbookRangeMappingSummary(
   version: AppbTemplateVersion,
 ): AppbWorkbookRangeMappingSummary {
@@ -1708,6 +1801,55 @@ export function buildAppbWorkbookRangeMappingSummary(
     unresolvedCount: version.rangeMappings.filter(
       (mapping) => !isAppbRangeMappingResolved(mapping),
     ).length,
+  };
+}
+
+export function buildAppbMappingReviews(
+  version: AppbTemplateVersion,
+): AppbMappingReview[] {
+  return [
+    ...version.rangeMappings
+      .filter((mapping) => Boolean(mapping.fieldId))
+      .map((mapping) => buildFieldMappingReview(version, mapping)),
+    ...version.repeatableRangeDefinitions.map((definition) =>
+      buildRepeatableRangeReview(version, definition),
+    ),
+  ];
+}
+
+export function buildAppbMappingReviewSummary(
+  version: AppbTemplateVersion,
+): AppbMappingReviewSummary {
+  const reviews = buildAppbMappingReviews(version);
+  const statusCounts = rangeMappingStatuses.map((status) => ({
+    count: reviews.filter((review) => review.status === status).length,
+    status,
+  }));
+  const decisionCounts = mappingReviewDecisions.map((decision) => ({
+    count: reviews.filter((review) => review.decision === decision).length,
+    decision,
+  }));
+  const targetCounts = mappingReviewTargetKinds.map((targetKind) => ({
+    count: reviews.filter((review) => review.targetKind === targetKind).length,
+    targetKind,
+  }));
+
+  return {
+    blockedCount: reviews.filter((review) => review.status.startsWith("blocked"))
+      .length,
+    decisionCounts,
+    exportBlocked: true,
+    needsReviewCount: reviews.filter(
+      (review) => review.status === "needs-review" || review.status === "unmapped",
+    ).length,
+    reviewedCount: reviews.filter(
+      (review) =>
+        review.status === "reviewed" ||
+        review.status === "ready-for-future-export",
+    ).length,
+    statusCounts,
+    targetCounts,
+    total: reviews.length,
   };
 }
 
@@ -1773,6 +1915,104 @@ export function findAppbRepeatableRangeDefinition(
   return version.repeatableRangeDefinitions.find(
     (definition) => definition.repeatableTableId === repeatableTableId,
   );
+}
+
+function buildFieldMappingReview(
+  version: AppbTemplateVersion,
+  mapping: AppbWorkbookRangeMapping,
+): AppbMappingReview {
+  const decision = reviewDecisionForStatus(mapping.status);
+
+  return {
+    auditMetadata: {
+      decision,
+      mappingId: mapping.id,
+      status: mapping.status,
+      targetKind: "field-mapping",
+      templateVersionId: version.id,
+      valueFree: true,
+    },
+    decision,
+    exportBlocked: true,
+    id: `${version.id}-${mapping.id}-review`,
+    label: mapping.label,
+    note: safeMappingReviewNote(mapping.reviewNotes),
+    reviewedAt: mapping.review.reviewedOn,
+    reviewer: mapping.review.reviewedBy
+      ? {
+          displayName: mapping.review.reviewedBy,
+          source: "metadata-placeholder",
+        }
+      : undefined,
+    reviewNotes: mapping.reviewNotes,
+    status: mapping.status,
+    targetId: mapping.id,
+    targetKind: "field-mapping",
+    templateVersionId: version.id,
+  };
+}
+
+function buildRepeatableRangeReview(
+  version: AppbTemplateVersion,
+  definition: AppbRepeatableRangeDefinition,
+): AppbMappingReview {
+  const decision = reviewDecisionForStatus(definition.status);
+
+  return {
+    auditMetadata: {
+      decision,
+      mappingId: definition.id,
+      status: definition.status,
+      targetKind: "repeatable-range",
+      templateVersionId: version.id,
+      valueFree: true,
+    },
+    decision,
+    exportBlocked: true,
+    id: `${version.id}-${definition.id}-review`,
+    label: definition.label,
+    note: safeMappingReviewNote(definition.reviewNotes),
+    reviewNotes: definition.reviewNotes,
+    status: definition.status,
+    targetId: definition.id,
+    targetKind: "repeatable-range",
+    templateVersionId: version.id,
+  };
+}
+
+function reviewDecisionForStatus(
+  status: AppbMappingReviewStatus,
+): AppbMappingReviewDecision {
+  switch (status) {
+    case "reviewed":
+      return "mark-reviewed";
+    case "blocked-formula":
+      return "mark-blocked-formula";
+    case "blocked-hidden-sheet":
+      return "mark-blocked-hidden-sheet";
+    case "blocked-unsupported":
+      return "mark-blocked-unsupported";
+    case "unmapped":
+      return "mark-unmapped";
+    case "ready-for-future-export":
+      return "mark-ready-for-future-export";
+    case "needs-review":
+      return "keep-needs-review";
+  }
+}
+
+function safeMappingReviewNote(notes: string[]): AppbMappingReviewNote | undefined {
+  const [firstNote] = notes;
+
+  if (!firstNote) {
+    return undefined;
+  }
+
+  return {
+    isValueFree: true,
+    maxLength: 240,
+    text: firstNote.slice(0, 240),
+  };
 }
 
 function withTemplateVersionId(
@@ -1916,6 +2156,20 @@ export const appbTemplateMappingSummary = {
     (count, version) => count + version.manualFields.length,
     0,
   ),
+  mappingReviewBlockedCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count + buildAppbMappingReviewSummary(version).blockedCount,
+    0,
+  ),
+  mappingReviewCount: appbTemplateVersions.reduce(
+    (count, version) => count + buildAppbMappingReviewSummary(version).total,
+    0,
+  ),
+  mappingReviewNeedsReviewCount: appbTemplateVersions.reduce(
+    (count, version) =>
+      count + buildAppbMappingReviewSummary(version).needsReviewCount,
+    0,
+  ),
   mappingCount: appbTemplateVersions.reduce(
     (count, version) => count + version.mappings.length,
     0,
@@ -2051,6 +2305,21 @@ export const appbFutureConcepts: AppbFutureConcept[] = [
     description:
       "Review-gated repeatable table definition with header, data, formula and expansion metadata.",
     name: "AppbRepeatableRangeDefinition",
+  },
+  {
+    description:
+      "Value-free human review record for field mappings and repeatable range metadata.",
+    name: "AppbMappingReview",
+  },
+  {
+    description:
+      "Safe review decision such as keep needs-review, mark reviewed or mark blocked.",
+    name: "AppbMappingReviewDecision",
+  },
+  {
+    description:
+      "Compact value-free review counts for a template version or APP&B report.",
+    name: "AppbMappingReviewSummary",
   },
   {
     description:
