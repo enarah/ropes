@@ -38,14 +38,18 @@ import {
 
 type AppbReportingPageProps = {
   searchParams?: Promise<{
+    error?: string;
     org?: string;
+    saved?: string;
   }>;
 };
 
 export default async function AppbReportingPage({
   searchParams,
 }: AppbReportingPageProps) {
-  const selectedOrganisationSlug = (await searchParams)?.org;
+  const resolvedSearchParams = await searchParams;
+  const selectedOrganisationSlug = resolvedSearchParams?.org;
+  const statusMessage = appbStatusMessage(resolvedSearchParams);
   const access = await getOrganisationPageAccess(selectedOrganisationSlug);
 
   if (access.status === "denied") {
@@ -121,6 +125,8 @@ export default async function AppbReportingPage({
           Reporting
         </Link>
       </section>
+
+      {statusMessage ? <StatusBanner {...statusMessage} /> : null}
 
       <section className="grid gap-4 md:grid-cols-4">
         <SummaryCard label="Grants" value={String(overview.grants.length)} />
@@ -505,6 +511,53 @@ function EmptyState({ message }: { message: string }) {
       <p className="text-sm leading-6 text-charcoal-600">{message}</p>
     </div>
   );
+}
+
+function StatusBanner({
+  message,
+  tone,
+}: {
+  message: string;
+  tone: "error" | "success";
+}) {
+  return (
+    <div
+      className={
+        tone === "error"
+          ? "rounded-md border border-ochre-300 bg-ochre-50 p-4"
+          : "rounded-md border border-earth-300 bg-earth-50 p-4"
+      }
+    >
+      <p className="text-sm leading-6 text-charcoal-700">{message}</p>
+    </div>
+  );
+}
+
+function appbStatusMessage(
+  searchParams:
+    | {
+        error?: string;
+        saved?: string;
+      }
+    | undefined,
+) {
+  if (searchParams?.error === "note-safety") {
+    return {
+      message:
+        "Review note was not saved. Use a short metadata-only note without workbook values, financial figures, personal details, private links or report narrative.",
+      tone: "error" as const,
+    };
+  }
+
+  if (searchParams?.saved === "mapping-review") {
+    return {
+      message:
+        "Mapping review decision saved. Workbook export remains blocked.",
+      tone: "success" as const,
+    };
+  }
+
+  return null;
 }
 
 function SummaryChip({ label, value }: { label: string; value: string }) {
@@ -954,13 +1007,14 @@ function MappingReviewDecisionForm({
           defaultValue={review.note?.text ?? ""}
           maxLength={240}
           name="safeNote"
-          placeholder="Short value-free note; no workbook or report values"
+          placeholder="Metadata only, e.g. range reviewed against template structure"
         />
       </label>
 
       <p className="mt-2 text-xs leading-5 text-charcoal-600">
-        Decisions are report-scoped metadata only. They do not enable workbook
-        export or expose manual APP&B values.
+        Use short metadata notes only. Do not enter workbook values, financial
+        figures, personal details, report narrative, private links or copied
+        worksheet text. Unsafe notes are rejected without storing the text.
       </p>
 
       <button

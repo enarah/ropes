@@ -318,6 +318,9 @@ The current app includes:
 - APP&B persisted mapping review decisions with report-scoped saves, short
   value-free notes, reviewer identity, reviewed timestamps and safe audit
   metadata while workbook export remains blocked
+- APP&B mapping review note safety guardrails with deterministic server-side
+  checks, generic rejection feedback and value-free audit metadata for rejected
+  unsafe notes
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available
