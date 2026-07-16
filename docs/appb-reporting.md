@@ -282,6 +282,18 @@ manual report values. A persisted mapping marked reviewed or
 ready-for-future-export can make readiness wording clearer, but workbook export
 remains blocked until a separate export implementation exists.
 
+Report-specific review panels also include a safe history section for each
+mapping target. The history section shows the current persisted decision,
+review status, reviewer display name, reviewed timestamp, target kind, target
+ID, template version and stored safe note. It can also show value-free rejected
+note attempt counts by reason code. It does not show raw audit logs, rejected
+unsafe note text, workbook values or manual APP&B values.
+
+Previous-decision history is not yet available because
+`AppbMappingReviewDecisionRecord` currently stores one current decision per
+organisation, APP&B report, target kind and target ID. A later history model can
+preserve prior decisions if that becomes necessary.
+
 Persisted mapping review decisions are stored in
 `AppbMappingReviewDecisionRecord` and scoped to:
 

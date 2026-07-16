@@ -340,6 +340,7 @@ export type AppbMappingReview = {
   auditMetadata: AppbMappingReviewAuditMetadata;
   decision: AppbMappingReviewDecision;
   exportBlocked: true;
+  history?: AppbMappingReviewHistorySummary;
   id: string;
   label: string;
   note?: AppbMappingReviewNote;
@@ -354,6 +355,7 @@ export type AppbMappingReview = {
 
 export type AppbPersistedMappingReview = {
   decision: AppbMappingReviewDecision;
+  history: AppbMappingReviewHistorySummary;
   id: string;
   reviewedAt: string;
   reviewerDisplayName?: string;
@@ -363,6 +365,18 @@ export type AppbPersistedMappingReview = {
   targetId: string;
   targetKind: AppbMappingReviewTargetKind;
   templateVersionId: string;
+};
+
+export type AppbMappingReviewRejectedNoteReasonCount = {
+  count: number;
+  reasonCode: string;
+};
+
+export type AppbMappingReviewHistorySummary = {
+  currentDecisionRecorded: boolean;
+  previousDecisionAvailable: boolean;
+  rejectedNoteReasonCounts: AppbMappingReviewRejectedNoteReasonCount[];
+  valueFree: true;
 };
 
 export type AppbMappingReviewStatusCount = {
@@ -2029,6 +2043,7 @@ function applyPersistedMappingReview(
     ...review,
     decision: persistedReview.decision,
     id: persistedReview.id,
+    history: persistedReview.history,
     note: persistedReview.safeNote
       ? {
           isValueFree: true,

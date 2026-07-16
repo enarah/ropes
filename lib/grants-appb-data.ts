@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { canReadOrganisation } from "@/lib/auth-session";
 import type { AppbPersistedMappingReview } from "@/lib/appb-reporting";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
@@ -188,6 +189,35 @@ export async function getGrantsAppbOverview(
         organisationId: organisation.id,
       },
     });
+    const appbReportIds = grants.flatMap((grant) =>
+      grant.reportingPeriods.flatMap((period) =>
+        period.appbReports.map((report) => report.id),
+      ),
+    );
+    const reviewNoteRejections =
+      appbReportIds.length > 0
+        ? await prisma.auditLog.findMany({
+            orderBy: {
+              createdAt: "desc",
+            },
+            select: {
+              entityId: true,
+              metadata: true,
+            },
+            where: {
+              action: "REJECTED",
+              entityId: {
+                in: appbReportIds,
+              },
+              entityType: "AppbMappingReviewDecisionRecord",
+              metadata: {
+                path: ["event"],
+                equals: "appb_mapping_review_note_rejected",
+              },
+              organisationId: organisation.id,
+            },
+          })
+        : [];
 
     return {
       grants: grants.map((grant) => ({
@@ -209,6 +239,21 @@ export async function getGrantsAppbOverview(
             id: report.id,
             mappingReviews: report.mappingReviewDecisions.map((review) => ({
               decision: formatMappingReviewDecision(review.decision),
+              history: {
+                currentDecisionRecorded: true,
+                previousDecisionAvailable: false,
+                rejectedNoteReasonCounts: buildRejectedNoteReasonCounts(
+                  reviewNoteRejections.filter(
+                    (auditLog) => auditLog.entityId === report.id,
+                  ),
+                  {
+                    targetId: review.targetId,
+                    targetKind: formatMappingReviewTargetKind(review.targetKind),
+                    templateVersionId: review.templateVersionId,
+                  },
+                ),
+                valueFree: true,
+              },
               id: review.id,
               reviewedAt: review.reviewedAt.toISOString(),
               reviewerDisplayName: review.reviewerDisplayName ?? undefined,
@@ -332,4 +377,74 @@ function formatMappingReviewTargetKind(
   value: string,
 ): AppbPersistedMappingReview["targetKind"] {
   return value === "REPEATABLE_RANGE" ? "repeatable-range" : "field-mapping";
+}
+
+function buildRejectedNoteReasonCounts(
+  auditLogs: Array<{ metadata: Prisma.JsonValue | null }>,
+  target: {
+    targetId: string;
+    targetKind: AppbPersistedMappingReview["targetKind"];
+    templateVersionId: string;
+  },
+): AppbPersistedMappingReview["history"]["rejectedNoteReasonCounts"] {
+  const counts = new Map<string, number>();
+
+  for (const auditLog of auditLogs) {
+    const metadata = safeAuditMetadata(auditLog.metadata);
+
+    if (
+      !metadata ||
+      metadata.valueFree !== true ||
+      metadata.event !== "appb_mapping_review_note_rejected" ||
+      metadata.targetId !== target.targetId ||
+      metadata.targetKind !== target.targetKind ||
+      metadata.templateVersionId !== target.templateVersionId
+    ) {
+      continue;
+    }
+
+    counts.set(
+      metadata.rejectionReasonCode,
+      (counts.get(metadata.rejectionReasonCode) ?? 0) + 1,
+    );
+  }
+
+  return Array.from(counts.entries())
+    .map(([reasonCode, count]) => ({ count, reasonCode }))
+    .sort((first, second) => first.reasonCode.localeCompare(second.reasonCode));
+}
+
+function safeAuditMetadata(metadata: Prisma.JsonValue | null) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const value = metadata as Record<string, Prisma.JsonValue>;
+
+  if (
+    value.event !== "appb_mapping_review_note_rejected" ||
+    value.valueFree !== true ||
+    typeof value.rejectionReasonCode !== "string" ||
+    typeof value.targetId !== "string" ||
+    typeof value.targetKind !== "string" ||
+    typeof value.templateVersionId !== "string"
+  ) {
+    return null;
+  }
+
+  if (
+    value.targetKind !== "field-mapping" &&
+    value.targetKind !== "repeatable-range"
+  ) {
+    return null;
+  }
+
+  return {
+    event: value.event,
+    rejectionReasonCode: value.rejectionReasonCode,
+    targetId: value.targetId,
+    targetKind: value.targetKind,
+    templateVersionId: value.templateVersionId,
+    valueFree: value.valueFree,
+  };
 }

@@ -85,6 +85,10 @@ Vehicles records, and the initial authentication foundation.
 - APP&B review note safety tuning now keeps the deterministic policy in a
   reusable helper with test coverage for allowed short metadata notes and
   rejected fake unsafe examples.
+- APP&B mapping review history foundation now shows current value-free
+  report-scoped review decisions and rejected-note reason counts without
+  exposing raw audit logs, rejected note text, workbook values or manual report
+  values.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
