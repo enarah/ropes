@@ -94,6 +94,11 @@ Vehicles records, and the initial authentication foundation.
   one-row-per-target decision model. Safe history reads show compact previous
   and new decision metadata only; rejected-note reason counts remain separate
   and workbook export remains blocked.
+- APP&B mapping review history readability now shows current decision metadata
+  first, keeps the three most recent value-free events visible by default and
+  places older events behind a compact local disclosure. Creation and update
+  wording is explicit, rejected-note counts remain separate and workbook export
+  remains blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
