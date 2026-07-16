@@ -302,6 +302,8 @@ Mapping review notes also have a deterministic safety guardrail. Reviewers are
 prompted to use short metadata-only notes such as range or template-structure
 review comments. They must not enter workbook values, financial figures,
 personal details, report narrative, private links or copied worksheet text.
+The policy lives in `lib/appb-review-note-safety.ts` so it can be tested without
+saving a mapping review decision.
 
 Server-side validation rejects obvious unsafe patterns including:
 
@@ -319,6 +321,12 @@ audit metadata. ROPES records only value-free rejection metadata such as note
 length, target kind, target ID, template version ID and rejection reason code.
 This is a basic deterministic guardrail, not full data-loss-prevention tooling,
 and it does not use AI or external services.
+
+The guardrail has a small deterministic test matrix covering allowed short
+metadata notes and rejected fake examples for currency, contact details,
+secrets, private URLs, workbook formulas/cell references, medical/personnel/wage
+wording and copied narrative text. Future tuning should add or adjust explicit
+test cases before changing the policy.
 
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 

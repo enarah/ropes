@@ -321,6 +321,8 @@ The current app includes:
 - APP&B mapping review note safety guardrails with deterministic server-side
   checks, generic rejection feedback and value-free audit metadata for rejected
   unsafe notes
+- APP&B review note safety tuning with a reusable validation helper and
+  deterministic tests for allowed metadata notes and rejected fake unsafe notes
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

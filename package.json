@@ -8,6 +8,7 @@
     "build": "next build --webpack",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "lint": "eslint .",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "appb:inspect": "tsx scripts/inspect-appb-workbooks.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
