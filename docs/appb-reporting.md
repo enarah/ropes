@@ -257,10 +257,10 @@ readiness stays blocked or review-required until start/end rows, columns,
 headers, formula rows and expansion behaviour are reviewed. Export remains
 blocked regardless of repeatable metadata status in this foundation.
 
-Mapping review workflow metadata now represents the future human review layer
-for both field mappings and repeatable range definitions. The current
-foundation is code-level and value-free; it does not persist reviewer decisions
-or enable export.
+Mapping review workflow metadata now represents the human review layer for both
+field mappings and repeatable range definitions. Report-scoped review decisions
+can be persisted for a selected organisation, grant, reporting period and
+APP&B report while remaining value-free and export-blocked.
 
 Review metadata includes:
 
@@ -269,17 +269,34 @@ Review metadata includes:
 - review decision, such as keep needs-review, mark reviewed, mark blocked
   formula, mark blocked hidden sheet, mark blocked unsupported, mark unmapped
   or mark ready for future export
-- optional reviewer identity and reviewed timestamp placeholders for a later
-  authenticated write workflow
+- reviewer identity and reviewed timestamp for saved report-scoped decisions
 - short safe review notes
 - value-free audit metadata shape with template version, mapping ID, target
   kind, status and decision
 
 The `/reports/appb` page shows compact review summaries and expandable
 template-version review panels with labels, statuses, decisions and safe notes
-only. It does not show workbook values or manual report values. A mapping marked
-reviewed or ready-for-future-export can make readiness wording clearer, but
-workbook export remains blocked until a separate export implementation exists.
+only. Report-specific review panels include a small decision select, short
+value-free note field and save button. They do not show workbook values or
+manual report values. A persisted mapping marked reviewed or
+ready-for-future-export can make readiness wording clearer, but workbook export
+remains blocked until a separate export implementation exists.
+
+Persisted mapping review decisions are stored in
+`AppbMappingReviewDecisionRecord` and scoped to:
+
+- organisation
+- grant
+- reporting period
+- APP&B report
+- template version
+- target kind and target ID
+
+The save action is tenant-guarded and APP&B capability-gated. Audit metadata
+records safe IDs, target kind, decision, review status and note length only; it
+does not record workbook values, manual APP&B values, finance values, personnel
+values or narrative report text. Formula-protected, hidden-sheet and unsupported
+targets keep conservative blocked decisions.
 
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 
@@ -322,12 +339,13 @@ Likely future concepts:
 - `AppbReportField`
 - `AppbTemplateMapping`
 - `AppbMappingReview`
+- `AppbMappingReviewDecisionRecord`
 - `AppbRepeatableTable`
 - `AppbManualField`
 - `AppbExportReadinessCheck`
 - `AppbGeneratedWorkbook`
 
-This PR intentionally does not add database schema for workbook sections, fields, mappings, generated workbook metadata, budget/acquittal records or finance logic.
+This PR intentionally does not add database schema for workbook sections, fields, generated workbook metadata, budget/acquittal records or finance logic.
 
 ## Future Workflow
 
@@ -351,6 +369,6 @@ Future exports must not overwrite original templates. Generated reports must inc
 
 All APP&B data must remain organisation-scoped. Future grant/report/template-mapping records must validate selected organisation ownership, and generated workbook metadata must not leak data across organisations.
 
-Audit metadata should avoid unnecessary financial detail, personnel detail and free-text report content. Store safe counts, IDs, selected profile/version keys, reporting period labels and export result categories instead.
+Audit metadata should avoid unnecessary financial detail, personnel detail and free-text report content. Store safe counts, IDs, selected profile/version keys, reporting period labels, review statuses, decision labels, note lengths and export result categories instead.
 
 No credentials, live finance integrations, Google Calendar, Teams, email, SPOT integrations or AI calls are part of this planning foundation.

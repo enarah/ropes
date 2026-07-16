@@ -178,6 +178,31 @@ enum AppbManualFieldType {
   ROW_GROUP_PLACEHOLDER
 }
 
+enum AppbMappingReviewTargetKind {
+  FIELD_MAPPING
+  REPEATABLE_RANGE
+}
+
+enum AppbMappingReviewDecision {
+  KEEP_NEEDS_REVIEW
+  MARK_REVIEWED
+  MARK_BLOCKED_FORMULA
+  MARK_BLOCKED_HIDDEN_SHEET
+  MARK_BLOCKED_UNSUPPORTED
+  MARK_UNMAPPED
+  MARK_READY_FOR_FUTURE_EXPORT
+}
+
+enum AppbMappingReviewStatus {
+  UNMAPPED
+  NEEDS_REVIEW
+  REVIEWED
+  BLOCKED_FORMULA
+  BLOCKED_HIDDEN_SHEET
+  BLOCKED_UNSUPPORTED
+  READY_FOR_FUTURE_EXPORT
+}
+
 enum AuditAction {
   CREATED
   UPDATED
@@ -191,37 +216,38 @@ enum AuditAction {
 }
 
 model Organisation {
-  id                        String                     @id @default(cuid())
-  name                      String
-  slug                      String                     @unique
-  type                      OrganisationType           @default(PARTNER)
-  isDemo                    Boolean                    @default(false)
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
-  capabilities              OrganisationCapability[]
-  memberships               Membership[]
-  projects                  Project[]
-  rangerPrograms            RangerProgram[]
-  trips                     Trip[]
-  tripRiskAssessments       TripRiskAssessment[]
-  tripApprovalNotes         TripApprovalNote[]
-  tripParticipants          TripParticipant[]
-  tripVehicleAllocations    TripVehicleAllocation[]
-  tripItineraryItems        TripItineraryItem[]
-  vehicles                  Vehicle[]
-  vehicleBookings           VehicleBooking[]
-  vehicleDefects            VehicleDefect[]
-  vehicleMaintenanceRecords VehicleMaintenanceRecord[]
-  vehiclePreStartChecklists VehiclePreStartChecklist[]
-  fulcrumConnections        FulcrumConnection[]
-  fulcrumSyncJobs           FulcrumSyncJob[]
-  fulcrumApps               FulcrumApp[]
-  fulcrumRecords            FulcrumRecord[]
-  grants                    Grant[]
-  grantReportingPeriods     GrantReportingPeriod[]
-  appbReports               AppbReport[]
-  appbManualFieldValues     AppbManualFieldValue[]
-  auditLogs                 AuditLog[]
+  id                         String                            @id @default(cuid())
+  name                       String
+  slug                       String                            @unique
+  type                       OrganisationType                  @default(PARTNER)
+  isDemo                     Boolean                           @default(false)
+  createdAt                  DateTime                          @default(now())
+  updatedAt                  DateTime                          @updatedAt
+  capabilities               OrganisationCapability[]
+  memberships                Membership[]
+  projects                   Project[]
+  rangerPrograms             RangerProgram[]
+  trips                      Trip[]
+  tripRiskAssessments        TripRiskAssessment[]
+  tripApprovalNotes          TripApprovalNote[]
+  tripParticipants           TripParticipant[]
+  tripVehicleAllocations     TripVehicleAllocation[]
+  tripItineraryItems         TripItineraryItem[]
+  vehicles                   Vehicle[]
+  vehicleBookings            VehicleBooking[]
+  vehicleDefects             VehicleDefect[]
+  vehicleMaintenanceRecords  VehicleMaintenanceRecord[]
+  vehiclePreStartChecklists  VehiclePreStartChecklist[]
+  fulcrumConnections         FulcrumConnection[]
+  fulcrumSyncJobs            FulcrumSyncJob[]
+  fulcrumApps                FulcrumApp[]
+  fulcrumRecords             FulcrumRecord[]
+  grants                     Grant[]
+  grantReportingPeriods      GrantReportingPeriod[]
+  appbReports                AppbReport[]
+  appbManualFieldValues      AppbManualFieldValue[]
+  appbMappingReviewDecisions AppbMappingReviewDecisionRecord[]
+  auditLogs                  AuditLog[]
 }
 
 model OrganisationCapability {
@@ -733,26 +759,27 @@ model FulcrumRecord {
 }
 
 model Grant {
-  id                     String                 @id @default(cuid())
-  organisationId         String
-  projectId              String?
-  rangerProgramId        String?
-  funder                 GrantFunder
-  programType            GrantProgramType
-  title                  String
-  fundingAgreementNumber String?
-  fundingPeriodStart     DateTime
-  fundingPeriodEnd       DateTime
-  status                 GrantStatus            @default(ACTIVE)
-  isDemo                 Boolean                @default(false)
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
-  organisation           Organisation           @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  project                Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  rangerProgram          RangerProgram?         @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
-  reportingPeriods       GrantReportingPeriod[]
-  appbReports            AppbReport[]
-  appbManualFieldValues  AppbManualFieldValue[]
+  id                         String                            @id @default(cuid())
+  organisationId             String
+  projectId                  String?
+  rangerProgramId            String?
+  funder                     GrantFunder
+  programType                GrantProgramType
+  title                      String
+  fundingAgreementNumber     String?
+  fundingPeriodStart         DateTime
+  fundingPeriodEnd           DateTime
+  status                     GrantStatus                       @default(ACTIVE)
+  isDemo                     Boolean                           @default(false)
+  createdAt                  DateTime                          @default(now())
+  updatedAt                  DateTime                          @updatedAt
+  organisation               Organisation                      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  project                    Project?                          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rangerProgram              RangerProgram?                    @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
+  reportingPeriods           GrantReportingPeriod[]
+  appbReports                AppbReport[]
+  appbManualFieldValues      AppbManualFieldValue[]
+  appbMappingReviewDecisions AppbMappingReviewDecisionRecord[]
 
   @@index([organisationId])
   @@index([projectId])
@@ -764,22 +791,23 @@ model Grant {
 }
 
 model GrantReportingPeriod {
-  id                String                     @id @default(cuid())
-  organisationId    String
-  grantId           String
-  label             String
-  cycle             GrantReportingCycle
-  startsOn          DateTime
-  endsOn            DateTime
-  dueOn             DateTime?
-  status            GrantReportingPeriodStatus @default(DRAFT)
-  isDemo            Boolean                    @default(false)
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-  organisation      Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  grant             Grant                      @relation(fields: [grantId], references: [id], onDelete: Cascade)
-  appbReports       AppbReport[]
-  manualFieldValues AppbManualFieldValue[]
+  id                     String                            @id @default(cuid())
+  organisationId         String
+  grantId                String
+  label                  String
+  cycle                  GrantReportingCycle
+  startsOn               DateTime
+  endsOn                 DateTime
+  dueOn                  DateTime?
+  status                 GrantReportingPeriodStatus        @default(DRAFT)
+  isDemo                 Boolean                           @default(false)
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+  organisation           Organisation                      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant                  Grant                             @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  appbReports            AppbReport[]
+  manualFieldValues      AppbManualFieldValue[]
+  mappingReviewDecisions AppbMappingReviewDecisionRecord[]
 
   @@index([organisationId])
   @@index([grantId])
@@ -789,23 +817,24 @@ model GrantReportingPeriod {
 }
 
 model AppbReport {
-  id                   String                 @id @default(cuid())
-  organisationId       String
-  grantId              String
-  reportingPeriodId    String
-  templateProfileId    String
-  templateVersionLabel String
-  status               AppbReportStatus       @default(DRAFT)
-  manualFieldSummary   String?
-  missingDataSummary   String?
-  exportedAt           DateTime?
-  isDemo               Boolean                @default(false)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  organisation         Organisation           @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  grant                Grant                  @relation(fields: [grantId], references: [id], onDelete: Cascade)
-  reportingPeriod      GrantReportingPeriod   @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
-  manualFieldValues    AppbManualFieldValue[]
+  id                     String                            @id @default(cuid())
+  organisationId         String
+  grantId                String
+  reportingPeriodId      String
+  templateProfileId      String
+  templateVersionLabel   String
+  status                 AppbReportStatus                  @default(DRAFT)
+  manualFieldSummary     String?
+  missingDataSummary     String?
+  exportedAt             DateTime?
+  isDemo                 Boolean                           @default(false)
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+  organisation           Organisation                      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant                  Grant                             @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  reportingPeriod        GrantReportingPeriod              @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  manualFieldValues      AppbManualFieldValue[]
+  mappingReviewDecisions AppbMappingReviewDecisionRecord[]
 
   @@index([organisationId])
   @@index([grantId])
@@ -848,6 +877,40 @@ model AppbManualFieldValue {
   @@index([fieldGroup])
   @@index([status])
   @@index([sensitivity])
+}
+
+model AppbMappingReviewDecisionRecord {
+  id                  String                      @id @default(cuid())
+  organisationId      String
+  grantId             String
+  reportingPeriodId   String
+  appbReportId        String
+  templateVersionId   String
+  targetKind          AppbMappingReviewTargetKind
+  targetId            String
+  decision            AppbMappingReviewDecision
+  reviewStatus        AppbMappingReviewStatus
+  safeNote            String?
+  reviewerUserId      String?
+  reviewerDisplayName String?
+  reviewedAt          DateTime
+  auditMetadataJson   Json?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  organisation        Organisation                @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grant               Grant                       @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  reportingPeriod     GrantReportingPeriod        @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  appbReport          AppbReport                  @relation(fields: [appbReportId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, appbReportId, targetKind, targetId])
+  @@index([organisationId])
+  @@index([grantId])
+  @@index([reportingPeriodId])
+  @@index([appbReportId])
+  @@index([templateVersionId])
+  @@index([targetKind])
+  @@index([decision])
+  @@index([reviewStatus])
 }
 
 model AuditLog {

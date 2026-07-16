@@ -315,6 +315,9 @@ The current app includes:
 - APP&B workbook mapping review workflow foundation with value-free review
   decisions and compact metadata-only summaries for field mappings and
   repeatable ranges, while workbook export remains blocked
+- APP&B persisted mapping review decisions with report-scoped saves, short
+  value-free notes, reviewer identity, reviewed timestamps and safe audit
+  metadata while workbook export remains blocked
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

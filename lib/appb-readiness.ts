@@ -4,6 +4,8 @@ import {
   findAppbRepeatableRangeDefinition,
   isAppbRangeMappingResolved,
   isAppbRepeatableRangeResolved,
+  resolveAppbRangeMappingStatus,
+  resolveAppbRepeatableRangeStatus,
   type AppbFieldSourceType,
   type AppbRepeatableRangeDefinition,
   type AppbTemplateField,
@@ -153,6 +155,7 @@ export function buildAppbReportReadinessSummary({
         ),
         fieldSourceType: table.fieldSourceType,
         label: table.label,
+        report,
       }),
     ),
     ...templateVersion.exportReadinessChecks.map((check) => ({
@@ -254,6 +257,7 @@ function readinessItemForField({
       category,
       report.manualFields,
       rangeMapping,
+      report,
     );
   }
 
@@ -287,14 +291,14 @@ function readinessItemForField({
     };
   }
 
-  if (!isAppbRangeMappingResolved(rangeMapping)) {
+  if (!isAppbRangeMappingResolved(rangeMapping, report.mappingReviews)) {
     return {
       category,
       label: field.label,
       nextAction:
         "Review the exact workbook cell or range before future export writes.",
       reason: rangeMapping
-        ? rangeMappingReason(rangeMapping)
+        ? rangeMappingReason(rangeMapping, report)
         : "The structured data exists, but no exact workbook range mapping exists yet.",
       status: "range-review-required",
     };
@@ -314,6 +318,7 @@ function readinessItemForManualField(
   category: AppbReadinessCategory,
   manualFields: AppbManualFieldOverview[],
   rangeMapping: AppbWorkbookRangeMapping | undefined,
+  report: AppbReportOverview,
 ): AppbReadinessItem {
   const value = manualFields.find((manualField) => manualField.fieldId === field.id);
   const status = normaliseManualStatus(value?.status);
@@ -341,14 +346,14 @@ function readinessItemForManualField(
     };
   }
 
-  if (!isAppbRangeMappingResolved(rangeMapping)) {
+  if (!isAppbRangeMappingResolved(rangeMapping, report.mappingReviews)) {
     return {
       category,
       label: field.label,
       nextAction:
         "Review the exact workbook cell or range before future export writes.",
       reason: rangeMapping
-        ? rangeMappingReason(rangeMapping)
+        ? rangeMappingReason(rangeMapping, report)
         : "The manual value exists, but no exact workbook range mapping exists yet.",
       status: "range-review-required",
     };
@@ -368,12 +373,19 @@ function readinessItemForRepeatableTable({
   definition,
   fieldSourceType,
   label,
+  report,
 }: {
   definition: AppbRepeatableRangeDefinition | undefined;
   fieldSourceType: AppbFieldSourceType;
   label: string;
+  report: AppbReportOverview;
 }): AppbReadinessItem {
-  if (definition?.status === "blocked-hidden-sheet") {
+  const status = resolveAppbRepeatableRangeStatus(
+    definition,
+    report.mappingReviews,
+  );
+
+  if (status === "blocked-hidden-sheet") {
     return {
       category: "repeatable-table",
       label,
@@ -385,7 +397,7 @@ function readinessItemForRepeatableTable({
     };
   }
 
-  if (definition?.status === "blocked-formula") {
+  if (status === "blocked-formula") {
     return {
       category: "repeatable-table",
       label,
@@ -395,14 +407,14 @@ function readinessItemForRepeatableTable({
     };
   }
 
-  if (!isAppbRepeatableRangeResolved(definition)) {
+  if (!isAppbRepeatableRangeResolved(definition, report.mappingReviews)) {
     return {
       category: "repeatable-table",
       label,
       nextAction:
         "Review repeatable table start/end rows, headers, data rows and expansion rules.",
       reason: definition
-        ? repeatableRangeReason(definition)
+        ? repeatableRangeReason(definition, report)
         : "Repeatable table range metadata has not been defined.",
       status:
         fieldSourceType === "manual"
@@ -422,11 +434,16 @@ function readinessItemForRepeatableTable({
   };
 }
 
-function rangeMappingReason(mapping: AppbWorkbookRangeMapping) {
-  switch (mapping.status) {
+function rangeMappingReason(
+  mapping: AppbWorkbookRangeMapping,
+  report: AppbReportOverview,
+) {
+  const status = resolveAppbRangeMappingStatus(mapping, report.mappingReviews);
+
+  switch (status) {
     case "reviewed":
     case "ready-for-future-export":
-      return "Exact workbook range mapping has been reviewed.";
+      return "A persisted review decision marks this workbook range mapping as reviewed metadata. Export remains blocked.";
     case "blocked-formula":
       return "The mapped workbook target is formula-protected and must not be overwritten.";
     case "blocked-hidden-sheet":
@@ -437,10 +454,24 @@ function rangeMappingReason(mapping: AppbWorkbookRangeMapping) {
       return "This field is intentionally unmapped until workbook range review.";
     case "needs-review":
       return "The workbook sheet is known, but the exact cell or range still needs review.";
+    case undefined:
+      return "The workbook range mapping has not been reviewed.";
   }
 }
 
-function repeatableRangeReason(definition: AppbRepeatableRangeDefinition) {
+function repeatableRangeReason(
+  definition: AppbRepeatableRangeDefinition,
+  report: AppbReportOverview,
+) {
+  const status = resolveAppbRepeatableRangeStatus(
+    definition,
+    report.mappingReviews,
+  );
+
+  if (status === "reviewed" || status === "ready-for-future-export") {
+    return "A persisted review decision marks this repeatable range as reviewed metadata. Export remains blocked.";
+  }
+
   switch (definition.expansionRule) {
     case "no-export-manual-only":
       return "Manual-only row groups are report-only and are not structured export rows.";

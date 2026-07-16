@@ -2,13 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { AppbManualFieldStatus, Prisma } from "@prisma/client";
+import type {
+  AppbManualFieldStatus,
+  AppbMappingReviewDecision,
+  AppbMappingReviewStatus,
+  AppbMappingReviewTargetKind,
+  Prisma,
+} from "@prisma/client";
 import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
 import { recordAuditLog } from "@/lib/audit-logs";
 import {
   buildAppbManualFieldDefinitions,
+  findAppbTemplateVersion,
   type AppbManualFieldDefinition,
 } from "@/lib/appb-readiness";
+import {
+  buildAppbMappingReviews,
+  type AppbMappingReview,
+  type AppbMappingReviewDecision as AppbMappingReviewDecisionValue,
+  type AppbMappingReviewTargetKind as AppbMappingReviewTargetKindValue,
+} from "@/lib/appb-reporting";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
   isOrganisationCapabilityError,
@@ -40,6 +53,21 @@ const manualFieldClearModeValues = [
 
 type AppbManualFieldClearMode = (typeof manualFieldClearModeValues)[number];
 
+const mappingReviewDecisionValues = [
+  "keep-needs-review",
+  "mark-reviewed",
+  "mark-blocked-formula",
+  "mark-blocked-hidden-sheet",
+  "mark-blocked-unsupported",
+  "mark-unmapped",
+  "mark-ready-for-future-export",
+] as const;
+
+const mappingReviewTargetKindValues = [
+  "field-mapping",
+  "repeatable-range",
+] as const;
+
 type ExistingManualFieldValue = {
   notes: string | null;
   valueDate: Date | null;
@@ -58,6 +86,13 @@ class AppbManualFieldValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AppbManualFieldValidationError";
+  }
+}
+
+class AppbMappingReviewValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AppbMappingReviewValidationError";
   }
 }
 
@@ -150,6 +185,7 @@ export async function upsertAppbManualFieldValueAction(formData: FormData) {
     const definitions = buildAppbManualFieldDefinitions(
       {
         id: appbReport.id,
+        mappingReviews: [],
         manualFields: [],
         status: formatEnumLabel(appbReport.status),
         templateProfileId: appbReport.templateProfileId,
@@ -275,6 +311,388 @@ export async function upsertAppbManualFieldValueAction(formData: FormData) {
   }
 
   redirect(redirectTo);
+}
+
+export async function saveAppbMappingReviewDecisionAction(formData: FormData) {
+  const organisationSlug = getRequiredString(formData, "organisationSlug");
+  const appbReportId = getRequiredString(formData, "appbReportId");
+  const fallbackPath = `/reports/appb?org=${organisationSlug}`;
+
+  if (!isDatabaseConfigured()) {
+    redirect(`${fallbackPath}&saved=demo`);
+  }
+
+  let redirectTo = `${fallbackPath}&error=persistence`;
+
+  try {
+    const prisma = getPrismaClient();
+    const [organisation, appbReport] = await Promise.all([
+      prisma.organisation.findUnique({
+        select: { id: true, slug: true },
+        where: { slug: organisationSlug },
+      }),
+      prisma.appbReport.findUnique({
+        include: {
+          grant: {
+            select: {
+              funder: true,
+              fundingAgreementNumber: true,
+              fundingPeriodEnd: true,
+              fundingPeriodStart: true,
+              id: true,
+              organisationId: true,
+              programType: true,
+              project: { select: { code: true, name: true } },
+              rangerProgram: { select: { name: true } },
+              status: true,
+              title: true,
+            },
+          },
+          reportingPeriod: {
+            select: {
+              cycle: true,
+              dueOn: true,
+              endsOn: true,
+              id: true,
+              label: true,
+              organisationId: true,
+              startsOn: true,
+              status: true,
+            },
+          },
+        },
+        where: { id: appbReportId },
+      }),
+    ]);
+
+    if (!organisation || !appbReport) {
+      throw new AppbMappingReviewValidationError("APP&B report was not found.");
+    }
+
+    const session = await getTenantGuardSessionForRequest(prisma);
+    const context = createOrganisationWriteContext({
+      organisationId: organisation.id,
+      relatedRecords: [
+        { label: "APP&B report", record: appbReport },
+        { label: "Grant", record: appbReport.grant },
+        { label: "Reporting period", record: appbReport.reportingPeriod },
+      ],
+      session,
+    });
+
+    for (const capability of [
+      "reporting",
+      "reporting.appb",
+      "grants",
+      "grants.appb",
+    ] as const) {
+      await requireOrganisationCapability(
+        prisma,
+        context.organisationId,
+        capability,
+        {
+          actorUserId: context.actorUserId,
+          entityId: appbReport.id,
+          entityType: "AppbReport",
+        },
+      );
+    }
+
+    const templateVersionId = getRequiredString(formData, "templateVersionId");
+    const targetKind = getAllowedMappingReviewTargetKind(formData);
+    const targetId = getRequiredString(formData, "targetId");
+    const decisionValue = getAllowedMappingReviewDecision(formData);
+    const safeNote = getOptionalLimitedString(formData, "safeNote", 240);
+    const templateVersion = findAppbTemplateVersion(
+      reportOverviewForTemplate(appbReport),
+      periodOverviewForTemplate(appbReport.reportingPeriod),
+    );
+
+    if (!templateVersion || templateVersion.id !== templateVersionId) {
+      throw new AppbMappingReviewValidationError(
+        "Mapping review template version does not match this APP&B report.",
+      );
+    }
+
+    const reviewTarget = buildAppbMappingReviews(templateVersion).find(
+      (review) =>
+        review.targetKind === targetKind && review.targetId === targetId,
+    );
+
+    if (!reviewTarget) {
+      throw new AppbMappingReviewValidationError(
+        "Mapping review target is not available for this APP&B report template.",
+      );
+    }
+
+    validateConservativeMappingReviewDecision(reviewTarget, decisionValue);
+
+    const decision = prismaMappingReviewDecision(decisionValue);
+    const reviewStatus = prismaMappingReviewStatusForDecision(decisionValue);
+    const prismaTargetKind = prismaMappingReviewTargetKind(targetKind);
+    const reviewer = await prisma.user.findUnique({
+      select: {
+        name: true,
+      },
+      where: {
+        id: context.actorUserId,
+      },
+    });
+    const reviewedAt = new Date();
+    const auditMetadata = {
+      appbReportId: appbReport.id,
+      decision: decisionValue,
+      event: "appb_mapping_review_decision_saved",
+      reviewStatus: mappingReviewStatusForDecision(decisionValue),
+      safeNoteLength: safeNote?.length ?? 0,
+      targetId,
+      targetKind,
+      templateVersionId,
+      valueFree: true,
+    };
+    const existing = await prisma.appbMappingReviewDecisionRecord.findUnique({
+      select: { id: true },
+      where: {
+        organisationId_appbReportId_targetKind_targetId: {
+          appbReportId: appbReport.id,
+          organisationId: context.organisationId,
+          targetId,
+          targetKind: prismaTargetKind,
+        },
+      },
+    });
+    const reviewDecision =
+      await prisma.appbMappingReviewDecisionRecord.upsert({
+        create: {
+          appbReportId: appbReport.id,
+          auditMetadataJson: auditMetadata,
+          decision,
+          grantId: appbReport.grantId,
+          organisationId: context.organisationId,
+          reportingPeriodId: appbReport.reportingPeriodId,
+          reviewedAt,
+          reviewerDisplayName: reviewer?.name ?? "Unknown reviewer",
+          reviewerUserId: context.actorUserId,
+          reviewStatus,
+          safeNote,
+          targetId,
+          targetKind: prismaTargetKind,
+          templateVersionId,
+        },
+        update: {
+          auditMetadataJson: auditMetadata,
+          decision,
+          reviewedAt,
+          reviewerDisplayName: reviewer?.name ?? "Unknown reviewer",
+          reviewerUserId: context.actorUserId,
+          reviewStatus,
+          safeNote,
+          templateVersionId,
+        },
+        where: {
+          organisationId_appbReportId_targetKind_targetId: {
+            appbReportId: appbReport.id,
+            organisationId: context.organisationId,
+            targetId,
+            targetKind: prismaTargetKind,
+          },
+        },
+      });
+
+    await recordAuditLog(prisma, {
+      action: existing ? "UPDATED" : "CREATED",
+      actorUserId: context.actorUserId,
+      entityId: reviewDecision.id,
+      entityType: "AppbMappingReviewDecisionRecord",
+      metadata: {
+        ...auditMetadata,
+        actionType: existing ? "updated" : "created",
+      },
+      organisationId: context.organisationId,
+      summary: existing
+        ? "Updated APP&B mapping review decision metadata."
+        : "Created APP&B mapping review decision metadata.",
+    });
+
+    revalidatePath("/reports/appb");
+    redirectTo = `/reports/appb?org=${organisation.slug}&saved=mapping-review`;
+  } catch (error) {
+    redirectTo = `${fallbackPath}&error=${
+      isTenantGuardError(error)
+        ? "tenant"
+        : isOrganisationCapabilityError(error)
+          ? "capability"
+          : error instanceof AppbMappingReviewValidationError ||
+              error instanceof AppbManualFieldValidationError
+            ? "validation"
+            : "persistence"
+    }`;
+  }
+
+  redirect(redirectTo);
+}
+
+function getAllowedMappingReviewTargetKind(
+  formData: FormData,
+): AppbMappingReviewTargetKindValue {
+  const value = getRequiredString(formData, "targetKind");
+
+  if (
+    !mappingReviewTargetKindValues.includes(
+      value as AppbMappingReviewTargetKindValue,
+    )
+  ) {
+    throw new AppbMappingReviewValidationError(
+      "Mapping review target type is invalid.",
+    );
+  }
+
+  return value as AppbMappingReviewTargetKindValue;
+}
+
+function getAllowedMappingReviewDecision(
+  formData: FormData,
+): AppbMappingReviewDecisionValue {
+  const value = getRequiredString(formData, "decision");
+
+  if (
+    !mappingReviewDecisionValues.includes(
+      value as AppbMappingReviewDecisionValue,
+    )
+  ) {
+    throw new AppbMappingReviewValidationError(
+      "Mapping review decision is invalid.",
+    );
+  }
+
+  return value as AppbMappingReviewDecisionValue;
+}
+
+function validateConservativeMappingReviewDecision(
+  reviewTarget: AppbMappingReview,
+  decision: AppbMappingReviewDecisionValue,
+) {
+  const blockedDecisionByStatus: Partial<
+    Record<AppbMappingReview["status"], AppbMappingReviewDecisionValue>
+  > = {
+    "blocked-formula": "mark-blocked-formula",
+    "blocked-hidden-sheet": "mark-blocked-hidden-sheet",
+    "blocked-unsupported": "mark-blocked-unsupported",
+  };
+  const requiredDecision = blockedDecisionByStatus[reviewTarget.status];
+
+  if (requiredDecision && decision !== requiredDecision) {
+    throw new AppbMappingReviewValidationError(
+      "Blocked workbook targets must keep their matching blocked review decision.",
+    );
+  }
+}
+
+function prismaMappingReviewTargetKind(
+  targetKind: AppbMappingReviewTargetKindValue,
+): AppbMappingReviewTargetKind {
+  return targetKind === "repeatable-range"
+    ? "REPEATABLE_RANGE"
+    : "FIELD_MAPPING";
+}
+
+function prismaMappingReviewDecision(
+  decision: AppbMappingReviewDecisionValue,
+): AppbMappingReviewDecision {
+  switch (decision) {
+    case "mark-reviewed":
+      return "MARK_REVIEWED";
+    case "mark-blocked-formula":
+      return "MARK_BLOCKED_FORMULA";
+    case "mark-blocked-hidden-sheet":
+      return "MARK_BLOCKED_HIDDEN_SHEET";
+    case "mark-blocked-unsupported":
+      return "MARK_BLOCKED_UNSUPPORTED";
+    case "mark-unmapped":
+      return "MARK_UNMAPPED";
+    case "mark-ready-for-future-export":
+      return "MARK_READY_FOR_FUTURE_EXPORT";
+    case "keep-needs-review":
+      return "KEEP_NEEDS_REVIEW";
+  }
+}
+
+function prismaMappingReviewStatusForDecision(
+  decision: AppbMappingReviewDecisionValue,
+): AppbMappingReviewStatus {
+  switch (decision) {
+    case "mark-reviewed":
+      return "REVIEWED";
+    case "mark-blocked-formula":
+      return "BLOCKED_FORMULA";
+    case "mark-blocked-hidden-sheet":
+      return "BLOCKED_HIDDEN_SHEET";
+    case "mark-blocked-unsupported":
+      return "BLOCKED_UNSUPPORTED";
+    case "mark-unmapped":
+      return "UNMAPPED";
+    case "mark-ready-for-future-export":
+      return "READY_FOR_FUTURE_EXPORT";
+    case "keep-needs-review":
+      return "NEEDS_REVIEW";
+  }
+}
+
+function mappingReviewStatusForDecision(
+  decision: AppbMappingReviewDecisionValue,
+) {
+  switch (decision) {
+    case "mark-reviewed":
+      return "reviewed";
+    case "mark-blocked-formula":
+      return "blocked-formula";
+    case "mark-blocked-hidden-sheet":
+      return "blocked-hidden-sheet";
+    case "mark-blocked-unsupported":
+      return "blocked-unsupported";
+    case "mark-unmapped":
+      return "unmapped";
+    case "mark-ready-for-future-export":
+      return "ready-for-future-export";
+    case "keep-needs-review":
+      return "needs-review";
+  }
+}
+
+function reportOverviewForTemplate(appbReport: {
+  id: string;
+  status: string;
+  templateProfileId: string;
+  templateVersionLabel: string;
+}) {
+  return {
+    id: appbReport.id,
+    mappingReviews: [],
+    manualFields: [],
+    status: formatEnumLabel(appbReport.status),
+    templateProfileId: appbReport.templateProfileId,
+    templateVersionLabel: appbReport.templateVersionLabel,
+  };
+}
+
+function periodOverviewForTemplate(period: {
+  cycle: string;
+  dueOn: Date | null;
+  endsOn: Date;
+  id: string;
+  label: string;
+  startsOn: Date;
+  status: string;
+}) {
+  return {
+    appbReports: [],
+    cycle: formatEnumLabel(period.cycle),
+    dateRange: formatDateRange(period.startsOn, period.endsOn),
+    dueOn: period.dueOn ? formatShortDate(period.dueOn) : undefined,
+    id: period.id,
+    label: period.label,
+    status: formatEnumLabel(period.status),
+  };
 }
 
 function getManualValueData(

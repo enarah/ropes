@@ -1,4 +1,5 @@
 import { canReadOrganisation } from "@/lib/auth-session";
+import type { AppbPersistedMappingReview } from "@/lib/appb-reporting";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
 export type GrantsAppbOverview = {
@@ -33,6 +34,7 @@ export type GrantReportingPeriodOverview = {
 
 export type AppbReportOverview = {
   id: string;
+  mappingReviews: AppbPersistedMappingReview[];
   manualFields: AppbManualFieldOverview[];
   missingDataSummary?: string;
   status: string;
@@ -136,6 +138,26 @@ export async function getGrantsAppbOverview(
                     organisationId: organisation.id,
                   },
                 },
+                mappingReviewDecisions: {
+                  orderBy: {
+                    reviewedAt: "desc",
+                  },
+                  select: {
+                    decision: true,
+                    id: true,
+                    reviewedAt: true,
+                    reviewerDisplayName: true,
+                    reviewerUserId: true,
+                    reviewStatus: true,
+                    safeNote: true,
+                    targetId: true,
+                    targetKind: true,
+                    templateVersionId: true,
+                  },
+                  where: {
+                    organisationId: organisation.id,
+                  },
+                },
                 missingDataSummary: true,
                 status: true,
                 templateProfileId: true,
@@ -185,6 +207,18 @@ export async function getGrantsAppbOverview(
         reportingPeriods: grant.reportingPeriods.map((period) => ({
           appbReports: period.appbReports.map((report) => ({
             id: report.id,
+            mappingReviews: report.mappingReviewDecisions.map((review) => ({
+              decision: formatMappingReviewDecision(review.decision),
+              id: review.id,
+              reviewedAt: review.reviewedAt.toISOString(),
+              reviewerDisplayName: review.reviewerDisplayName ?? undefined,
+              reviewerUserId: review.reviewerUserId ?? undefined,
+              safeNote: review.safeNote ?? undefined,
+              status: formatMappingReviewStatus(review.reviewStatus),
+              targetId: review.targetId,
+              targetKind: formatMappingReviewTargetKind(review.targetKind),
+              templateVersionId: review.templateVersionId,
+            })),
             manualFields: report.manualFieldValues.map((field) => ({
               fieldGroup: field.fieldGroup,
               fieldId: field.fieldId,
@@ -248,4 +282,54 @@ function formatShortDate(value: Date) {
 
 function formatDateInputValue(value: Date) {
   return value.toISOString().slice(0, 10);
+}
+
+function formatMappingReviewDecision(
+  value: string,
+): AppbPersistedMappingReview["decision"] {
+  switch (value) {
+    case "MARK_REVIEWED":
+      return "mark-reviewed";
+    case "MARK_BLOCKED_FORMULA":
+      return "mark-blocked-formula";
+    case "MARK_BLOCKED_HIDDEN_SHEET":
+      return "mark-blocked-hidden-sheet";
+    case "MARK_BLOCKED_UNSUPPORTED":
+      return "mark-blocked-unsupported";
+    case "MARK_UNMAPPED":
+      return "mark-unmapped";
+    case "MARK_READY_FOR_FUTURE_EXPORT":
+      return "mark-ready-for-future-export";
+    case "KEEP_NEEDS_REVIEW":
+    default:
+      return "keep-needs-review";
+  }
+}
+
+function formatMappingReviewStatus(
+  value: string,
+): AppbPersistedMappingReview["status"] {
+  switch (value) {
+    case "UNMAPPED":
+      return "unmapped";
+    case "REVIEWED":
+      return "reviewed";
+    case "BLOCKED_FORMULA":
+      return "blocked-formula";
+    case "BLOCKED_HIDDEN_SHEET":
+      return "blocked-hidden-sheet";
+    case "BLOCKED_UNSUPPORTED":
+      return "blocked-unsupported";
+    case "READY_FOR_FUTURE_EXPORT":
+      return "ready-for-future-export";
+    case "NEEDS_REVIEW":
+    default:
+      return "needs-review";
+  }
+}
+
+function formatMappingReviewTargetKind(
+  value: string,
+): AppbPersistedMappingReview["targetKind"] {
+  return value === "REPEATABLE_RANGE" ? "repeatable-range" : "field-mapping";
 }
