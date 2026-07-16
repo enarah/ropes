@@ -5,6 +5,8 @@ import type {
   AppbMappingReviewTargetKind,
 } from "./appb-reporting";
 
+export const APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT = 3;
+
 export type AppbMappingReviewHistoryRecordInput = {
   appbReportId: string;
   newDecision: string;
@@ -82,6 +84,13 @@ export function shapeAppbMappingReviewDecisionHistory(
     .sort((first, second) =>
       second.reviewedAt.localeCompare(first.reviewedAt),
     );
+}
+
+export function countOlderAppbMappingReviewHistoryEvents(
+  totalEventCount: number,
+  loadedEventCount: number,
+) {
+  return Math.max(totalEventCount - loadedEventCount, 0);
 }
 
 function formatDecision(

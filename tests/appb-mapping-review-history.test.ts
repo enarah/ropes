@@ -1,9 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
+  countOlderAppbMappingReviewHistoryEvents,
   shapeAppbMappingReviewDecisionHistory,
   type AppbMappingReviewHistoryRecordInput,
 } from "../lib/appb-mapping-review-history";
+
+test("APP&B mapping review history uses the compact three-event default", () => {
+  assert.equal(APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT, 3);
+});
+
+test("APP&B mapping review history reports only unloaded older events", () => {
+  assert.equal(countOlderAppbMappingReviewHistoryEvents(8, 3), 5);
+  assert.equal(countOlderAppbMappingReviewHistoryEvents(3, 3), 0);
+  assert.equal(countOlderAppbMappingReviewHistoryEvents(2, 3), 0);
+});
 
 const target = {
   appbReportId: "report-1",

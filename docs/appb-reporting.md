@@ -288,9 +288,11 @@ review status, reviewer display name, reviewed timestamp, target kind, target
 ID, template version and stored safe note. It also shows compact value-free
 decision-version events sorted with the most recently reviewed event first.
 The current decision metadata is shown before the event list, including the
-target label, kind and ID. The three most recent events are visible by default;
-older events stay in a local expand-more disclosure. Creation events use
-`Current decision recorded`, while update events use `Decision changed` and
+target label, kind and ID. The backend and UI share a three-event default: only
+the three most recent value-free events are loaded for each target. A filtered
+per-target count records how many older events were not loaded, and the local
+disclosure reports that count without fetching older content. Creation events
+use `Current decision recorded`, while update events use `Decision changed` and
 `Status changed` wording for previous-to-new metadata. Value-free rejected note
 attempt counts remain a separate section. The history view does not show raw
 audit logs, rejected unsafe note text, workbook values or manual APP&B values.
@@ -313,7 +315,12 @@ IDs, previous and new decision/status metadata, reviewer identity, reviewed
 timestamp, an already-validated short safe note and `valueFree: true`. Reads
 stay tenant-scoped and APP&B capability-gated through the report page, and the
 read shape excludes records that are not explicitly marked value-free or do
-not match the requested target and template version.
+not match the requested target and template version. The nested history query
+is organisation-scoped, filters to `valueFree: true`, orders by reviewed and
+created timestamp newest-first with a deterministic ID tie-break, and takes
+only the shared default event limit. Its filtered relation count supplies
+value-free older-event metadata; full per-target pagination or load-more is
+intentionally deferred.
 
 The save action is tenant-guarded and APP&B capability-gated. Audit metadata
 records safe IDs, target kind, decision, review status and note length only; it
