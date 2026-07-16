@@ -298,6 +298,28 @@ does not record workbook values, manual APP&B values, finance values, personnel
 values or narrative report text. Formula-protected, hidden-sheet and unsupported
 targets keep conservative blocked decisions.
 
+Mapping review notes also have a deterministic safety guardrail. Reviewers are
+prompted to use short metadata-only notes such as range or template-structure
+review comments. They must not enter workbook values, financial figures,
+personal details, report narrative, private links or copied worksheet text.
+
+Server-side validation rejects obvious unsafe patterns including:
+
+- long pasted text or multi-line copied content
+- currency amounts or detailed financial values
+- phone numbers or email addresses
+- likely secrets, tokens, API keys or credentials
+- private URLs
+- medical, personnel, wage or HR terms
+- workbook cell references or formula-like content
+- obvious person-name patterns tied to staff, employees, Rangers or participants
+
+Rejected notes are not stored, logged, included in redirect URLs or written to
+audit metadata. ROPES records only value-free rejection metadata such as note
+length, target kind, target ID, template version ID and rejection reason code.
+This is a basic deterministic guardrail, not full data-loss-prevention tooling,
+and it does not use AI or external services.
+
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 
 - exact named sections and repeatable table ranges are reviewed

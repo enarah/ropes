@@ -79,6 +79,9 @@ Vehicles records, and the initial authentication foundation.
   review decisions, short value-free notes, reviewer identity and reviewed
   timestamps with tenant guards, APP&B capability checks and safe audit
   metadata while keeping workbook export blocked.
+- APP&B mapping review note safety guardrails now reject obvious unsafe
+  review-note patterns server-side, audit only value-free rejection metadata and
+  avoid storing or logging rejected note text.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
