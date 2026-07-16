@@ -352,6 +352,19 @@ export type AppbMappingReview = {
   templateVersionId: string;
 };
 
+export type AppbPersistedMappingReview = {
+  decision: AppbMappingReviewDecision;
+  id: string;
+  reviewedAt: string;
+  reviewerDisplayName?: string;
+  reviewerUserId?: string;
+  safeNote?: string;
+  status: AppbMappingReviewStatus;
+  targetId: string;
+  targetKind: AppbMappingReviewTargetKind;
+  templateVersionId: string;
+};
+
 export type AppbMappingReviewStatusCount = {
   count: number;
   status: AppbMappingReviewStatus;
@@ -1787,10 +1800,13 @@ const mappingReviewTargetKinds: AppbMappingReviewTargetKind[] = [
 
 export function buildAppbWorkbookRangeMappingSummary(
   version: AppbTemplateVersion,
+  persistedReviews: AppbPersistedMappingReview[] = [],
 ): AppbWorkbookRangeMappingSummary {
   const statusCounts = rangeMappingStatuses.map((status) => ({
-    count: version.rangeMappings.filter((mapping) => mapping.status === status)
-      .length,
+    count: version.rangeMappings.filter(
+      (mapping) =>
+        resolveAppbRangeMappingStatus(mapping, persistedReviews) === status,
+    ).length,
     status,
   }));
 
@@ -1799,15 +1815,16 @@ export function buildAppbWorkbookRangeMappingSummary(
     statusCounts,
     total: version.rangeMappings.length,
     unresolvedCount: version.rangeMappings.filter(
-      (mapping) => !isAppbRangeMappingResolved(mapping),
+      (mapping) => !isAppbRangeMappingResolved(mapping, persistedReviews),
     ).length,
   };
 }
 
 export function buildAppbMappingReviews(
   version: AppbTemplateVersion,
+  persistedReviews: AppbPersistedMappingReview[] = [],
 ): AppbMappingReview[] {
-  return [
+  const reviews = [
     ...version.rangeMappings
       .filter((mapping) => Boolean(mapping.fieldId))
       .map((mapping) => buildFieldMappingReview(version, mapping)),
@@ -1815,12 +1832,17 @@ export function buildAppbMappingReviews(
       buildRepeatableRangeReview(version, definition),
     ),
   ];
+
+  return reviews.map((review) =>
+    applyPersistedMappingReview(review, persistedReviews),
+  );
 }
 
 export function buildAppbMappingReviewSummary(
   version: AppbTemplateVersion,
+  persistedReviews: AppbPersistedMappingReview[] = [],
 ): AppbMappingReviewSummary {
-  const reviews = buildAppbMappingReviews(version);
+  const reviews = buildAppbMappingReviews(version, persistedReviews);
   const statusCounts = rangeMappingStatuses.map((status) => ({
     count: reviews.filter((review) => review.status === status).length,
     status,
@@ -1855,10 +1877,12 @@ export function buildAppbMappingReviewSummary(
 
 export function buildAppbRepeatableRangeSummary(
   version: AppbTemplateVersion,
+  persistedReviews: AppbPersistedMappingReview[] = [],
 ): AppbRepeatableRangeSummary {
   const statusCounts = rangeMappingStatuses.map((status) => ({
     count: version.repeatableRangeDefinitions.filter(
-      (definition) => definition.status === status,
+      (definition) =>
+        resolveAppbRepeatableRangeStatus(definition, persistedReviews) === status,
     ).length,
     status,
   }));
@@ -1878,7 +1902,8 @@ export function buildAppbRepeatableRangeSummary(
     statusCounts,
     total: version.repeatableRangeDefinitions.length,
     unresolvedCount: version.repeatableRangeDefinitions.filter(
-      (definition) => !isAppbRepeatableRangeResolved(definition),
+      (definition) =>
+        !isAppbRepeatableRangeResolved(definition, persistedReviews),
     ).length,
   };
 }
@@ -1892,19 +1917,25 @@ export function findAppbRangeMappingForField(
 
 export function isAppbRangeMappingResolved(
   mapping: AppbWorkbookRangeMapping | undefined,
+  persistedReviews: AppbPersistedMappingReview[] = [],
 ) {
+  const status = resolveAppbRangeMappingStatus(mapping, persistedReviews);
+
   return (
-    mapping?.status === "reviewed" ||
-    mapping?.status === "ready-for-future-export"
+    status === "reviewed" ||
+    status === "ready-for-future-export"
   );
 }
 
 export function isAppbRepeatableRangeResolved(
   definition: AppbRepeatableRangeDefinition | undefined,
+  persistedReviews: AppbPersistedMappingReview[] = [],
 ) {
+  const status = resolveAppbRepeatableRangeStatus(definition, persistedReviews);
+
   return (
-    definition?.status === "reviewed" ||
-    definition?.status === "ready-for-future-export"
+    status === "reviewed" ||
+    status === "ready-for-future-export"
   );
 }
 
@@ -1950,6 +1981,89 @@ function buildFieldMappingReview(
     targetKind: "field-mapping",
     templateVersionId: version.id,
   };
+}
+
+export function resolveAppbRangeMappingStatus(
+  mapping: AppbWorkbookRangeMapping | undefined,
+  persistedReviews: AppbPersistedMappingReview[] = [],
+): AppbMappingReviewStatus | undefined {
+  if (!mapping) {
+    return undefined;
+  }
+
+  return (
+    findPersistedMappingReview(persistedReviews, {
+      targetId: mapping.id,
+      targetKind: "field-mapping",
+    })?.status ?? mapping.status
+  );
+}
+
+export function resolveAppbRepeatableRangeStatus(
+  definition: AppbRepeatableRangeDefinition | undefined,
+  persistedReviews: AppbPersistedMappingReview[] = [],
+): AppbMappingReviewStatus | undefined {
+  if (!definition) {
+    return undefined;
+  }
+
+  return (
+    findPersistedMappingReview(persistedReviews, {
+      targetId: definition.id,
+      targetKind: "repeatable-range",
+    })?.status ?? definition.status
+  );
+}
+
+function applyPersistedMappingReview(
+  review: AppbMappingReview,
+  persistedReviews: AppbPersistedMappingReview[],
+): AppbMappingReview {
+  const persistedReview = findPersistedMappingReview(persistedReviews, review);
+
+  if (!persistedReview) {
+    return review;
+  }
+
+  return {
+    ...review,
+    decision: persistedReview.decision,
+    id: persistedReview.id,
+    note: persistedReview.safeNote
+      ? {
+          isValueFree: true,
+          maxLength: 240,
+          text: persistedReview.safeNote,
+        }
+      : review.note,
+    reviewedAt: persistedReview.reviewedAt,
+    reviewer:
+      persistedReview.reviewerDisplayName || persistedReview.reviewerUserId
+        ? {
+            displayName: persistedReview.reviewerDisplayName,
+            source: "future-authenticated-user",
+            userId: persistedReview.reviewerUserId,
+          }
+        : undefined,
+    reviewNotes: persistedReview.safeNote
+      ? [persistedReview.safeNote]
+      : review.reviewNotes,
+    status: persistedReview.status,
+  };
+}
+
+function findPersistedMappingReview(
+  persistedReviews: AppbPersistedMappingReview[],
+  target: {
+    targetId: string;
+    targetKind: AppbMappingReviewTargetKind;
+  },
+) {
+  return persistedReviews.find(
+    (review) =>
+      review.targetId === target.targetId &&
+      review.targetKind === target.targetKind,
+  );
 }
 
 function buildRepeatableRangeReview(

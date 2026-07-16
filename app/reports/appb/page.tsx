@@ -23,6 +23,7 @@ import {
   buildAppbRepeatableRangeSummary,
   buildAppbWorkbookRangeMappingSummary,
   type AppbMappingReview,
+  type AppbPersistedMappingReview,
   type AppbTemplateVersion,
 } from "@/lib/appb-reporting";
 import {
@@ -30,7 +31,10 @@ import {
   type AppbReportOverview,
   getGrantsAppbOverview,
 } from "@/lib/grants-appb-data";
-import { upsertAppbManualFieldValueAction } from "./actions";
+import {
+  saveAppbMappingReviewDecisionAction,
+  upsertAppbManualFieldValueAction,
+} from "./actions";
 
 type AppbReportingPageProps = {
   searchParams?: Promise<{
@@ -237,12 +241,21 @@ export default async function AppbReportingPage({
                                 {templateVersion ? (
                                   <>
                                     <RangeMappingSummary
+                                      persistedReviews={report.mappingReviews}
                                       templateVersion={templateVersion}
                                     />
                                     <RepeatableRangeSummary
+                                      persistedReviews={report.mappingReviews}
                                       templateVersion={templateVersion}
                                     />
                                     <MappingReviewSummary
+                                      persistedReviews={report.mappingReviews}
+                                      templateVersion={templateVersion}
+                                    />
+                                    <MappingReviewPanel
+                                      organisationSlug={access.organisation.slug}
+                                      persistedReviews={report.mappingReviews}
+                                      reportId={report.id}
                                       templateVersion={templateVersion}
                                     />
                                   </>
@@ -582,11 +595,16 @@ function ReadinessSummary({
 }
 
 function RangeMappingSummary({
+  persistedReviews = [],
   templateVersion,
 }: {
+  persistedReviews?: AppbPersistedMappingReview[];
   templateVersion: AppbTemplateVersion;
 }) {
-  const summary = buildAppbWorkbookRangeMappingSummary(templateVersion);
+  const summary = buildAppbWorkbookRangeMappingSummary(
+    templateVersion,
+    persistedReviews,
+  );
   const visibleCounts = summary.statusCounts.filter((count) => count.count > 0);
 
   return (
@@ -624,11 +642,16 @@ function RangeMappingSummary({
 }
 
 function RepeatableRangeSummary({
+  persistedReviews = [],
   templateVersion,
 }: {
+  persistedReviews?: AppbPersistedMappingReview[];
   templateVersion: AppbTemplateVersion;
 }) {
-  const summary = buildAppbRepeatableRangeSummary(templateVersion);
+  const summary = buildAppbRepeatableRangeSummary(
+    templateVersion,
+    persistedReviews,
+  );
   const visibleStatuses = summary.statusCounts.filter((count) => count.count > 0);
   const visibleRules = summary.expansionRuleCounts.filter(
     (count) => count.count > 0,
@@ -681,11 +704,16 @@ function RepeatableRangeSummary({
 }
 
 function MappingReviewSummary({
+  persistedReviews = [],
   templateVersion,
 }: {
+  persistedReviews?: AppbPersistedMappingReview[];
   templateVersion: AppbTemplateVersion;
 }) {
-  const summary = buildAppbMappingReviewSummary(templateVersion);
+  const summary = buildAppbMappingReviewSummary(
+    templateVersion,
+    persistedReviews,
+  );
   const visibleStatuses = summary.statusCounts.filter((count) => count.count > 0);
   const visibleTargets = summary.targetCounts.filter((count) => count.count > 0);
 
@@ -736,17 +764,27 @@ function MappingReviewSummary({
 }
 
 function MappingReviewPanel({
+  organisationSlug,
+  persistedReviews = [],
+  reportId,
   templateVersion,
 }: {
+  organisationSlug?: string;
+  persistedReviews?: AppbPersistedMappingReview[];
+  reportId?: string;
   templateVersion: AppbTemplateVersion;
 }) {
-  const reviews = buildAppbMappingReviews(templateVersion);
+  const reviews = buildAppbMappingReviews(templateVersion, persistedReviews);
   const fieldReviews = reviews.filter(
     (review) => review.targetKind === "field-mapping",
   );
   const repeatableReviews = reviews.filter(
     (review) => review.targetKind === "repeatable-range",
   );
+  const saveContext =
+    organisationSlug && reportId
+      ? { organisationSlug, reportId, templateVersionId: templateVersion.id }
+      : undefined;
 
   if (reviews.length === 0) {
     return null;
@@ -763,9 +801,14 @@ function MappingReviewPanel({
       </p>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <MappingReviewList reviews={fieldReviews} title="Field mappings" />
+        <MappingReviewList
+          reviews={fieldReviews}
+          saveContext={saveContext}
+          title="Field mappings"
+        />
         <MappingReviewList
           reviews={repeatableReviews}
+          saveContext={saveContext}
           title="Repeatable ranges"
         />
       </div>
@@ -775,9 +818,15 @@ function MappingReviewPanel({
 
 function MappingReviewList({
   reviews,
+  saveContext,
   title,
 }: {
   reviews: AppbMappingReview[];
+  saveContext?: {
+    organisationSlug: string;
+    reportId: string;
+    templateVersionId: string;
+  };
   title: string;
 }) {
   return (
@@ -820,15 +869,107 @@ function MappingReviewList({
                 </p>
               ) : null}
               <p className="mt-2 text-xs leading-5 text-charcoal-600">
-                Reviewer and timestamp are represented for the future persisted
-                workflow. This code-level foundation does not record approvals
-                or enable export.
+                {review.reviewer?.displayName
+                  ? `Reviewed by ${review.reviewer.displayName}`
+                  : "Reviewer identity is saved when a report-scoped decision is persisted."}
+                {review.reviewedAt ? ` / ${formatReviewDate(review.reviewedAt)}` : ""}
+                . Export remains blocked.
               </p>
+              {saveContext ? (
+                <MappingReviewDecisionForm
+                  review={review}
+                  saveContext={saveContext}
+                />
+              ) : (
+                <p className="mt-2 text-xs leading-5 text-charcoal-600">
+                  Open a report-specific review panel to persist decisions.
+                </p>
+              )}
             </article>
           ))
         )}
       </div>
     </section>
+  );
+}
+
+function MappingReviewDecisionForm({
+  review,
+  saveContext,
+}: {
+  review: AppbMappingReview;
+  saveContext: {
+    organisationSlug: string;
+    reportId: string;
+    templateVersionId: string;
+  };
+}) {
+  return (
+    <form
+      action={saveAppbMappingReviewDecisionAction}
+      className="mt-3 rounded-md border border-earth-200 bg-earth-50 p-3"
+    >
+      <input
+        name="organisationSlug"
+        type="hidden"
+        value={saveContext.organisationSlug}
+      />
+      <input name="appbReportId" type="hidden" value={saveContext.reportId} />
+      <input
+        name="templateVersionId"
+        type="hidden"
+        value={saveContext.templateVersionId}
+      />
+      <input name="targetKind" type="hidden" value={review.targetKind} />
+      <input name="targetId" type="hidden" value={review.targetId} />
+
+      <label className="block text-sm font-semibold text-charcoal-700">
+        Review decision
+        <select
+          className="mt-1 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          defaultValue={review.decision}
+          name="decision"
+          required
+        >
+          <option value="keep-needs-review">Keep needs review</option>
+          <option value="mark-reviewed">Mark reviewed</option>
+          <option value="mark-blocked-formula">Mark blocked formula</option>
+          <option value="mark-blocked-hidden-sheet">
+            Mark blocked hidden sheet
+          </option>
+          <option value="mark-blocked-unsupported">
+            Mark blocked unsupported
+          </option>
+          <option value="mark-unmapped">Mark unmapped</option>
+          <option value="mark-ready-for-future-export">
+            Mark ready for future export
+          </option>
+        </select>
+      </label>
+
+      <label className="mt-3 block text-sm font-semibold text-charcoal-700">
+        Safe review note
+        <textarea
+          className="mt-1 min-h-16 w-full rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-charcoal-950"
+          defaultValue={review.note?.text ?? ""}
+          maxLength={240}
+          name="safeNote"
+          placeholder="Short value-free note; no workbook or report values"
+        />
+      </label>
+
+      <p className="mt-2 text-xs leading-5 text-charcoal-600">
+        Decisions are report-scoped metadata only. They do not enable workbook
+        export or expose manual APP&B values.
+      </p>
+
+      <button
+        className="mt-3 inline-flex rounded-md bg-charcoal-900 px-4 py-2 text-sm font-semibold text-sand-50"
+        type="submit"
+      >
+        Save review decision
+      </button>
+    </form>
   );
 }
 
@@ -1392,6 +1533,20 @@ function formatStatus(status: string) {
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function formatReviewDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Review date unavailable";
+  }
+
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
 
 function countByStatus(statuses: string[]) {

@@ -366,6 +366,34 @@ async function main() {
         },
       ],
     });
+
+    await prisma.appbMappingReviewDecisionRecord.create({
+      data: {
+        appbReportId: irpPlanningReport.id,
+        auditMetadataJson: {
+          decision: "mark-reviewed",
+          event: "appb_mapping_review_decision_seeded",
+          reviewStatus: "reviewed",
+          safeNoteLength: 63,
+          targetId: "organisation-name-range-mapping",
+          targetKind: "field-mapping",
+          templateVersionId: "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+          valueFree: true,
+        },
+        decision: "MARK_REVIEWED",
+        grantId: irpPlanningReport.grantId,
+        organisationId: partner.id,
+        reportingPeriodId: irpPlanningReport.reportingPeriodId,
+        reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
+        reviewerDisplayName: "Fake demo reviewer",
+        reviewStatus: "REVIEWED",
+        safeNote:
+          "Fake demo note: organisation name mapping reviewed as metadata.",
+        targetId: "organisation-name-range-mapping",
+        targetKind: "FIELD_MAPPING",
+        templateVersionId: "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+      },
+    });
   }
 
   if (irpMidYearReport) {
