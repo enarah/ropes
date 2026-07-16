@@ -372,8 +372,24 @@ export type AppbMappingReviewRejectedNoteReasonCount = {
   reasonCode: string;
 };
 
+export type AppbMappingReviewDecisionHistoryEntry = {
+  newDecision: AppbMappingReviewDecision;
+  newStatus: AppbMappingReviewStatus;
+  previousDecision?: AppbMappingReviewDecision;
+  previousStatus?: AppbMappingReviewStatus;
+  reviewedAt: string;
+  reviewerDisplayName?: string;
+  reviewerUserId?: string;
+  safeNote?: string;
+  targetId: string;
+  targetKind: AppbMappingReviewTargetKind;
+  templateVersionId: string;
+  valueFree: true;
+};
+
 export type AppbMappingReviewHistorySummary = {
   currentDecisionRecorded: boolean;
+  decisionVersions: AppbMappingReviewDecisionHistoryEntry[];
   previousDecisionAvailable: boolean;
   rejectedNoteReasonCounts: AppbMappingReviewRejectedNoteReasonCount[];
   valueFree: true;

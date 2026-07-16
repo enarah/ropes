@@ -285,14 +285,13 @@ remains blocked until a separate export implementation exists.
 Report-specific review panels also include a safe history section for each
 mapping target. The history section shows the current persisted decision,
 review status, reviewer display name, reviewed timestamp, target kind, target
-ID, template version and stored safe note. It can also show value-free rejected
-note attempt counts by reason code. It does not show raw audit logs, rejected
-unsafe note text, workbook values or manual APP&B values.
-
-Previous-decision history is not yet available because
-`AppbMappingReviewDecisionRecord` currently stores one current decision per
-organisation, APP&B report, target kind and target ID. A later history model can
-preserve prior decisions if that becomes necessary.
+ID, template version and stored safe note. It also shows compact value-free
+decision-version events. Creation events identify the current decision only;
+update events show the previous and new decision and review status, reviewer,
+reviewed timestamp and the already-validated safe note. Value-free rejected
+note attempt counts remain a separate section. The history view does not show
+raw audit logs, rejected unsafe note text, workbook values or manual APP&B
+values.
 
 Persisted mapping review decisions are stored in
 `AppbMappingReviewDecisionRecord` and scoped to:
@@ -303,6 +302,16 @@ Persisted mapping review decisions are stored in
 - APP&B report
 - template version
 - target kind and target ID
+
+`AppbMappingReviewDecisionHistoryRecord` is the append-only companion to the
+current one-row-per-target record. The save action updates the current record
+and appends its history event in one database transaction. Each history record
+is organisation- and APP&B-report-scoped and stores only template and target
+IDs, previous and new decision/status metadata, reviewer identity, reviewed
+timestamp, an already-validated short safe note and `valueFree: true`. Reads
+stay tenant-scoped and APP&B capability-gated through the report page, and the
+read shape excludes records that are not explicitly marked value-free or do
+not match the requested target and template version.
 
 The save action is tenant-guarded and APP&B capability-gated. Audit metadata
 records safe IDs, target kind, decision, review status and note length only; it
@@ -382,6 +391,7 @@ Likely future concepts:
 - `AppbTemplateMapping`
 - `AppbMappingReview`
 - `AppbMappingReviewDecisionRecord`
+- `AppbMappingReviewDecisionHistoryRecord`
 - `AppbRepeatableTable`
 - `AppbManualField`
 - `AppbExportReadinessCheck`

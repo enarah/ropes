@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { canReadOrganisation } from "@/lib/auth-session";
+import { shapeAppbMappingReviewDecisionHistory } from "@/lib/appb-mapping-review-history";
 import type { AppbPersistedMappingReview } from "@/lib/appb-reporting";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
@@ -145,6 +146,32 @@ export async function getGrantsAppbOverview(
                   },
                   select: {
                     decision: true,
+                    historyRecords: {
+                      orderBy: [
+                        { reviewedAt: "desc" },
+                        { createdAt: "desc" },
+                      ],
+                      select: {
+                        appbReportId: true,
+                        newDecision: true,
+                        newReviewStatus: true,
+                        organisationId: true,
+                        previousDecision: true,
+                        previousReviewStatus: true,
+                        reviewedAt: true,
+                        reviewerDisplayName: true,
+                        reviewerUserId: true,
+                        safeNote: true,
+                        targetId: true,
+                        targetKind: true,
+                        templateVersionId: true,
+                        valueFree: true,
+                      },
+                      where: {
+                        organisationId: organisation.id,
+                        valueFree: true,
+                      },
+                    },
                     id: true,
                     reviewedAt: true,
                     reviewerDisplayName: true,
@@ -237,33 +264,53 @@ export async function getGrantsAppbOverview(
         reportingPeriods: grant.reportingPeriods.map((period) => ({
           appbReports: period.appbReports.map((report) => ({
             id: report.id,
-            mappingReviews: report.mappingReviewDecisions.map((review) => ({
-              decision: formatMappingReviewDecision(review.decision),
-              history: {
-                currentDecisionRecorded: true,
-                previousDecisionAvailable: false,
-                rejectedNoteReasonCounts: buildRejectedNoteReasonCounts(
-                  reviewNoteRejections.filter(
-                    (auditLog) => auditLog.entityId === report.id,
+            mappingReviews: report.mappingReviewDecisions.map((review) => {
+              const targetKind = formatMappingReviewTargetKind(
+                review.targetKind,
+              );
+              const decisionVersions =
+                shapeAppbMappingReviewDecisionHistory(review.historyRecords, {
+                  appbReportId: report.id,
+                  organisationId: organisation.id,
+                  targetId: review.targetId,
+                  targetKind,
+                  templateVersionId: review.templateVersionId,
+                });
+
+              return {
+                decision: formatMappingReviewDecision(review.decision),
+                history: {
+                  currentDecisionRecorded: true,
+                  decisionVersions,
+                  previousDecisionAvailable: decisionVersions.some(
+                    (version) =>
+                      Boolean(
+                        version.previousDecision || version.previousStatus,
+                      ),
                   ),
-                  {
-                    targetId: review.targetId,
-                    targetKind: formatMappingReviewTargetKind(review.targetKind),
-                    templateVersionId: review.templateVersionId,
-                  },
-                ),
-                valueFree: true,
-              },
-              id: review.id,
-              reviewedAt: review.reviewedAt.toISOString(),
-              reviewerDisplayName: review.reviewerDisplayName ?? undefined,
-              reviewerUserId: review.reviewerUserId ?? undefined,
-              safeNote: review.safeNote ?? undefined,
-              status: formatMappingReviewStatus(review.reviewStatus),
-              targetId: review.targetId,
-              targetKind: formatMappingReviewTargetKind(review.targetKind),
-              templateVersionId: review.templateVersionId,
-            })),
+                  rejectedNoteReasonCounts: buildRejectedNoteReasonCounts(
+                    reviewNoteRejections.filter(
+                      (auditLog) => auditLog.entityId === report.id,
+                    ),
+                    {
+                      targetId: review.targetId,
+                      targetKind,
+                      templateVersionId: review.templateVersionId,
+                    },
+                  ),
+                  valueFree: true,
+                },
+                id: review.id,
+                reviewedAt: review.reviewedAt.toISOString(),
+                reviewerDisplayName: review.reviewerDisplayName ?? undefined,
+                reviewerUserId: review.reviewerUserId ?? undefined,
+                safeNote: review.safeNote ?? undefined,
+                status: formatMappingReviewStatus(review.reviewStatus),
+                targetId: review.targetId,
+                targetKind,
+                templateVersionId: review.templateVersionId,
+              };
+            }),
             manualFields: report.manualFieldValues.map((field) => ({
               fieldGroup: field.fieldGroup,
               fieldId: field.fieldId,

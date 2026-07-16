@@ -484,54 +484,85 @@ export async function saveAppbMappingReviewDecisionAction(formData: FormData) {
       templateVersionId,
       valueFree: true,
     };
-    const existing = await prisma.appbMappingReviewDecisionRecord.findUnique({
-      select: { id: true },
-      where: {
-        organisationId_appbReportId_targetKind_targetId: {
-          appbReportId: appbReport.id,
-          organisationId: context.organisationId,
-          targetId,
-          targetKind: prismaTargetKind,
-        },
-      },
-    });
-    const reviewDecision =
-      await prisma.appbMappingReviewDecisionRecord.upsert({
-        create: {
-          appbReportId: appbReport.id,
-          auditMetadataJson: auditMetadata,
-          decision,
-          grantId: appbReport.grantId,
-          organisationId: context.organisationId,
-          reportingPeriodId: appbReport.reportingPeriodId,
-          reviewedAt,
-          reviewerDisplayName: reviewer?.name ?? "Unknown reviewer",
-          reviewerUserId: context.actorUserId,
-          reviewStatus,
-          safeNote,
-          targetId,
-          targetKind: prismaTargetKind,
-          templateVersionId,
-        },
-        update: {
-          auditMetadataJson: auditMetadata,
-          decision,
-          reviewedAt,
-          reviewerDisplayName: reviewer?.name ?? "Unknown reviewer",
-          reviewerUserId: context.actorUserId,
-          reviewStatus,
-          safeNote,
-          templateVersionId,
-        },
-        where: {
-          organisationId_appbReportId_targetKind_targetId: {
+    const { existing, reviewDecision } = await prisma.$transaction(
+      async (transaction) => {
+        const existing =
+          await transaction.appbMappingReviewDecisionRecord.findUnique({
+            select: {
+              decision: true,
+              id: true,
+              reviewStatus: true,
+            },
+            where: {
+              organisationId_appbReportId_targetKind_targetId: {
+                appbReportId: appbReport.id,
+                organisationId: context.organisationId,
+                targetId,
+                targetKind: prismaTargetKind,
+              },
+            },
+          });
+        const reviewDecision =
+          await transaction.appbMappingReviewDecisionRecord.upsert({
+            create: {
+              appbReportId: appbReport.id,
+              auditMetadataJson: auditMetadata,
+              decision,
+              grantId: appbReport.grantId,
+              organisationId: context.organisationId,
+              reportingPeriodId: appbReport.reportingPeriodId,
+              reviewedAt,
+              reviewerDisplayName: reviewer?.name ?? "Unknown reviewer",
+              reviewerUserId: context.actorUserId,
+              reviewStatus,
+              safeNote,
+              targetId,
+              targetKind: prismaTargetKind,
+              templateVersionId,
+            },
+            update: {
+              auditMetadataJson: auditMetadata,
+              decision,
+              reviewedAt,
+              reviewerDisplayName: reviewer?.name ?? "Unknown reviewer",
+              reviewerUserId: context.actorUserId,
+              reviewStatus,
+              safeNote,
+              templateVersionId,
+            },
+            where: {
+              organisationId_appbReportId_targetKind_targetId: {
+                appbReportId: appbReport.id,
+                organisationId: context.organisationId,
+                targetId,
+                targetKind: prismaTargetKind,
+              },
+            },
+          });
+
+        await transaction.appbMappingReviewDecisionHistoryRecord.create({
+          data: {
             appbReportId: appbReport.id,
+            newDecision: decision,
+            newReviewStatus: reviewStatus,
             organisationId: context.organisationId,
+            previousDecision: existing?.decision,
+            previousReviewStatus: existing?.reviewStatus,
+            reviewedAt,
+            reviewerDisplayName: reviewer?.name ?? "Unknown reviewer",
+            reviewerUserId: context.actorUserId,
+            reviewDecisionId: reviewDecision.id,
+            safeNote,
             targetId,
             targetKind: prismaTargetKind,
+            templateVersionId,
+            valueFree: true,
           },
-        },
-      });
+        });
+
+        return { existing, reviewDecision };
+      },
+    );
 
     await recordAuditLog(prisma, {
       action: existing ? "UPDATED" : "CREATED",
