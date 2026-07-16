@@ -323,6 +323,9 @@ The current app includes:
   unsafe notes
 - APP&B review note safety tuning with a reusable validation helper and
   deterministic tests for allowed metadata notes and rejected fake unsafe notes
+- APP&B mapping review history foundation with current value-free review
+  decision details and rejected-note reason counts while workbook export remains
+  blocked
 - Trips MVP with Prisma-backed core trip reads/create/update when
   `DATABASE_URL` is configured, plus demo fallback when no database is
   available

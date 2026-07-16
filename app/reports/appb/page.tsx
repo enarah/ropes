@@ -928,6 +928,7 @@ function MappingReviewList({
                 {review.reviewedAt ? ` / ${formatReviewDate(review.reviewedAt)}` : ""}
                 . Export remains blocked.
               </p>
+              <MappingReviewHistoryDisplay review={review} />
               {saveContext ? (
                 <MappingReviewDecisionForm
                   review={review}
@@ -943,6 +944,112 @@ function MappingReviewList({
         )}
       </div>
     </section>
+  );
+}
+
+function MappingReviewHistoryDisplay({
+  review,
+}: {
+  review: AppbMappingReview;
+}) {
+  const rejectedCounts = review.history?.rejectedNoteReasonCounts ?? [];
+
+  if (!review.history) {
+    return (
+      <p className="mt-2 text-xs leading-5 text-charcoal-600">
+        No persisted report-specific history yet. This card is showing
+        value-free template metadata only.
+      </p>
+    );
+  }
+
+  return (
+    <details className="mt-3 rounded-md border border-earth-200 bg-white p-3">
+      <summary className="cursor-pointer text-xs font-semibold text-charcoal-950">
+        Safe review history
+      </summary>
+      <dl className="mt-2 grid gap-2 text-xs text-charcoal-600 sm:grid-cols-2">
+        <div>
+          <dt className="font-semibold text-charcoal-700">Current decision</dt>
+          <dd>{formatStatus(review.decision)}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-charcoal-700">Review status</dt>
+          <dd>{formatStatus(review.status)}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-charcoal-700">Target</dt>
+          <dd>
+            {formatStatus(review.targetKind)} / {review.targetId}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-charcoal-700">Template version</dt>
+          <dd>{review.templateVersionId}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-charcoal-700">Reviewer</dt>
+          <dd>{review.reviewer?.displayName ?? "Unknown reviewer"}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-charcoal-700">Reviewed</dt>
+          <dd>
+            {review.reviewedAt
+              ? formatReviewDate(review.reviewedAt)
+              : "Not recorded"}
+          </dd>
+        </div>
+      </dl>
+
+      {review.note ? (
+        <div className="mt-3 rounded-md bg-earth-50 p-2">
+          <p className="text-xs font-semibold text-charcoal-700">
+            Stored safe note
+          </p>
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            {review.note.text}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-3 rounded-md bg-earth-50 p-2">
+        <p className="text-xs font-semibold text-charcoal-700">
+          Previous decision history
+        </p>
+        <p className="mt-1 text-xs leading-5 text-charcoal-600">
+          {review.history.previousDecisionAvailable
+            ? "Previous value-free decisions are available for this target."
+            : "Previous decision records are not available in the current one-row-per-target model."}
+        </p>
+      </div>
+
+      <div className="mt-3 rounded-md bg-earth-50 p-2">
+        <p className="text-xs font-semibold text-charcoal-700">
+          Rejected note attempts
+        </p>
+        {rejectedCounts.length === 0 ? (
+          <p className="mt-1 text-xs leading-5 text-charcoal-600">
+            No value-free rejected-note metadata recorded for this target.
+          </p>
+        ) : (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {rejectedCounts.map((count) => (
+              <span
+                className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-700"
+                key={count.reasonCode}
+              >
+                {formatStatus(count.reasonCode)}: {count.count}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="mt-3 text-xs leading-5 text-charcoal-600">
+        History shows metadata only. Rejected unsafe note text, workbook values
+        and manual APP&B values are never displayed here.
+      </p>
+    </details>
   );
 }
 
