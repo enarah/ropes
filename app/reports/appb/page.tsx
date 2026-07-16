@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FileSpreadsheet } from "lucide-react";
 import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { UnauthorisedState } from "@/components/unauthorised-state";
+import { APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT } from "@/lib/appb-mapping-review-history";
 import { organisationHasCapability } from "@/lib/capability-registry";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
@@ -36,8 +37,6 @@ import {
   saveAppbMappingReviewDecisionAction,
   upsertAppbManualFieldValueAction,
 } from "./actions";
-
-const APPB_MAPPING_REVIEW_HISTORY_VISIBLE_EVENT_COUNT = 3;
 
 type AppbReportingPageProps = {
   searchParams?: Promise<{
@@ -958,13 +957,12 @@ function MappingReviewHistoryDisplay({
   const decisionVersions = review.history?.decisionVersions ?? [];
   const recentDecisionVersions = decisionVersions.slice(
     0,
-    APPB_MAPPING_REVIEW_HISTORY_VISIBLE_EVENT_COUNT,
+    APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
   );
-  const olderDecisionVersions = decisionVersions.slice(
-    APPB_MAPPING_REVIEW_HISTORY_VISIBLE_EVENT_COUNT,
-  );
-  const olderDecisionEventLabel = `${olderDecisionVersions.length} older decision ${
-    olderDecisionVersions.length === 1 ? "event" : "events"
+  const olderDecisionVersionCount =
+    review.history?.olderDecisionVersionCount ?? 0;
+  const olderDecisionEventLabel = `${olderDecisionVersionCount} older decision ${
+    olderDecisionVersionCount === 1 ? "event" : "events"
   }`;
   const rejectedCounts = review.history?.rejectedNoteReasonCounts ?? [];
 
@@ -1051,14 +1049,16 @@ function MappingReviewHistoryDisplay({
             <MappingReviewDecisionVersionList
               versions={recentDecisionVersions}
             />
-            {olderDecisionVersions.length > 0 ? (
+            {olderDecisionVersionCount > 0 ? (
               <details className="mt-2 rounded-md border border-earth-200 bg-white p-2">
                 <summary className="cursor-pointer text-xs font-semibold text-charcoal-700">
-                  Show {olderDecisionEventLabel}
+                  {olderDecisionEventLabel} available
                 </summary>
-                <MappingReviewDecisionVersionList
-                  versions={olderDecisionVersions}
-                />
+                <p className="mt-2 text-xs leading-5 text-charcoal-600">
+                  Older value-free event content is not loaded in this compact
+                  report view. A future per-target load-more action can use this
+                  count without exposing history content by default.
+                </p>
               </details>
             ) : null}
           </>

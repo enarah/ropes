@@ -1,6 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { canReadOrganisation } from "@/lib/auth-session";
-import { shapeAppbMappingReviewDecisionHistory } from "@/lib/appb-mapping-review-history";
+import {
+  APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
+  countOlderAppbMappingReviewHistoryEvents,
+  shapeAppbMappingReviewDecisionHistory,
+} from "@/lib/appb-mapping-review-history";
 import type { AppbPersistedMappingReview } from "@/lib/appb-reporting";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 
@@ -145,11 +149,22 @@ export async function getGrantsAppbOverview(
                     reviewedAt: "desc",
                   },
                   select: {
+                    _count: {
+                      select: {
+                        historyRecords: {
+                          where: {
+                            organisationId: organisation.id,
+                            valueFree: true,
+                          },
+                        },
+                      },
+                    },
                     decision: true,
                     historyRecords: {
                       orderBy: [
                         { reviewedAt: "desc" },
                         { createdAt: "desc" },
+                        { id: "desc" },
                       ],
                       select: {
                         appbReportId: true,
@@ -167,6 +182,7 @@ export async function getGrantsAppbOverview(
                         templateVersionId: true,
                         valueFree: true,
                       },
+                      take: APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
                       where: {
                         organisationId: organisation.id,
                         valueFree: true,
@@ -282,6 +298,11 @@ export async function getGrantsAppbOverview(
                 history: {
                   currentDecisionRecorded: true,
                   decisionVersions,
+                  olderDecisionVersionCount:
+                    countOlderAppbMappingReviewHistoryEvents(
+                      review._count.historyRecords,
+                      decisionVersions.length,
+                    ),
                   previousDecisionAvailable: decisionVersions.some(
                     (version) =>
                       Boolean(
