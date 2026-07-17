@@ -120,6 +120,13 @@ Vehicles records, and the initial authentication foundation.
   error when the stable shared secret is missing or shorter than 32 UTF-8
   bytes, while the process-local non-production fallback remains available and
   no secret enters cursor payloads or client responses.
+- APP&B production readiness guidance now consolidates database and
+  authentication setup, active tenant membership, the four required APP&B
+  capabilities, shared cursor-secret operations, value-free history and note
+  rules, manual-value preservation and all intentionally blocked areas. This
+  documents deployment of review/history foundations only; workbook export,
+  XLSX generation, uploaded templates, AI calls, APP&B-specific external
+  services and broad audit-log browsing remain unavailable.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
