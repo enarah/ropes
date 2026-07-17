@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { canReadOrganisation } from "@/lib/auth-session";
 import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
+  assertAppbMappingReviewHistoryCursorProductionConfiguration,
   countOlderAppbMappingReviewHistoryEvents,
   createAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
@@ -65,6 +66,8 @@ export type AppbManualFieldOverview = {
 export async function getGrantsAppbOverview(
   organisationSlug: string,
 ): Promise<GrantsAppbOverview> {
+  assertAppbMappingReviewHistoryCursorProductionConfiguration();
+
   if (!isDatabaseConfigured()) {
     return {
       grants: [],

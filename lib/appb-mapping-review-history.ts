@@ -18,6 +18,25 @@ const globalForAppbMappingReviewHistory = globalThis as typeof globalThis & {
   appbMappingReviewHistoryDevelopmentCursorSecret?: string;
 };
 
+export type AppbMappingReviewHistoryCursorConfigurationSource =
+  | "configured"
+  | "invalid-non-production"
+  | "process-local-fallback";
+
+export class AppbMappingReviewHistoryCursorConfigurationError extends Error {
+  readonly code: "missing-production-secret" | "short-production-secret";
+
+  constructor(
+    code: "missing-production-secret" | "short-production-secret",
+  ) {
+    super(
+      "APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET is required in production and must contain at least 32 UTF-8 bytes.",
+    );
+    this.name = "AppbMappingReviewHistoryCursorConfigurationError";
+    this.code = code;
+  }
+}
+
 export type AppbMappingReviewHistoryCursorRecord = {
   createdAt: Date | string;
   id: string;
@@ -139,6 +158,60 @@ export function countOlderAppbMappingReviewHistoryEvents(
   loadedEventCount: number,
 ) {
   return Math.max(totalEventCount - loadedEventCount, 0);
+}
+
+export function validateAppbMappingReviewHistoryCursorConfiguration(
+  options: {
+    cursorSecret?: string;
+    nodeEnv?: string;
+  } = {},
+): {
+  minimumSecretBytes: number;
+  source: AppbMappingReviewHistoryCursorConfigurationSource;
+} {
+  const cursorSecret = Object.hasOwn(options, "cursorSecret")
+    ? options.cursorSecret
+    : process.env["APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET"];
+  const nodeEnv = Object.hasOwn(options, "nodeEnv")
+    ? options.nodeEnv
+    : process.env["NODE_ENV"];
+  const hasConfiguredSecret = Boolean(cursorSecret?.trim());
+  const hasValidConfiguredSecret =
+    hasConfiguredSecret &&
+    Buffer.byteLength(cursorSecret ?? "", "utf8") >=
+      APPB_MAPPING_REVIEW_HISTORY_MINIMUM_SECRET_BYTES;
+
+  if (hasValidConfiguredSecret) {
+    return {
+      minimumSecretBytes: APPB_MAPPING_REVIEW_HISTORY_MINIMUM_SECRET_BYTES,
+      source: "configured",
+    };
+  }
+
+  if (nodeEnv === "production") {
+    throw new AppbMappingReviewHistoryCursorConfigurationError(
+      hasConfiguredSecret
+        ? "short-production-secret"
+        : "missing-production-secret",
+    );
+  }
+
+  return {
+    minimumSecretBytes: APPB_MAPPING_REVIEW_HISTORY_MINIMUM_SECRET_BYTES,
+    source: hasConfiguredSecret
+      ? "invalid-non-production"
+      : "process-local-fallback",
+  };
+}
+
+export function assertAppbMappingReviewHistoryCursorProductionConfiguration() {
+  validateAppbMappingReviewHistoryCursorConfiguration();
+}
+
+export function isAppbMappingReviewHistoryCursorConfigurationError(
+  error: unknown,
+): error is AppbMappingReviewHistoryCursorConfigurationError {
+  return error instanceof AppbMappingReviewHistoryCursorConfigurationError;
 }
 
 export function createAppbMappingReviewHistoryCursor(
@@ -302,15 +375,17 @@ function resolveAppbMappingReviewHistoryCursorSecret(
   const configuredSecret =
     signingSecret ??
     process.env["APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET"];
+  const configuration =
+    validateAppbMappingReviewHistoryCursorConfiguration({
+      cursorSecret: configuredSecret,
+      nodeEnv: process.env["NODE_ENV"],
+    });
 
-  if (configuredSecret?.trim()) {
-    return Buffer.byteLength(configuredSecret, "utf8") >=
-      APPB_MAPPING_REVIEW_HISTORY_MINIMUM_SECRET_BYTES
-      ? configuredSecret
-      : undefined;
+  if (configuration.source === "configured") {
+    return configuredSecret;
   }
 
-  if (process.env["NODE_ENV"] === "production") {
+  if (configuration.source === "invalid-non-production") {
     return undefined;
   }
 

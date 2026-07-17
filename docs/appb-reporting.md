@@ -351,7 +351,13 @@ with the same safe invalid-request response and do not expose target data.
 
 Production deployments must configure a dedicated
 `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` of at least 32 UTF-8 bytes. When it
-is absent or too short in production, cursor creation and parsing fail closed.
+is absent or too short in production, the central runtime configuration check
+raises a clear server-side error as the APP&B reporting overview loads. Cursor
+creation and parsing also use the same validator and fail closed; errors and
+client-visible responses never contain the secret. Every application instance
+must use the same stable value. Rotating the value invalidates outstanding
+cursors safely, and users can refresh the report to receive a newly signed
+cursor.
 Outside production only, ROPES creates a random process-local development
 secret; cursors safely become stale when that process restarts. This fallback
 is not exposed to the client and must not be used as production configuration.

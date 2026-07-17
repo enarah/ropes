@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
+  AppbMappingReviewHistoryCursorConfigurationError,
   buildAppbMappingReviewHistoryCursorBoundary,
   buildAppbMappingReviewHistoryCursorPageMetadata,
   countOlderAppbMappingReviewHistoryEvents,
@@ -10,6 +11,7 @@ import {
   isAppbMappingReviewHistoryCursorAnchor,
   parseAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
+  validateAppbMappingReviewHistoryCursorConfiguration,
   type AppbMappingReviewHistoryRecordInput,
 } from "../lib/appb-mapping-review-history";
 
@@ -24,6 +26,40 @@ test("APP&B mapping review history reports only unloaded older events", () => {
   assert.equal(countOlderAppbMappingReviewHistoryEvents(8, 3), 5);
   assert.equal(countOlderAppbMappingReviewHistoryEvents(3, 3), 0);
   assert.equal(countOlderAppbMappingReviewHistoryEvents(2, 3), 0);
+});
+
+test("APP&B mapping review history requires the production cursor secret", () => {
+  expectProductionCursorConfigurationError(
+    undefined,
+    "missing-production-secret",
+  );
+});
+
+test("APP&B mapping review history rejects a short production cursor secret", () => {
+  expectProductionCursorConfigurationError(
+    "short-production-secret-value",
+    "short-production-secret",
+  );
+});
+
+test("APP&B mapping review history accepts a valid production cursor secret", () => {
+  assert.deepEqual(
+    validateAppbMappingReviewHistoryCursorConfiguration({
+      cursorSecret: cursorSigningSecret,
+      nodeEnv: "production",
+    }),
+    { minimumSecretBytes: 32, source: "configured" },
+  );
+});
+
+test("APP&B mapping review history keeps the non-production fallback", () => {
+  assert.deepEqual(
+    validateAppbMappingReviewHistoryCursorConfiguration({
+      cursorSecret: undefined,
+      nodeEnv: "development",
+    }),
+    { minimumSecretBytes: 32, source: "process-local-fallback" },
+  );
 });
 
 test("APP&B mapping review history creates and parses a value-free cursor", () => {
@@ -51,6 +87,10 @@ test("APP&B mapping review history creates and parses a value-free cursor", () =
   ) as Record<string, unknown>;
 
   assert.deepEqual(Object.keys(decodedPayload).sort(), ["c", "i", "r", "v"]);
+  assert.equal(
+    JSON.stringify(decodedPayload).includes(cursorSigningSecret),
+    false,
+  );
   assert.equal(typeof signature, "string");
   assert.equal(cursor.includes("workbook"), false);
 });
@@ -246,6 +286,27 @@ function createTestCursor() {
 
   assert.ok(cursor);
   return cursor;
+}
+
+function expectProductionCursorConfigurationError(
+  cursorSecret: string | undefined,
+  code: "missing-production-secret" | "short-production-secret",
+) {
+  try {
+    validateAppbMappingReviewHistoryCursorConfiguration({
+      cursorSecret,
+      nodeEnv: "production",
+    });
+    assert.fail("Expected production cursor configuration validation to fail.");
+  } catch (error) {
+    assert.ok(
+      error instanceof AppbMappingReviewHistoryCursorConfigurationError,
+    );
+    assert.equal(error.code, code);
+    if (cursorSecret) {
+      assert.equal(error.message.includes(cursorSecret), false);
+    }
+  }
 }
 
 const target = {

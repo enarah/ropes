@@ -16,6 +16,7 @@ import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
   buildAppbMappingReviewHistoryCursorBoundary,
   buildAppbMappingReviewHistoryCursorPageMetadata,
+  isAppbMappingReviewHistoryCursorConfigurationError,
   isAppbMappingReviewHistoryCursorAnchor,
   parseAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
@@ -771,6 +772,10 @@ export async function loadOlderAppbMappingReviewHistoryAction(
       valueFree: true,
     };
   } catch (error) {
+    if (isAppbMappingReviewHistoryCursorConfigurationError(error)) {
+      throw error;
+    }
+
     if (isTenantGuardError(error) || isOrganisationCapabilityError(error)) {
       return mappingReviewHistoryLoadMoreError("access-denied");
     }
