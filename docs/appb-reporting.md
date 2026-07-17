@@ -431,6 +431,105 @@ manual APP&B values, review-note text, rejected unsafe note text or raw audit
 logs. The panel is an operator aid, not a health endpoint or capability-
 management interface.
 
+## Current Operator Workflow
+
+This is the safe workflow for an authorised operator using the current APP&B
+foundation. It supports organisation-scoped report readiness, manual report
+fields, mapping review decisions and value-free history. It is not a workbook
+generation or export workflow.
+
+### Understand the operating context
+
+- **Current foundation:** operators can review report metadata and readiness,
+  maintain report-only manual fields, record mapping decisions, use short
+  value-free notes and inspect value-free decision history.
+- **Future export:** workbook creation, XLSX generation, uploaded template
+  storage and export approval are not implemented. A mapping decision such as
+  `Mark ready for future export` records review intent only and does not enable
+  an export.
+- **Local demo:** the seeded organisation and `npm run smoke:appb` use clearly
+  fake data to exercise the same foundation. Passing the automated or visual
+  smoke checks does not establish production or export readiness.
+- **Production operation:** use authenticated active membership, the four
+  organisation capabilities, a migrated available database and a valid stable
+  shared cursor-signing secret. The local fallback session, fake records and
+  process-local cursor secret are development aids only.
+
+### Use the APP&B area
+
+1. Open `/reports/appb?org=...` with the intended organisation slug. ROPES
+   checks active tenant access before returning organisation-specific data, then
+   requires `reporting`, `reporting.appb`, `grants` and `grants.appb`. Do not
+   work around an access or capability denial by selecting another tenant's
+   records.
+2. Read `APP&B runtime readiness` before editing. `Ready` means that check can
+   support the current foundation; `Warning` or `Not configured` needs operator
+   attention; `Blocked` prevents the related current operation; and
+   `Unsupported` identifies intentionally absent functionality. Readiness never
+   means workbook export is available.
+3. Review the organisation-scoped grant, reporting-period and APP&B report
+   cards. Confirm the selected report belongs to the intended organisation and
+   period. Compact cards expose statuses and metadata, not manual or workbook
+   values.
+4. Use the `Manual report fields` status summary to identify blank, draft,
+   entered, needs-review, reviewed or not-applicable fields. Expand `Edit manual
+   report fields` only in an authorised editing context. Existing values load
+   there so status-only saves can preserve them.
+5. Choose manual-field changes deliberately. `Preserve existing value` is the
+   safe default. Use replace or clear actions only when intended; `Blank`
+   clears value and note, while `Not applicable` clears a typed value and may
+   retain a short safe note. Report-only values must not be copied into compact
+   summaries, mapping notes, history or audit observations.
+6. Expand `Review mapping metadata` for a report-specific template. Review the
+   target label, kind, current status and decision as metadata only. Decisions
+   can keep review open, mark a target reviewed, blocked or unmapped, or record
+   readiness for a future export implementation; none enables export today.
+7. Save a mapping decision with an optional short value-free note such as a
+   template-structure review comment. Do not enter workbook values, financial
+   figures, personal information, manual report values, report narrative,
+   private links, formulas, cell references or copied worksheet text.
+8. If note safety validation rejects the note, rewrite it as metadata only.
+   ROPES does not store, log or redisplay the rejected text. The safe history
+   area may show only a value-free reason/count summary for rejected attempts.
+9. Expand `Safe review history`. Read the current decision first, then the three
+   newest value-free version events. Use `Load older events` for that target
+   when a remaining count appears. History stays separate from current decision
+   metadata and rejected-note counts, and never displays manual or workbook
+   values.
+10. Confirm `Workbook export` remains `Blocked` and no download or XLSX action
+    is available. Completing review or clearing readiness warnings does not
+    change this boundary.
+
+### Operator troubleshooting
+
+- **Organisation access denied:** confirm the signed-in operator has an active
+  membership for the exact selected organisation. Do not expose readiness or
+  report details while resolving another organisation's access.
+- **APP&B disabled:** an administrator must enable all four required
+  capabilities for that organisation through the existing controlled process.
+  This area is not a capability-management interface.
+- **Database unavailable or not configured:** stop edits, confirm server-side
+  database configuration and migration status, and retry only after the
+  organisation-scoped read is healthy. Do not paste `DATABASE_URL` into tickets
+  or client-visible diagnostics.
+- **Cursor configuration error:** production requires the same valid stable
+  server-side cursor secret on every app instance. Never display the secret,
+  its length, signatures or cursor payloads. Refresh the report after correcting
+  or rotating configuration.
+- **Review note rejected:** remove values, personal details, formulas, cell
+  references, narrative, private links and copied text. Submit a short
+  metadata-only note; do not paste the rejected text into support channels.
+- **Older history unavailable:** an invalid, expired, stale or mismatched cursor
+  fails safely. Refresh the report to receive a new scoped cursor, then reopen
+  the target history. Do not inspect or print cursor tokens while diagnosing it.
+- **Demo and production confused:** the demo route, fake records, local fallback
+  session and smoke command are local verification aids. Production operators
+  must use real authorised organisation records and production configuration,
+  while preserving the same value-free review/history rules.
+
+This operator workflow makes no AI calls, uses no APP&B-specific external
+services, exposes no broad audit-log browser and keeps workbook export blocked.
+
 ## Safe Demo Seed Coverage
 
 Running `npm run db:seed` rebuilds the clearly fake local demo dataset. The

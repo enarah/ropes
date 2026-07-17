@@ -200,6 +200,9 @@ the four required capabilities, safe cursor-signing status, report presence and
 value-free history support. The panel exposes status wording only: it never
 shows secrets, workbook/manual values or rejected unsafe note text, and it
 continues to mark workbook export and XLSX generation as blocked.
+The [current APP&B operator workflow](docs/appb-reporting.md#current-operator-workflow)
+explains the safe sequence for report cards, manual fields, mapping decisions,
+value-free notes and history, plus how local demo use differs from production.
 
 ## Fulcrum token encryption setup
 
