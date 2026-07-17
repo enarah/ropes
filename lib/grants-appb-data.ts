@@ -3,6 +3,7 @@ import { canReadOrganisation } from "@/lib/auth-session";
 import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
   countOlderAppbMappingReviewHistoryEvents,
+  createAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
 } from "@/lib/appb-mapping-review-history";
 import type { AppbPersistedMappingReview } from "@/lib/appb-reporting";
@@ -168,6 +169,8 @@ export async function getGrantsAppbOverview(
                       ],
                       select: {
                         appbReportId: true,
+                        createdAt: true,
+                        id: true,
                         newDecision: true,
                         newReviewStatus: true,
                         organisationId: true,
@@ -292,17 +295,25 @@ export async function getGrantsAppbOverview(
                   targetKind,
                   templateVersionId: review.templateVersionId,
                 });
+              const olderDecisionVersionCount =
+                countOlderAppbMappingReviewHistoryEvents(
+                  review._count.historyRecords,
+                  decisionVersions.length,
+                );
+              const lastLoadedHistoryRecord = review.historyRecords.at(-1);
 
               return {
                 decision: formatMappingReviewDecision(review.decision),
                 history: {
                   currentDecisionRecorded: true,
                   decisionVersions,
-                  olderDecisionVersionCount:
-                    countOlderAppbMappingReviewHistoryEvents(
-                      review._count.historyRecords,
-                      decisionVersions.length,
-                    ),
+                  nextCursor:
+                    olderDecisionVersionCount > 0 && lastLoadedHistoryRecord
+                      ? createAppbMappingReviewHistoryCursor(
+                          lastLoadedHistoryRecord,
+                        )
+                      : undefined,
+                  olderDecisionVersionCount,
                   previousDecisionAvailable: decisionVersions.some(
                     (version) =>
                       Boolean(

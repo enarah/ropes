@@ -3,26 +3,25 @@
 import { useState, useTransition } from "react";
 import type { AppbMappingReviewDecisionHistoryEntry } from "@/lib/appb-reporting";
 import {
-  APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
   type AppbMappingReviewHistoryLoadMoreInput,
 } from "@/lib/appb-mapping-review-history";
 import { loadOlderAppbMappingReviewHistoryAction } from "./actions";
 
 type AppbMappingReviewHistoryLoadMoreProps = {
+  initialCursor?: string;
   initialRemainingCount: number;
-  requestScope: Omit<AppbMappingReviewHistoryLoadMoreInput, "offset">;
+  requestScope: Omit<AppbMappingReviewHistoryLoadMoreInput, "cursor">;
 };
 
 export function AppbMappingReviewHistoryLoadMore({
+  initialCursor,
   initialRemainingCount,
   requestScope,
 }: AppbMappingReviewHistoryLoadMoreProps) {
   const [events, setEvents] = useState<
     AppbMappingReviewDecisionHistoryEntry[]
   >([]);
-  const [offset, setOffset] = useState(
-    APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
-  );
+  const [cursor, setCursor] = useState(initialCursor);
   const [remainingCount, setRemainingCount] = useState(
     initialRemainingCount,
   );
@@ -30,12 +29,17 @@ export function AppbMappingReviewHistoryLoadMore({
   const [isPending, startTransition] = useTransition();
 
   function loadOlderEvents() {
+    if (!cursor) {
+      setErrorCode("invalid-request");
+      return;
+    }
+
     setErrorCode(undefined);
     startTransition(async () => {
       try {
         const result = await loadOlderAppbMappingReviewHistoryAction({
           ...requestScope,
-          offset,
+          cursor,
         });
 
         if (result.status === "error") {
@@ -46,9 +50,7 @@ export function AppbMappingReviewHistoryLoadMore({
         setEvents((currentEvents) => [...currentEvents, ...result.events]);
         setRemainingCount(result.remainingCount);
 
-        if (result.nextOffset !== undefined) {
-          setOffset(result.nextOffset);
-        }
+        setCursor(result.nextCursor);
       } catch {
         setErrorCode("unavailable");
       }
@@ -67,7 +69,7 @@ export function AppbMappingReviewHistoryLoadMore({
         </p>
       ) : null}
 
-      {remainingCount > 0 ? (
+      {remainingCount > 0 && cursor ? (
         <button
           className="mt-2 inline-flex rounded-md border border-earth-300 bg-white px-3 py-2 text-xs font-semibold text-charcoal-700 disabled:cursor-wait disabled:opacity-60"
           disabled={isPending}
@@ -78,6 +80,11 @@ export function AppbMappingReviewHistoryLoadMore({
             ? "Loading older events…"
             : `Load older events (${remainingCount} remaining)`}
         </button>
+      ) : remainingCount > 0 ? (
+        <p className="mt-2 text-xs leading-5 text-charcoal-600">
+          Older value-free events are available, but the safe cursor is no
+          longer valid. Refresh this report before loading them.
+        </p>
       ) : events.length > 0 ? (
         <p className="mt-2 text-xs leading-5 text-charcoal-600">
           All older value-free events for this target are loaded.

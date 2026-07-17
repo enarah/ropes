@@ -1059,6 +1059,7 @@ function MappingReviewHistoryDisplay({
             />
             {olderDecisionVersionCount > 0 && loadMoreContext ? (
               <AppbMappingReviewHistoryLoadMore
+                initialCursor={review.history?.nextCursor}
                 initialRemainingCount={olderDecisionVersionCount}
                 requestScope={{
                   appbReportId: loadMoreContext.reportId,

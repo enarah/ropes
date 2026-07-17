@@ -14,8 +14,9 @@ import { recordAuditLog } from "@/lib/audit-logs";
 import { validateAppbReviewNoteSafety } from "@/lib/appb-review-note-safety";
 import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
-  buildAppbMappingReviewHistoryPageMetadata,
-  isValidAppbMappingReviewHistoryOffset,
+  buildAppbMappingReviewHistoryCursorBoundary,
+  buildAppbMappingReviewHistoryCursorPageMetadata,
+  parseAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
   type AppbMappingReviewHistoryLoadMoreInput,
   type AppbMappingReviewHistoryLoadMoreResult,
@@ -692,7 +693,30 @@ export async function loadOlderAppbMappingReviewHistoryAction(
       templateVersionId: request.templateVersionId,
       valueFree: true,
     } satisfies Prisma.AppbMappingReviewDecisionHistoryRecordWhereInput;
-    const [records, totalEventCount] = await Promise.all([
+    const cursorRecord =
+      await prisma.appbMappingReviewDecisionHistoryRecord.findFirst({
+        select: { id: true },
+        where: {
+          ...historyWhere,
+          createdAt: request.cursor.createdAt,
+          id: request.cursor.id,
+          reviewedAt: request.cursor.reviewedAt,
+        },
+      });
+
+    if (!cursorRecord) {
+      throw new AppbMappingReviewValidationError(
+        "APP&B mapping review history cursor was not found for this target.",
+      );
+    }
+
+    const olderHistoryWhere = {
+      AND: [
+        historyWhere,
+        buildAppbMappingReviewHistoryCursorBoundary(request.cursor),
+      ],
+    } satisfies Prisma.AppbMappingReviewDecisionHistoryRecordWhereInput;
+    const [records, totalOlderEventCount] = await Promise.all([
       prisma.appbMappingReviewDecisionHistoryRecord.findMany({
         orderBy: [
           { reviewedAt: "desc" },
@@ -701,6 +725,8 @@ export async function loadOlderAppbMappingReviewHistoryAction(
         ],
         select: {
           appbReportId: true,
+          createdAt: true,
+          id: true,
           newDecision: true,
           newReviewStatus: true,
           organisationId: true,
@@ -715,12 +741,11 @@ export async function loadOlderAppbMappingReviewHistoryAction(
           templateVersionId: true,
           valueFree: true,
         },
-        skip: request.offset,
         take: APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
-        where: historyWhere,
+        where: olderHistoryWhere,
       }),
       prisma.appbMappingReviewDecisionHistoryRecord.count({
-        where: historyWhere,
+        where: olderHistoryWhere,
       }),
     ]);
     const events = shapeAppbMappingReviewDecisionHistory(records, {
@@ -730,10 +755,10 @@ export async function loadOlderAppbMappingReviewHistoryAction(
       targetKind: request.targetKind,
       templateVersionId: request.templateVersionId,
     });
-    const pageMetadata = buildAppbMappingReviewHistoryPageMetadata({
+    const pageMetadata = buildAppbMappingReviewHistoryCursorPageMetadata({
+      lastRecord: records.at(-1),
       loadedRecordCount: records.length,
-      offset: request.offset,
-      totalEventCount,
+      totalOlderEventCount,
     });
 
     return {
@@ -758,6 +783,7 @@ export async function loadOlderAppbMappingReviewHistoryAction(
 function validateMappingReviewHistoryLoadMoreInput(
   input: AppbMappingReviewHistoryLoadMoreInput,
 ) {
+  const cursor = parseAppbMappingReviewHistoryCursor(input.cursor);
   const stringValues = [
     input.organisationSlug,
     input.appbReportId,
@@ -773,7 +799,7 @@ function validateMappingReviewHistoryLoadMoreInput(
         value.length > 200,
     ) ||
     !mappingReviewTargetKindValues.includes(input.targetKind) ||
-    !isValidAppbMappingReviewHistoryOffset(input.offset)
+    !cursor
   ) {
     throw new AppbMappingReviewValidationError(
       "APP&B mapping review history request is invalid.",
@@ -784,6 +810,7 @@ function validateMappingReviewHistoryLoadMoreInput(
     ...input,
     appbReportId: input.appbReportId.trim(),
     organisationSlug: input.organisationSlug.trim(),
+    cursor,
     targetId: input.targetId.trim(),
     templateVersionId: input.templateVersionId.trim(),
   };
