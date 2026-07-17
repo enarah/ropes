@@ -188,10 +188,21 @@ Finance, personnel, narrative and sensitive fields show editing warnings that
 the values are report-only and are not source-of-truth records.
 
 Manual field forms now include an explicit clear action that defaults to
-preserving existing values. Users can intentionally replace a value, clear the
-typed value, clear the note, clear both value and note, mark the field blank or
-mark it not applicable. Destructive actions are labelled in the editing context;
-compact summaries still show counts and statuses only.
+preserving existing values for status-only saves. Users can intentionally
+replace a value, clear the typed value, clear the note, clear both value and
+note, mark the field blank or mark it not applicable. Destructive actions are
+labelled in the editing context with short helper text; compact summaries,
+mapping notes, history and audit observations still show counts, statuses and
+metadata only, never manual APP&B values.
+
+The compact manual-field summary now includes a short status guide:
+
+- `BLANK`: no stored value
+- `DRAFT`: started but not ready
+- `ENTERED`: ready to support report readiness
+- `NEEDS_REVIEW`: operator attention required
+- `REVIEWED`: checked by an authorised operator
+- `NOT_APPLICABLE`: field does not apply to this report
 
 The save flow is tenant-guarded, APP&B capability-gated and records safe audit metadata only: organisation, report, field ID, field group, sensitivity, status, clear mode and action type. Raw manual values are not written to audit metadata.
 
@@ -472,14 +483,16 @@ generation or export workflow.
    period. Compact cards expose statuses and metadata, not manual or workbook
    values.
 4. Use the `Manual report fields` status summary to identify blank, draft,
-   entered, needs-review, reviewed or not-applicable fields. Expand `Edit manual
-   report fields` only in an authorised editing context. Existing values load
-   there so status-only saves can preserve them.
+   entered, needs-review, reviewed or not-applicable fields. The compact
+   summary can show status counts and whether values exist, but it must not
+   display the values. Expand `Edit manual report fields` only in an authorised
+   editing context. Existing values load there so status-only saves can
+   preserve them.
 5. Choose manual-field changes deliberately. `Preserve existing value` is the
-   safe default. Use replace or clear actions only when intended; `Blank`
-   clears value and note, while `Not applicable` clears a typed value and may
-   retain a short safe note. Report-only values must not be copied into compact
-   summaries, mapping notes, history or audit observations.
+   safe default for status-only updates. Use replace or clear actions only when
+   intended; `Blank` clears value and note, while `Not applicable` clears a
+   typed value and may retain a short safe note. Report-only values must not be
+   copied into compact summaries, mapping notes, history or audit observations.
 6. Expand `Review mapping metadata` for a report-specific template. Review the
    target label, kind, current status and decision as metadata only. Decisions
    can keep review open, mark a target reviewed, blocked or unmapped, or record
