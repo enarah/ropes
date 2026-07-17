@@ -5,7 +5,9 @@ import {
   assertAppbMappingReviewHistoryCursorProductionConfiguration,
   countOlderAppbMappingReviewHistoryEvents,
   createAppbMappingReviewHistoryCursor,
+  getAppbMappingReviewHistoryCursorReadinessStatus,
   shapeAppbMappingReviewDecisionHistory,
+  type AppbMappingReviewHistoryCursorReadinessStatus,
 } from "@/lib/appb-mapping-review-history";
 import type { AppbPersistedMappingReview } from "@/lib/appb-reporting";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
@@ -14,6 +16,12 @@ export type GrantsAppbOverview = {
   grants: GrantOverview[];
   isDatabaseAvailable: boolean;
   isDatabaseConfigured: boolean;
+};
+
+export type GrantsAppbRuntimeReadinessContext = {
+  cursorConfigurationStatus: AppbMappingReviewHistoryCursorReadinessStatus;
+  overview: GrantsAppbOverview;
+  reportDataCheckPerformed: boolean;
 };
 
 export type GrantOverview = {
@@ -385,6 +393,36 @@ export async function getGrantsAppbOverview(
       isDatabaseConfigured: true,
     };
   }
+}
+
+export async function getGrantsAppbRuntimeReadinessContext(
+  organisationSlug: string,
+): Promise<GrantsAppbRuntimeReadinessContext> {
+  const cursorConfigurationStatus =
+    getAppbMappingReviewHistoryCursorReadinessStatus();
+  const cursorConfigurationBlocked =
+    cursorConfigurationStatus === "invalid-production" ||
+    cursorConfigurationStatus === "invalid-non-production";
+
+  if (cursorConfigurationBlocked) {
+    return {
+      cursorConfigurationStatus,
+      overview: {
+        grants: [],
+        isDatabaseAvailable: false,
+        isDatabaseConfigured: isDatabaseConfigured(),
+      },
+      reportDataCheckPerformed: false,
+    };
+  }
+
+  const overview = await getGrantsAppbOverview(organisationSlug);
+
+  return {
+    cursorConfigurationStatus,
+    overview,
+    reportDataCheckPerformed: overview.isDatabaseConfigured,
+  };
 }
 
 function formatEnumLabel(value: string) {

@@ -398,6 +398,39 @@ secrets, private URLs, workbook formulas/cell references, medical/personnel/wage
 wording and copied narrative text. Future tuning should add or adjust explicit
 test cases before changing the policy.
 
+## Runtime Readiness Panel
+
+`/reports/appb?org=...` now includes a compact, read-only APP&B runtime
+readiness panel for the selected organisation. The panel renders only after the
+existing tenant guard and all four required capabilities (`reporting`,
+`reporting.appb`, `grants` and `grants.appb`) pass. A denied user or an
+organisation missing a required capability does not receive organisation-
+specific readiness details.
+
+The server-side summary uses pass, warning and blocked rows to report:
+
+- database configuration and the result of the organisation-scoped APP&B read
+- authenticated active membership, or the clearly labelled local demo fallback
+- each required APP&B capability
+- cursor-signing configuration as safe status wording only
+- whether organisation-scoped APP&B report records are present
+- whether bounded value-free history is ready at runtime
+- workbook export and XLSX generation as blocked
+- uploaded templates, AI calls, external services, broad audit-log browsing and
+  capability administration as unsupported
+
+The cursor row may say `Configured for production`, `Development fallback
+active` or `Missing or invalid production configuration`. It never includes
+the cursor secret, its length, a signature or secret-derived data. If production
+cursor configuration is invalid, the server-side readiness context does not
+load APP&B report data and shows a blocked configuration row to an otherwise
+authorised operator.
+
+The entire summary is value-free metadata. It does not include workbook values,
+manual APP&B values, review-note text, rejected unsafe note text or raw audit
+logs. The panel is an operator aid, not a health endpoint or capability-
+management interface.
+
 ## Production Readiness Checklist
 
 APP&B is ready to deploy only as the current review/history foundation. An

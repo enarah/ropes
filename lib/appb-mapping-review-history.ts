@@ -23,6 +23,13 @@ export type AppbMappingReviewHistoryCursorConfigurationSource =
   | "invalid-non-production"
   | "process-local-fallback";
 
+export type AppbMappingReviewHistoryCursorReadinessStatus =
+  | "configured-non-production"
+  | "configured-production"
+  | "development-fallback"
+  | "invalid-non-production"
+  | "invalid-production";
+
 export class AppbMappingReviewHistoryCursorConfigurationError extends Error {
   readonly code: "missing-production-secret" | "short-production-secret";
 
@@ -206,6 +213,42 @@ export function validateAppbMappingReviewHistoryCursorConfiguration(
 
 export function assertAppbMappingReviewHistoryCursorProductionConfiguration() {
   validateAppbMappingReviewHistoryCursorConfiguration();
+}
+
+export function getAppbMappingReviewHistoryCursorReadinessStatus(
+  options: {
+    cursorSecret?: string;
+    nodeEnv?: string;
+  } = {},
+): AppbMappingReviewHistoryCursorReadinessStatus {
+  const nodeEnv = Object.hasOwn(options, "nodeEnv")
+    ? options.nodeEnv
+    : process.env["NODE_ENV"];
+
+  try {
+    const configuration = validateAppbMappingReviewHistoryCursorConfiguration({
+      ...(Object.hasOwn(options, "cursorSecret")
+        ? { cursorSecret: options.cursorSecret }
+        : {}),
+      nodeEnv,
+    });
+
+    if (configuration.source === "configured") {
+      return nodeEnv === "production"
+        ? "configured-production"
+        : "configured-non-production";
+    }
+
+    return configuration.source === "process-local-fallback"
+      ? "development-fallback"
+      : "invalid-non-production";
+  } catch (error) {
+    if (isAppbMappingReviewHistoryCursorConfigurationError(error)) {
+      return "invalid-production";
+    }
+
+    throw error;
+  }
 }
 
 export function isAppbMappingReviewHistoryCursorConfigurationError(
