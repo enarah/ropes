@@ -137,6 +137,10 @@ Vehicles records, and the initial authentication foundation.
   examples, one current mapping decision, five value-free history events and
   safe rejected-note reason metadata only. It stores no rejected text, real
   workbook/manual values or cursor secret, and export remains blocked.
+- A docs-only local smoke-test checklist now covers database migration/seed,
+  the exact demo APP&B route, readiness/capability rows, authorised manual-value
+  visibility, three initial plus two load-more history events, the safe rejected
+  reason count and blocked export state, with tenant/config troubleshooting.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
