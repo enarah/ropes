@@ -95,6 +95,12 @@ per-target load-more without storing rejected text or real workbook/manual
 values. The seed does not create authentication accounts, store cursor/Fulcrum
 secrets, store AI provider credentials or call external APIs.
 
+After seeding, follow the
+[local APP&B seed smoke-test checklist](docs/appb-reporting.md#local-seed-smoke-test-checklist)
+to verify the runtime readiness panel, fake manual-field editing context,
+three-event history limit, two-event load-more path, safe rejected-note reason
+count and blocked workbook export state.
+
 For deployment-style environments, use:
 
 ```bash

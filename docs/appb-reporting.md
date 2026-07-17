@@ -461,6 +461,111 @@ manual-field metadata can show warning states and workbook export remains
 blocked. All seeded records are marked or named as fake/demo data and are not
 production fixtures.
 
+## Local Seed Smoke-Test Checklist
+
+Use this checklist to confirm local demo behavior only. Passing it does not
+make a workbook mapping export-ready and does not authorise production use or
+XLSX generation.
+
+### Prepare the local database
+
+The seed command rebuilds the entire configured demo database. Use a disposable
+local database only; never point this workflow at production or a database that
+contains data you need to keep.
+
+- [ ] Copy `.env.example` to `.env` and set `DATABASE_URL` to a local PostgreSQL
+  database. Keep real credentials out of version control.
+- [ ] For the simplest local smoke test, leave Google and Microsoft OAuth
+  provider variables unset. ROPES then uses the labelled fake session for
+  `operations.manager@example.test`, which the seed gives an active membership
+  in the demo partner organisation. If local OAuth is enabled instead, the
+  signed-in email must match a seeded user with an active membership.
+- [ ] Keep `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` server-side. It may be
+  unset for the process-local development fallback, or set to a valid local
+  secret. Never copy it into a URL, screenshot, issue, client response or test
+  observation.
+- [ ] Install dependencies and generate the Prisma client:
+
+  ```bash
+  npm install
+  npm run db:generate
+  ```
+
+- [ ] Apply local migrations and rebuild the fake demo dataset:
+
+  ```bash
+  npm run db:migrate
+  npm run db:seed
+  ```
+
+- [ ] Start ROPES with `npm run dev`, then open:
+
+  `http://localhost:3000/reports/appb?org=ropes-demo-aboriginal-corporation`
+
+### Confirm the safe UI
+
+- [ ] The `APP&B runtime readiness` panel renders for `ROPES Demo Aboriginal
+  Corporation`.
+- [ ] `Database` and `APP&B report data` show `Ready`.
+- [ ] `Tenant access` shows `Warning` when the labelled local demo fallback is
+  active, or `Ready` for an authenticated seeded membership.
+- [ ] `Capability: reporting`, `Capability: reporting.appb`, `Capability:
+  grants` and `Capability: grants.appb` each show `Ready`.
+- [ ] `History cursor signing` shows `Development fallback active` when no
+  local cursor secret is configured, or `Ready` when a valid server-side local
+  secret is configured. No secret, secret length, signature or derived data is
+  displayed.
+- [ ] `Value-free history` shows `Ready`; `Workbook export` shows `Blocked`;
+  and `Unsupported areas` shows `Unsupported`.
+- [ ] Fake grants, reporting periods and APP&B report cards appear. Locate
+  `Demo Indigenous Ranger Program 2025-26`, its `2025-26 annual planning`
+  period and the `2025-26 annual planning template` report.
+- [ ] The compact `Manual report fields` summary shows statuses and `Values
+  hidden`. Expand `Edit manual report fields` to confirm the obvious fake
+  narrative placeholder appears only inside that authorised editing context.
+  Do not copy the value into history, audit or compact-summary observations.
+- [ ] Expand `Review mapping metadata`, find the `Organisation name` field
+  mapping and confirm its current persisted decision/status is
+  `Mark Reviewed` / `Reviewed`, attributed to `Fake demo reviewer`.
+- [ ] Expand `Safe review history`. Current decision metadata appears first,
+  followed by exactly the three newest value-free decision-version events.
+  The events show decisions, statuses, fake reviewer/timestamps and safe notes
+  only—no workbook or manual APP&B values.
+- [ ] Select `Load older events (2 remaining)`. Two older value-free events are
+  appended for that target and the UI reports that all older events are loaded.
+- [ ] Under `Rejected note attempts`, `Workbook Cell Or Formula: 2` appears as
+  value-free reason/count metadata. No rejected note text is displayed, and no
+  raw audit-log browser is used for this check.
+- [ ] `Export blocked` remains visible in the report/readiness and mapping-review
+  areas. No workbook download or XLSX generation action is available.
+
+### Troubleshooting
+
+- **Database not configured:** if the panel says `Not configured`, confirm the
+  local process loaded the intended `.env` and that `DATABASE_URL` is non-empty.
+- **Migrations not applied:** if Prisma reports missing tables or columns, run
+  `npm run db:generate` and `npm run db:migrate` against the same local database,
+  then rerun the seed.
+- **Seed not run:** if the demo organisation or APP&B records are absent, run
+  `npm run db:seed`. Remember that it rebuilds the configured demo database.
+- **Authentication or session unavailable:** for the standard local path,
+  remove incomplete OAuth provider configuration and restart the app to use the
+  labelled fake session. If testing OAuth, sign in as a user whose email maps to
+  an active seeded organisation membership; do not bypass tenant guards.
+- **Required capability missing:** an existing disabled-feature screen appears
+  before organisation-specific readiness details. Rerun the current seed and
+  confirm the exact demo organisation slug rather than enabling APP&B globally.
+- **Cursor configuration blocked:** development can use the process-local
+  fallback. Production mode requires a stable shared
+  `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` that passes the documented server
+  validation. Never expose the value. After changing or rotating it, refresh
+  the report to obtain new cursors.
+- **Older-history cursor fails after restart:** a process-local fallback changes
+  when the app process restarts. Refresh the APP&B page before trying load-more
+  again, or configure a valid stable local secret for repeatable testing.
+- **Organisation unavailable:** use the exact seeded slug
+  `ropes-demo-aboriginal-corporation` and rerun the seed if it is missing.
+
 ## Production Readiness Checklist
 
 APP&B is ready to deploy only as the current review/history foundation. An
