@@ -146,6 +146,31 @@ membership before loading server-side organisation data. Users without access
 see an unauthorised state instead of fake fallback data. Local demo fallback is
 kept only for development when authentication or the database is not configured.
 
+### APP&B production readiness
+
+Before enabling APP&B review/history in production, operators must:
+
+- configure and migrate `DATABASE_URL`
+- configure `NEXTAUTH_URL`, `NEXTAUTH_SECRET` and a supported OAuth provider
+- give each authorised user an active membership for the organisation
+- enable `reporting`, `reporting.appb`, `grants` and `grants.appb` for that
+  organisation
+- configure one stable, server-side
+  `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` of at least 32 UTF-8 bytes on
+  every app instance
+- confirm review/history responses remain value-free and rejected unsafe note
+  text is neither stored nor exposed
+- confirm manual APP&B values remain in authorised editing contexts and are not
+  copied into review/history metadata
+- acknowledge that workbook export, XLSX generation, uploaded template
+  storage, AI calls, APP&B-specific external services and a broad audit-log
+  browser remain blocked or unsupported
+
+Secret rotation safely invalidates outstanding APP&B history cursors; users
+must refresh the report afterward. The complete operator and safe-data
+checklist is in the
+[APP&B reporting guide](docs/appb-reporting.md#production-readiness-checklist).
+
 ## Fulcrum token encryption setup
 
 ROPES can store a per-organisation Fulcrum API token encrypted at rest for the

@@ -398,6 +398,88 @@ secrets, private URLs, workbook formulas/cell references, medical/personnel/wage
 wording and copied narrative text. Future tuning should add or adjust explicit
 test cases before changing the policy.
 
+## Production Readiness Checklist
+
+APP&B is ready to deploy only as the current review/history foundation. An
+operator should complete every applicable item below before enabling it for an
+organisation.
+
+### Required configuration
+
+- [ ] Set `DATABASE_URL` to the production PostgreSQL database and apply the
+  committed migrations with `npm run db:deploy`.
+- [ ] Set `NEXTAUTH_URL` to the canonical production application URL.
+- [ ] Set a generated `NEXTAUTH_SECRET` and configure at least one supported
+  OAuth provider. Do not rely on the fake/demo session fallback in production.
+- [ ] Set `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` to a dedicated secret of
+  at least 32 UTF-8 bytes. Keep the same stable value on every app instance and
+  never expose it to the client.
+- [ ] Confirm the APP&B overview loads without a production cursor-secret
+  configuration error. The random process-local cursor secret is a
+  non-production fallback only.
+
+### Tenant and capability access
+
+- [ ] Confirm each authorised operator has a matching ROPES `User` record and
+  an active membership for the selected organisation. Tenant guards must deny
+  users without that organisation membership.
+- [ ] Explicitly enable `reporting`, `reporting.appb`, `grants` and
+  `grants.appb` for the organisation. Tenant membership and capability
+  enablement are both required.
+- [ ] Confirm grants, reporting periods, APP&B reports, manual values, mapping
+  decisions and history rows all belong to the same organisation. Test that a
+  user from another organisation cannot read or update them.
+- [ ] Record how capabilities are provisioned operationally. A broad
+  capability-administration UI is not part of this foundation.
+
+### Safe-data checks
+
+- [ ] Treat cursor payloads and review-history rows as value-free metadata
+  only. They may contain safe IDs, decision/status metadata, reviewer identity,
+  timestamps, validated safe notes and cursor ordering fields, but never
+  workbook or manual APP&B values.
+- [ ] Keep manual APP&B values confined to the authorised editing context.
+  Status-only updates preserve stored values, and values or notes are removed
+  only through the explicit clear controls.
+- [ ] Keep deterministic review-note safety validation enabled. Rejected unsafe
+  note text must not be stored, logged, returned in redirects or displayed;
+  only value-free reason/count metadata may be retained.
+- [ ] Keep current decisions, decision-version history and rejected-note reason
+  counts as separate response and display sections. Do not expose raw audit
+  logs through APP&B review history.
+- [ ] Confirm audit metadata remains limited to safe IDs, statuses, counts,
+  reason codes and note lengths rather than finance, personnel, narrative,
+  workbook or manual report values.
+
+### Operations and support
+
+- [ ] Document ownership and rotation of the cursor secret. Rotation safely
+  invalidates existing cursors; affected users should refresh the APP&B report
+  to receive a cursor signed with the new shared value.
+- [ ] Treat invalid, tampered, unsupported, stale or mismatched cursors as safe
+  failures. They must not disclose whether another organisation or target has
+  matching history.
+- [ ] Confirm all app instances use the same database, authentication setup,
+  capability configuration and cursor secret before scaling horizontally.
+- [ ] Run `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`,
+  `npx prisma validate` and `npm run db:generate` for the release candidate.
+
+### Intentionally blocked or unsupported
+
+- [ ] Acknowledge that workbook export remains blocked. ROPES does not generate
+  XLSX files, write values into templates or claim export-safe cell/range
+  mappings.
+- [ ] Acknowledge that uploaded workbook template storage is not implemented.
+- [ ] Acknowledge that full budget/acquittal logic, production workbook mapping,
+  broad Grants workflows, bulk mapping administration and a broad audit-log
+  browser remain unsupported.
+- [ ] Confirm this APP&B foundation makes no AI provider calls and adds no
+  APP&B-specific external services or live workbook integrations.
+
+Completing this checklist supports deployment of APP&B manual-value,
+mapping-review and value-free history foundations only. It does not authorise
+workbook generation or export.
+
 Initial metadata examples cover the known source workbook names for annual planning, mid-year progress and annual report/acquittal workflows. They are intentionally blocked for export until:
 
 - exact named sections and repeatable table ranges are reviewed
