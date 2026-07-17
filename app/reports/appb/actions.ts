@@ -13,6 +13,14 @@ import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
 import { recordAuditLog } from "@/lib/audit-logs";
 import { validateAppbReviewNoteSafety } from "@/lib/appb-review-note-safety";
 import {
+  APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
+  buildAppbMappingReviewHistoryPageMetadata,
+  isValidAppbMappingReviewHistoryOffset,
+  shapeAppbMappingReviewDecisionHistory,
+  type AppbMappingReviewHistoryLoadMoreInput,
+  type AppbMappingReviewHistoryLoadMoreResult,
+} from "@/lib/appb-mapping-review-history";
+import {
   buildAppbManualFieldDefinitions,
   findAppbTemplateVersion,
   type AppbManualFieldDefinition,
@@ -31,6 +39,8 @@ import {
 import {
   createOrganisationWriteContext,
   isTenantGuardError,
+  requireOrganisationAccess,
+  requireRelatedRecordsInOrganisation,
 } from "@/lib/tenant-guards";
 
 const manualFieldStatusValues = [
@@ -597,6 +607,201 @@ export async function saveAppbMappingReviewDecisionAction(formData: FormData) {
   }
 
   redirect(redirectTo);
+}
+
+export async function loadOlderAppbMappingReviewHistoryAction(
+  input: AppbMappingReviewHistoryLoadMoreInput,
+): Promise<AppbMappingReviewHistoryLoadMoreResult> {
+  if (!isDatabaseConfigured()) {
+    return mappingReviewHistoryLoadMoreError("unavailable");
+  }
+
+  try {
+    const request = validateMappingReviewHistoryLoadMoreInput(input);
+    const prisma = getPrismaClient();
+    const [organisation, appbReport] = await Promise.all([
+      prisma.organisation.findUnique({
+        select: { id: true },
+        where: { slug: request.organisationSlug },
+      }),
+      prisma.appbReport.findUnique({
+        select: { id: true, organisationId: true },
+        where: { id: request.appbReportId },
+      }),
+    ]);
+
+    if (!organisation || !appbReport) {
+      throw new AppbMappingReviewValidationError(
+        "APP&B mapping review history target was not found.",
+      );
+    }
+
+    const session = await getTenantGuardSessionForRequest(prisma);
+    const context = requireOrganisationAccess(session, organisation.id);
+    requireRelatedRecordsInOrganisation(context.organisationId, [
+      { label: "APP&B report", record: appbReport },
+    ]);
+
+    for (const capability of [
+      "reporting",
+      "reporting.appb",
+      "grants",
+      "grants.appb",
+    ] as const) {
+      await requireOrganisationCapability(
+        prisma,
+        context.organisationId,
+        capability,
+        {
+          actorUserId: context.actorUserId,
+          entityId: appbReport.id,
+          entityType: "AppbReport",
+        },
+      );
+    }
+
+    const targetKind = prismaMappingReviewTargetKind(request.targetKind);
+    const reviewDecision =
+      await prisma.appbMappingReviewDecisionRecord.findUnique({
+        select: { id: true, templateVersionId: true },
+        where: {
+          organisationId_appbReportId_targetKind_targetId: {
+            appbReportId: appbReport.id,
+            organisationId: context.organisationId,
+            targetId: request.targetId,
+            targetKind,
+          },
+        },
+      });
+
+    if (
+      !reviewDecision ||
+      reviewDecision.templateVersionId !== request.templateVersionId
+    ) {
+      throw new AppbMappingReviewValidationError(
+        "APP&B mapping review history target was not found.",
+      );
+    }
+
+    const historyWhere = {
+      appbReportId: appbReport.id,
+      organisationId: context.organisationId,
+      reviewDecisionId: reviewDecision.id,
+      targetId: request.targetId,
+      targetKind,
+      templateVersionId: request.templateVersionId,
+      valueFree: true,
+    } satisfies Prisma.AppbMappingReviewDecisionHistoryRecordWhereInput;
+    const [records, totalEventCount] = await Promise.all([
+      prisma.appbMappingReviewDecisionHistoryRecord.findMany({
+        orderBy: [
+          { reviewedAt: "desc" },
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
+        select: {
+          appbReportId: true,
+          newDecision: true,
+          newReviewStatus: true,
+          organisationId: true,
+          previousDecision: true,
+          previousReviewStatus: true,
+          reviewedAt: true,
+          reviewerDisplayName: true,
+          reviewerUserId: true,
+          safeNote: true,
+          targetId: true,
+          targetKind: true,
+          templateVersionId: true,
+          valueFree: true,
+        },
+        skip: request.offset,
+        take: APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
+        where: historyWhere,
+      }),
+      prisma.appbMappingReviewDecisionHistoryRecord.count({
+        where: historyWhere,
+      }),
+    ]);
+    const events = shapeAppbMappingReviewDecisionHistory(records, {
+      appbReportId: appbReport.id,
+      organisationId: context.organisationId,
+      targetId: request.targetId,
+      targetKind: request.targetKind,
+      templateVersionId: request.templateVersionId,
+    });
+    const pageMetadata = buildAppbMappingReviewHistoryPageMetadata({
+      loadedRecordCount: records.length,
+      offset: request.offset,
+      totalEventCount,
+    });
+
+    return {
+      events,
+      ...pageMetadata,
+      status: "success",
+      valueFree: true,
+    };
+  } catch (error) {
+    if (isTenantGuardError(error) || isOrganisationCapabilityError(error)) {
+      return mappingReviewHistoryLoadMoreError("access-denied");
+    }
+
+    if (error instanceof AppbMappingReviewValidationError) {
+      return mappingReviewHistoryLoadMoreError("invalid-request");
+    }
+
+    return mappingReviewHistoryLoadMoreError("unavailable");
+  }
+}
+
+function validateMappingReviewHistoryLoadMoreInput(
+  input: AppbMappingReviewHistoryLoadMoreInput,
+) {
+  const stringValues = [
+    input.organisationSlug,
+    input.appbReportId,
+    input.targetId,
+    input.templateVersionId,
+  ];
+
+  if (
+    stringValues.some(
+      (value) =>
+        typeof value !== "string" ||
+        value.trim().length === 0 ||
+        value.length > 200,
+    ) ||
+    !mappingReviewTargetKindValues.includes(input.targetKind) ||
+    !isValidAppbMappingReviewHistoryOffset(input.offset)
+  ) {
+    throw new AppbMappingReviewValidationError(
+      "APP&B mapping review history request is invalid.",
+    );
+  }
+
+  return {
+    ...input,
+    appbReportId: input.appbReportId.trim(),
+    organisationSlug: input.organisationSlug.trim(),
+    targetId: input.targetId.trim(),
+    templateVersionId: input.templateVersionId.trim(),
+  };
+}
+
+function mappingReviewHistoryLoadMoreError(
+  code: Extract<
+    AppbMappingReviewHistoryLoadMoreResult,
+    { status: "error" }
+  >["code"],
+): AppbMappingReviewHistoryLoadMoreResult {
+  return {
+    code,
+    events: [],
+    remainingCount: 0,
+    status: "error",
+    valueFree: true,
+  };
 }
 
 function getAllowedMappingReviewTargetKind(

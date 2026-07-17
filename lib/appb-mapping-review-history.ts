@@ -6,6 +6,32 @@ import type {
 } from "./appb-reporting";
 
 export const APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT = 3;
+export const APPB_MAPPING_REVIEW_HISTORY_MAX_OFFSET = 10_000;
+
+export type AppbMappingReviewHistoryLoadMoreInput = {
+  appbReportId: string;
+  offset: number;
+  organisationSlug: string;
+  targetId: string;
+  targetKind: AppbMappingReviewTargetKind;
+  templateVersionId: string;
+};
+
+export type AppbMappingReviewHistoryLoadMoreResult =
+  | {
+      events: AppbMappingReviewDecisionHistoryEntry[];
+      nextOffset?: number;
+      remainingCount: number;
+      status: "success";
+      valueFree: true;
+    }
+  | {
+      code: "access-denied" | "invalid-request" | "unavailable";
+      events: [];
+      remainingCount: 0;
+      status: "error";
+      valueFree: true;
+    };
 
 export type AppbMappingReviewHistoryRecordInput = {
   appbReportId: string;
@@ -91,6 +117,35 @@ export function countOlderAppbMappingReviewHistoryEvents(
   loadedEventCount: number,
 ) {
   return Math.max(totalEventCount - loadedEventCount, 0);
+}
+
+export function buildAppbMappingReviewHistoryPageMetadata({
+  loadedRecordCount,
+  offset,
+  totalEventCount,
+}: {
+  loadedRecordCount: number;
+  offset: number;
+  totalEventCount: number;
+}) {
+  const nextOffsetValue = Math.min(
+    offset + loadedRecordCount,
+    totalEventCount,
+  );
+  const remainingCount = Math.max(totalEventCount - nextOffsetValue, 0);
+
+  return {
+    nextOffset: remainingCount > 0 ? nextOffsetValue : undefined,
+    remainingCount,
+  };
+}
+
+export function isValidAppbMappingReviewHistoryOffset(offset: number) {
+  return (
+    Number.isInteger(offset) &&
+    offset >= APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT &&
+    offset <= APPB_MAPPING_REVIEW_HISTORY_MAX_OFFSET
+  );
 }
 
 function formatDecision(
