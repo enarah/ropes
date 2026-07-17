@@ -6,11 +6,25 @@ import type {
 } from "./appb-reporting";
 
 export const APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT = 3;
-export const APPB_MAPPING_REVIEW_HISTORY_MAX_OFFSET = 10_000;
+
+const APPB_MAPPING_REVIEW_HISTORY_CURSOR_VERSION = 1;
+const APPB_MAPPING_REVIEW_HISTORY_MAX_CURSOR_LENGTH = 1_000;
+
+export type AppbMappingReviewHistoryCursorRecord = {
+  createdAt: Date | string;
+  id: string;
+  reviewedAt: Date | string;
+};
+
+export type AppbMappingReviewHistoryCursor = {
+  createdAt: Date;
+  id: string;
+  reviewedAt: Date;
+};
 
 export type AppbMappingReviewHistoryLoadMoreInput = {
   appbReportId: string;
-  offset: number;
+  cursor: string;
   organisationSlug: string;
   targetId: string;
   targetKind: AppbMappingReviewTargetKind;
@@ -20,7 +34,7 @@ export type AppbMappingReviewHistoryLoadMoreInput = {
 export type AppbMappingReviewHistoryLoadMoreResult =
   | {
       events: AppbMappingReviewDecisionHistoryEntry[];
-      nextOffset?: number;
+      nextCursor?: string;
       remainingCount: number;
       status: "success";
       valueFree: true;
@@ -119,33 +133,123 @@ export function countOlderAppbMappingReviewHistoryEvents(
   return Math.max(totalEventCount - loadedEventCount, 0);
 }
 
-export function buildAppbMappingReviewHistoryPageMetadata({
-  loadedRecordCount,
-  offset,
-  totalEventCount,
-}: {
-  loadedRecordCount: number;
-  offset: number;
-  totalEventCount: number;
-}) {
-  const nextOffsetValue = Math.min(
-    offset + loadedRecordCount,
-    totalEventCount,
+export function createAppbMappingReviewHistoryCursor(
+  record: AppbMappingReviewHistoryCursorRecord,
+) {
+  const createdAt = normaliseCursorDate(record.createdAt);
+  const reviewedAt = normaliseCursorDate(record.reviewedAt);
+
+  if (
+    !createdAt ||
+    !reviewedAt ||
+    typeof record.id !== "string" ||
+    record.id.length === 0 ||
+    record.id.length > 200
+  ) {
+    return undefined;
+  }
+
+  return encodeURIComponent(
+    JSON.stringify({
+      c: createdAt.toISOString(),
+      i: record.id,
+      r: reviewedAt.toISOString(),
+      v: APPB_MAPPING_REVIEW_HISTORY_CURSOR_VERSION,
+    }),
   );
-  const remainingCount = Math.max(totalEventCount - nextOffsetValue, 0);
+}
+
+export function parseAppbMappingReviewHistoryCursor(
+  cursor: string,
+): AppbMappingReviewHistoryCursor | undefined {
+  if (
+    typeof cursor !== "string" ||
+    cursor.length === 0 ||
+    cursor.length > APPB_MAPPING_REVIEW_HISTORY_MAX_CURSOR_LENGTH
+  ) {
+    return undefined;
+  }
+
+  try {
+    const value = JSON.parse(decodeURIComponent(cursor)) as Record<
+      string,
+      unknown
+    >;
+    const createdAt = normaliseCursorDate(value["c"]);
+    const reviewedAt = normaliseCursorDate(value["r"]);
+    const id = value["i"];
+
+    if (
+      value["v"] !== APPB_MAPPING_REVIEW_HISTORY_CURSOR_VERSION ||
+      !createdAt ||
+      !reviewedAt ||
+      typeof id !== "string" ||
+      id.length === 0 ||
+      id.length > 200
+    ) {
+      return undefined;
+    }
+
+    return { createdAt, id, reviewedAt };
+  } catch {
+    return undefined;
+  }
+}
+
+export function buildAppbMappingReviewHistoryCursorBoundary(
+  cursor: AppbMappingReviewHistoryCursor,
+) {
+  return {
+    OR: [
+      { reviewedAt: { lt: cursor.reviewedAt } },
+      {
+        createdAt: { lt: cursor.createdAt },
+        reviewedAt: cursor.reviewedAt,
+      },
+      {
+        createdAt: cursor.createdAt,
+        id: { lt: cursor.id },
+        reviewedAt: cursor.reviewedAt,
+      },
+    ],
+  };
+}
+
+export function buildAppbMappingReviewHistoryCursorPageMetadata({
+  lastRecord,
+  loadedRecordCount,
+  totalOlderEventCount,
+}: {
+  lastRecord?: AppbMappingReviewHistoryCursorRecord;
+  loadedRecordCount: number;
+  totalOlderEventCount: number;
+}) {
+  const remainingCount = Math.max(
+    totalOlderEventCount - loadedRecordCount,
+    0,
+  );
 
   return {
-    nextOffset: remainingCount > 0 ? nextOffsetValue : undefined,
+    nextCursor:
+      remainingCount > 0 && lastRecord
+        ? createAppbMappingReviewHistoryCursor(lastRecord)
+        : undefined,
     remainingCount,
   };
 }
 
-export function isValidAppbMappingReviewHistoryOffset(offset: number) {
-  return (
-    Number.isInteger(offset) &&
-    offset >= APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT &&
-    offset <= APPB_MAPPING_REVIEW_HISTORY_MAX_OFFSET
-  );
+function normaliseCursorDate(value: unknown) {
+  if (!(value instanceof Date) && typeof value !== "string") {
+    return undefined;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  return date;
 }
 
 function formatDecision(

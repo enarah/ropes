@@ -105,7 +105,9 @@ Vehicles records, and the initial authentication foundation.
   load-more or pagination stays deferred while workbook export remains blocked.
 - APP&B mapping review history load-more now provides an authenticated,
   tenant- and capability-gated per-target action with bounded three-event
-  offset pages, safe remaining-count metadata and minimal append UI. Current
+  cursor pages, safe remaining-count metadata and minimal append UI. The
+  value-free cursor uses the stable reviewed timestamp, created timestamp and
+  ID ordering and is verified against the requested target before use. Current
   decision metadata and rejected-note counts remain separate, and workbook
   export remains blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted

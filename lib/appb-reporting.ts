@@ -390,6 +390,7 @@ export type AppbMappingReviewDecisionHistoryEntry = {
 export type AppbMappingReviewHistorySummary = {
   currentDecisionRecorded: boolean;
   decisionVersions: AppbMappingReviewDecisionHistoryEntry[];
+  nextCursor?: string;
   olderDecisionVersionCount: number;
   previousDecisionAvailable: boolean;
   rejectedNoteReasonCounts: AppbMappingReviewRejectedNoteReasonCount[];

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
-  buildAppbMappingReviewHistoryPageMetadata,
+  buildAppbMappingReviewHistoryCursorBoundary,
+  buildAppbMappingReviewHistoryCursorPageMetadata,
   countOlderAppbMappingReviewHistoryEvents,
-  isValidAppbMappingReviewHistoryOffset,
+  createAppbMappingReviewHistoryCursor,
+  parseAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
   type AppbMappingReviewHistoryRecordInput,
 } from "../lib/appb-mapping-review-history";
@@ -19,37 +21,93 @@ test("APP&B mapping review history reports only unloaded older events", () => {
   assert.equal(countOlderAppbMappingReviewHistoryEvents(2, 3), 0);
 });
 
-test("APP&B mapping review history shapes safe load-more metadata", () => {
-  assert.deepEqual(
-    buildAppbMappingReviewHistoryPageMetadata({
-      loadedRecordCount: 3,
-      offset: 3,
-      totalEventCount: 8,
-    }),
-    {
-      nextOffset: 6,
-      remainingCount: 2,
-    },
-  );
-  assert.deepEqual(
-    buildAppbMappingReviewHistoryPageMetadata({
-      loadedRecordCount: 2,
-      offset: 6,
-      totalEventCount: 8,
-    }),
-    {
-      nextOffset: undefined,
-      remainingCount: 0,
-    },
+test("APP&B mapping review history creates and parses a value-free cursor", () => {
+  const cursor = createAppbMappingReviewHistoryCursor({
+    createdAt: "2026-07-17T09:59:59.000Z",
+    id: "history-3",
+    reviewedAt: "2026-07-17T10:00:00.000Z",
+  });
+
+  assert.ok(cursor);
+  assert.deepEqual(parseAppbMappingReviewHistoryCursor(cursor), {
+    createdAt: new Date("2026-07-17T09:59:59.000Z"),
+    id: "history-3",
+    reviewedAt: new Date("2026-07-17T10:00:00.000Z"),
+  });
+  assert.equal(cursor.includes("workbook"), false);
+});
+
+test("APP&B mapping review history rejects malformed cursors", () => {
+  assert.equal(parseAppbMappingReviewHistoryCursor(""), undefined);
+  assert.equal(parseAppbMappingReviewHistoryCursor("not-json"), undefined);
+  assert.equal(
+    parseAppbMappingReviewHistoryCursor(
+      encodeURIComponent(
+        JSON.stringify({
+          c: "2026-07-17T09:59:59.000Z",
+          i: "history-3",
+          r: "2026-07-17T10:00:00.000Z",
+          v: 2,
+        }),
+      ),
+    ),
+    undefined,
   );
 });
 
-test("APP&B mapping review history accepts only bounded page offsets", () => {
-  assert.equal(isValidAppbMappingReviewHistoryOffset(3), true);
-  assert.equal(isValidAppbMappingReviewHistoryOffset(10_000), true);
-  assert.equal(isValidAppbMappingReviewHistoryOffset(2), false);
-  assert.equal(isValidAppbMappingReviewHistoryOffset(10_001), false);
-  assert.equal(isValidAppbMappingReviewHistoryOffset(3.5), false);
+test("APP&B mapping review history builds the stable newest-first cursor boundary", () => {
+  const cursor = parseAppbMappingReviewHistoryCursor(
+    createAppbMappingReviewHistoryCursor({
+      createdAt: "2026-07-17T09:59:59.000Z",
+      id: "history-3",
+      reviewedAt: "2026-07-17T10:00:00.000Z",
+    }) ?? "",
+  );
+
+  assert.ok(cursor);
+  assert.deepEqual(buildAppbMappingReviewHistoryCursorBoundary(cursor), {
+    OR: [
+      { reviewedAt: { lt: new Date("2026-07-17T10:00:00.000Z") } },
+      {
+        createdAt: { lt: new Date("2026-07-17T09:59:59.000Z") },
+        reviewedAt: new Date("2026-07-17T10:00:00.000Z"),
+      },
+      {
+        createdAt: new Date("2026-07-17T09:59:59.000Z"),
+        id: { lt: "history-3" },
+        reviewedAt: new Date("2026-07-17T10:00:00.000Z"),
+      },
+    ],
+  });
+});
+
+test("APP&B mapping review history shapes safe cursor page metadata", () => {
+  const lastRecord = {
+    createdAt: "2026-07-17T09:59:59.000Z",
+    id: "history-3",
+    reviewedAt: "2026-07-17T10:00:00.000Z",
+  };
+  const page = buildAppbMappingReviewHistoryCursorPageMetadata({
+    lastRecord,
+    loadedRecordCount: 3,
+    totalOlderEventCount: 5,
+  });
+
+  assert.equal(page.remainingCount, 2);
+  assert.ok(page.nextCursor);
+  assert.deepEqual(parseAppbMappingReviewHistoryCursor(page.nextCursor), {
+    createdAt: new Date(lastRecord.createdAt),
+    id: lastRecord.id,
+    reviewedAt: new Date(lastRecord.reviewedAt),
+  });
+  assert.deepEqual(
+    buildAppbMappingReviewHistoryCursorPageMetadata({
+      lastRecord,
+      loadedRecordCount: 2,
+      totalOlderEventCount: 2,
+    }),
+    { nextCursor: undefined, remainingCount: 0 },
+  );
 });
 
 const target = {
