@@ -146,6 +146,10 @@ Vehicles records, and the initial authentication foundation.
   decision, five value-free history events, three-plus-two cursor-boundary
   behavior, safe rejected-reason metadata and blocked export state. Output is
   limited to safe pass/fail labels and the manual checklist still covers UI.
+- A docs-only APP&B disposable-database runbook now gives developers the exact
+  install, Prisma generation, migration, seed, automated smoke and browser
+  checklist sequence, with safe expected output and local-failure guidance. It
+  explicitly excludes production, CI and workbook-export readiness.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
