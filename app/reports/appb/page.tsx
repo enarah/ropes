@@ -1309,8 +1309,9 @@ function ManualFieldSummary({
           Edit manual report fields
         </summary>
         <p className="mt-2 text-xs leading-5 text-charcoal-600">
-          Editing context: existing values are loaded here so status-only
-          changes can preserve them. Compact report cards stay value-free.
+          Authorised editing context: existing values load here only, so
+          status-only saves can preserve hidden values. Compact summaries,
+          mapping notes, history and audit observations stay value-free.
         </p>
         <AppbManualFieldEditor
           groups={groups}
@@ -1342,12 +1343,12 @@ function AppbManualFieldSafeSummary({
             {enteredCount} of {definitionCount} entered or reviewed
           </p>
           <p className="mt-1 text-xs leading-5 text-charcoal-600">
-            Report-only values support readiness but do not make workbook export
-            available.
+            Compact summaries show status and whether values exist, not manual
+            APP&B values. Workbook export remains blocked.
           </p>
         </div>
         <span className="rounded-md bg-earth-50 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
-          Values hidden
+          Values hidden outside edit
         </span>
       </div>
 
@@ -1365,6 +1366,14 @@ function AppbManualFieldSafeSummary({
             />
           ))
         )}
+      </div>
+
+      <div className="mt-3 rounded-md border border-earth-200 bg-earth-50 p-3 text-xs leading-5 text-charcoal-600">
+        <p>
+          Status guide: blank has no stored value; draft or needs review needs
+          operator attention; entered or reviewed can support readiness; not
+          applicable records that the field does not apply.
+        </p>
       </div>
     </>
   );
@@ -1521,8 +1530,9 @@ function AppbManualFieldReviewState({
         <option value="NOT_APPLICABLE">Not applicable</option>
       </select>
       <span className="mt-1 block text-xs leading-5 text-charcoal-600">
-        Blank clears values and notes. Not applicable clears typed values and
-        can keep a short safe note.
+        Status-only saves preserve the existing value by default. Blank clears
+        value and note; not applicable clears typed value and can keep a short
+        safe note.
       </span>
     </label>
   );
@@ -1537,20 +1547,26 @@ function AppbManualFieldClearModeControl() {
         defaultValue="PRESERVE_EXISTING"
         name="clearMode"
       >
-        <option value="PRESERVE_EXISTING">Preserve existing value</option>
-        <option value="REPLACE_VALUE">Replace with submitted value</option>
+        <option value="PRESERVE_EXISTING">
+          Preserve existing value for status-only save
+        </option>
+        <option value="REPLACE_VALUE">
+          Replace value with what is entered here
+        </option>
         <option value="CLEAR_VALUE">Clear typed value only</option>
-        <option value="CLEAR_NOTE">Clear note only</option>
-        <option value="CLEAR_VALUE_AND_NOTE">Clear value and note</option>
-        <option value="MARK_BLANK">Mark blank and clear all</option>
+        <option value="CLEAR_NOTE">Clear safe note only</option>
+        <option value="CLEAR_VALUE_AND_NOTE">
+          Clear typed value and safe note
+        </option>
+        <option value="MARK_BLANK">Mark blank and clear value and note</option>
         <option value="MARK_NOT_APPLICABLE">
-          Mark not applicable and clear value
+          Mark not applicable and clear typed value
         </option>
       </select>
       <span className="mt-1 block text-xs leading-5 text-charcoal-600">
-        Destructive clear actions run only when selected here or when the status
-        is saved as blank or not applicable. Audit records the action, not the
-        raw value.
+        Preserve is safest for status-only updates. Replace and clear actions
+        are deliberate; destructive clear modes remove stored data on save.
+        Audit records the action, not the raw value.
       </span>
     </label>
   );

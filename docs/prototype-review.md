@@ -65,6 +65,9 @@ Vehicles records, and the initial authentication foundation.
 - APP&B manual field explicit clear controls make value and note clearing
   intentional through a clear action selector while keeping audit metadata
   value-free and workbook export blocked.
+- APP&B manual field operator UX now adds compact status guidance and clearer
+  preserve, replace and destructive clear wording while keeping manual values
+  hidden outside the authorised editing context.
 - APP&B exact workbook range mapping metadata now tracks reviewed/review-needed,
   formula-blocked, hidden-sheet and repeatable target status counts while
   keeping workbook export blocked.
