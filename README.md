@@ -103,12 +103,16 @@ values. The seed does not create authentication accounts, store cursor/Fulcrum
 secrets, store AI provider credentials or call external APIs.
 
 After seeding, follow the
+[local disposable-database APP&B smoke-test runbook](docs/appb-reporting.md#local-disposable-database-smoke-test-runbook)
+for the complete safe command order, expected value-free output and common
+local failure guidance. Then complete the
 [local APP&B seed smoke-test checklist](docs/appb-reporting.md#local-seed-smoke-test-checklist)
 to verify the runtime readiness panel, fake manual-field editing context,
 three-event history limit, two-event load-more path, safe rejected-note reason
 count and blocked workbook export state. The automated command checks the
 seeded database/read-model invariants; the checklist remains the visual UI
-verification step.
+verification step. Neither check establishes production or workbook-export
+readiness.
 
 For deployment-style environments, use:
 

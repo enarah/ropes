@@ -461,6 +461,105 @@ manual-field metadata can show warning states and workbook export remains
 blocked. All seeded records are marked or named as fake/demo data and are not
 production fixtures.
 
+## Local Disposable-Database Smoke-Test Runbook
+
+This runbook verifies the seeded APP&B database invariants and the related
+browser UI on one developer machine. It is local/demo verification only:
+passing it does not establish production readiness or workbook-export
+readiness.
+
+### Safety before starting
+
+- Use only a disposable local PostgreSQL database. The seed rebuilds the
+  configured demo database, so never point these commands at production or at
+  any database containing data that must be retained.
+- Put the local `DATABASE_URL` in the ignored `.env` file, not in source,
+  terminal output, screenshots, issues or chat. Confirm `.env` remains outside
+  version control before continuing.
+- Keep any `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` server-side. Do not print
+  or paste the secret, cursor tokens, payloads, signatures or secret lengths.
+- Do not copy workbook values, manual APP&B values or rejected unsafe note text
+  into smoke-test output or troubleshooting notes.
+
+### Run the disposable database check
+
+1. Create or select an empty, disposable PostgreSQL database on the local
+   development machine.
+2. Copy `.env.example` to the ignored `.env` file if needed, then set its
+   `DATABASE_URL` to that disposable database. Do not paste the URL into this
+   guide or command output. Recheck the selected host and database name before
+   running the seed.
+3. From the repository root, run the commands in this order:
+
+   ```bash
+   npm install
+   npm run db:generate
+   npm run db:migrate
+   npm run db:seed
+   npm run smoke:appb
+   ```
+
+4. A successful smoke command prints only these value-free lines:
+
+   ```text
+   PASS demo organisation exists
+   PASS APP&B capabilities enabled
+   PASS APP&B reports found
+   PASS manual field examples present
+   PASS mapping review decision found
+   PASS five value-free history events found
+   PASS newest three default history events available
+   PASS two older history events available
+   PASS rejected-note reason count present without rejected text
+   PASS workbook export remains unavailable
+   PASS APP&B smoke test completed safely
+   ```
+
+5. Start the local app in a separate terminal with `npm run dev`.
+6. Open
+   `http://localhost:3000/reports/appb?org=ropes-demo-aboriginal-corporation`.
+7. Complete the [Local Seed Smoke-Test Checklist](#local-seed-smoke-test-checklist)
+   below. The command checks database/read-model invariants; the checklist is a
+   separate visual check of the readiness panel, authorised editing context,
+   history disclosure/load-more and blocked export state.
+
+### Runbook troubleshooting
+
+- **Missing `DATABASE_URL`:** the command fails safely. Set it only in the
+  ignored local `.env`, confirm the app process loads that file, and never print
+  the value while diagnosing the failure.
+- **Wrong database selected:** stop before migrating or seeding. Recheck the
+  local host and database name privately. If the seed was run against a
+  non-disposable database, stop and follow the database owner's recovery
+  process; do not keep running this runbook.
+- **Migrations not applied:** run `npm run db:generate` and
+  `npm run db:migrate` against the same disposable database, then rerun the
+  seed and smoke command.
+- **Seed not run or demo slug missing:** run `npm run db:seed` against the same
+  disposable database. The expected organisation slug is exactly
+  `ropes-demo-aboriginal-corporation`.
+- **Stale or edited demo data:** the smoke command intentionally fails when its
+  small seed invariants change. Rebuild the disposable data with
+  `npm run db:seed`; do not weaken the checks to accommodate manually edited
+  fixtures.
+- **Cursor fallback changes after restart:** the non-production process-local
+  fallback is regenerated when the app process restarts. Refresh the APP&B page
+  before loading older events, or configure a valid stable local secret without
+  exposing it.
+- **Browser auth/session unavailable:** use the documented labelled local demo
+  session, or authenticate as a seeded user with active organisation
+  membership. Do not bypass tenant guards.
+- **Capabilities missing:** rerun the current seed and use the exact demo
+  organisation. The four required capabilities are `reporting`,
+  `reporting.appb`, `grants` and `grants.appb`.
+- **Command passes but UI differs:** the command does not render a browser.
+  Keep it separate from the manual checklist and complete both checks before
+  reporting local demo verification.
+
+This runbook is not a CI database harness, deployment health check, production
+readiness review or export test. It makes no workbook export available and does
+not generate XLSX files.
+
 ## Local Seed Smoke-Test Checklist
 
 Use this checklist to confirm local demo behavior only. Passing it does not
