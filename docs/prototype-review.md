@@ -141,6 +141,11 @@ Vehicles records, and the initial authentication foundation.
   the exact demo APP&B route, readiness/capability rows, authorised manual-value
   visibility, three initial plus two load-more history events, the safe rejected
   reason count and blocked export state, with tenant/config troubleshooting.
+- `npm run smoke:appb` now provides a local-only seeded-database check for the
+  demo organisation, capabilities, report/manual metadata presence, one review
+  decision, five value-free history events, three-plus-two cursor-boundary
+  behavior, safe rejected-reason metadata and blocked export state. Output is
+  limited to safe pass/fail labels and the manual checklist still covers UI.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
