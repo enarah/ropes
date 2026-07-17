@@ -3,6 +3,11 @@ import { FileSpreadsheet } from "lucide-react";
 import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { UnauthorisedState } from "@/components/unauthorised-state";
 import { APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT } from "@/lib/appb-mapping-review-history";
+import {
+  buildAppbRuntimeReadinessSummary,
+  type AppbRuntimeReadinessSummary,
+  type AppbRuntimeReadinessTone,
+} from "@/lib/appb-runtime-readiness";
 import { organisationHasCapability } from "@/lib/capability-registry";
 import { getOrganisationPageAccess } from "@/lib/organisation-access";
 import {
@@ -30,7 +35,7 @@ import {
 import {
   type AppbManualFieldOverview,
   type AppbReportOverview,
-  getGrantsAppbOverview,
+  getGrantsAppbRuntimeReadinessContext,
 } from "@/lib/grants-appb-data";
 import {
   saveAppbMappingReviewDecisionAction,
@@ -97,7 +102,10 @@ export default async function AppbReportingPage({
     );
   }
 
-  const overview = await getGrantsAppbOverview(access.organisation.slug);
+  const runtimeContext = await getGrantsAppbRuntimeReadinessContext(
+    access.organisation.slug,
+  );
+  const overview = runtimeContext.overview;
   const reportingPeriodCount = overview.grants.reduce(
     (count, grant) => count + grant.reportingPeriods.length,
     0,
@@ -106,6 +114,15 @@ export default async function AppbReportingPage({
     (count, grant) => count + grant.appbReportCount,
     0,
   );
+  const runtimeReadiness = buildAppbRuntimeReadinessSummary({
+    accessMode: access.mode,
+    appbReportCount,
+    capabilityKeys: access.organisation.capabilityKeys,
+    cursorConfigurationStatus: runtimeContext.cursorConfigurationStatus,
+    databaseAvailable: overview.isDatabaseAvailable,
+    databaseConfigured: overview.isDatabaseConfigured,
+    reportDataCheckPerformed: runtimeContext.reportDataCheckPerformed,
+  });
 
   return (
     <div className="space-y-6">
@@ -132,6 +149,11 @@ export default async function AppbReportingPage({
       </section>
 
       {statusMessage ? <StatusBanner {...statusMessage} /> : null}
+
+      <AppbRuntimeReadinessPanel
+        organisationName={access.organisation.name}
+        summary={runtimeReadiness}
+      />
 
       <section className="grid gap-4 md:grid-cols-4">
         <SummaryCard label="Grants" value={String(overview.grants.length)} />
@@ -507,6 +529,70 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
       <p className="text-sm font-medium text-charcoal-600">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-charcoal-950">{value}</p>
     </article>
+  );
+}
+
+function AppbRuntimeReadinessPanel({
+  organisationName,
+  summary,
+}: {
+  organisationName: string;
+  summary: AppbRuntimeReadinessSummary;
+}) {
+  return (
+    <Panel title="APP&B runtime readiness">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <p className="max-w-3xl text-sm leading-6 text-charcoal-600">
+          Safe operator status for {organisationName}. This summary contains
+          configuration and metadata status only—never secrets, workbook
+          values, manual APP&B values or rejected note text.
+        </p>
+        <span className="w-fit rounded-md bg-earth-100 px-2.5 py-1 text-xs font-semibold text-charcoal-700">
+          Value-free
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {summary.rows.map((row) => (
+          <article
+            className="rounded-md border border-earth-200 bg-earth-50 p-3"
+            key={row.label}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-semibold text-charcoal-950">
+                {row.label}
+              </p>
+              <AppbRuntimeReadinessBadge state={row.state} tone={row.tone} />
+            </div>
+            <p className="mt-2 text-xs leading-5 text-charcoal-600">
+              {row.detail}
+            </p>
+          </article>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function AppbRuntimeReadinessBadge({
+  state,
+  tone,
+}: {
+  state: string;
+  tone: AppbRuntimeReadinessTone;
+}) {
+  const className =
+    tone === "pass"
+      ? "bg-green-50 text-green-800"
+      : tone === "block"
+        ? "bg-red-50 text-red-800"
+        : "bg-ochre-50 text-ochre-800";
+
+  return (
+    <span
+      className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${className}`}
+    >
+      {state}
+    </span>
   );
 }
 

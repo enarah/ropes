@@ -171,6 +171,13 @@ must refresh the report afterward. The complete operator and safe-data
 checklist is in the
 [APP&B reporting guide](docs/appb-reporting.md#production-readiness-checklist).
 
+Authorised operators can also use the compact runtime readiness panel on
+`/reports/appb?org=...` to confirm database access, active tenant membership,
+the four required capabilities, safe cursor-signing status, report presence and
+value-free history support. The panel exposes status wording only: it never
+shows secrets, workbook/manual values or rejected unsafe note text, and it
+continues to mark workbook export and XLSX generation as blocked.
+
 ## Fulcrum token encryption setup
 
 ROPES can store a per-organisation Fulcrum API token encrypted at rest for the
@@ -334,6 +341,9 @@ The current app includes:
 - Read-only APP&B report readiness summaries on `/reports/appb`, showing safe
   status counts, top blockers and next actions for each report without exposing
   finance, personnel, narrative or workbook values
+- Tenant- and capability-gated APP&B runtime readiness panel with value-free
+  database, membership, capability, cursor-configuration, report-presence and
+  history-support status, while workbook export remains visibly blocked
 - APP&B manual report field capture foundation with organisation-scoped
   `AppbManualFieldValue` records, bounded status/type/sensitivity values,
   safe summary counts, guarded updates and audit metadata without exposing raw

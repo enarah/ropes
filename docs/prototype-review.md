@@ -127,6 +127,11 @@ Vehicles records, and the initial authentication foundation.
   documents deployment of review/history foundations only; workbook export,
   XLSX generation, uploaded templates, AI calls, APP&B-specific external
   services and broad audit-log browsing remain unavailable.
+- APP&B now has a compact runtime readiness panel shown only after tenant and
+  capability guards pass. It reports safe database, membership, capability,
+  cursor-configuration, report-presence and value-free-history status without
+  exposing secret details, workbook/manual values or rejected unsafe note text;
+  export remains blocked and unsupported areas remain explicitly labelled.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
