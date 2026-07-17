@@ -363,36 +363,187 @@ async function main() {
           reportingPeriodId: irpPlanningReport.reportingPeriodId,
           sensitivity: "NARRATIVE",
           status: "ENTERED",
+          valueText:
+            "Fake demo narrative placeholder for authorised editing only.",
         },
       ],
     });
 
-    await prisma.appbMappingReviewDecisionRecord.create({
-      data: {
-        appbReportId: irpPlanningReport.id,
-        auditMetadataJson: {
-          decision: "mark-reviewed",
-          event: "appb_mapping_review_decision_seeded",
-          reviewStatus: "reviewed",
-          safeNoteLength: 63,
+    const mappingReviewSafeNote =
+      "Fake demo note: organisation name mapping reviewed as metadata.";
+    const mappingReviewDecision =
+      await prisma.appbMappingReviewDecisionRecord.create({
+        data: {
+          appbReportId: irpPlanningReport.id,
+          auditMetadataJson: {
+            decision: "mark-reviewed",
+            event: "appb_mapping_review_decision_seeded",
+            reviewStatus: "reviewed",
+            safeNoteLength: mappingReviewSafeNote.length,
+            targetId: "organisation-name-range-mapping",
+            targetKind: "field-mapping",
+            templateVersionId:
+              "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+            valueFree: true,
+          },
+          decision: "MARK_REVIEWED",
+          grantId: irpPlanningReport.grantId,
+          organisationId: partner.id,
+          reportingPeriodId: irpPlanningReport.reportingPeriodId,
+          reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
+          reviewerDisplayName: "Fake demo reviewer",
+          reviewerUserId: users.operationsManager.id,
+          reviewStatus: "REVIEWED",
+          safeNote: mappingReviewSafeNote,
           targetId: "organisation-name-range-mapping",
-          targetKind: "field-mapping",
+          targetKind: "FIELD_MAPPING",
           templateVersionId: "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+        },
+      });
+
+    await prisma.appbMappingReviewDecisionHistoryRecord.createMany({
+      data: [
+        {
+          appbReportId: irpPlanningReport.id,
+          createdAt: new Date("2026-05-01T00:01:00.000Z"),
+          newDecision: "KEEP_NEEDS_REVIEW",
+          newReviewStatus: "NEEDS_REVIEW",
+          organisationId: partner.id,
+          reviewedAt: new Date("2026-05-01T00:00:00.000Z"),
+          reviewerDisplayName: "Fake demo reviewer",
+          reviewerUserId: users.operationsManager.id,
+          reviewDecisionId: mappingReviewDecision.id,
+          safeNote: "Fake metadata review started.",
+          targetId: "organisation-name-range-mapping",
+          targetKind: "FIELD_MAPPING",
+          templateVersionId:
+            "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
           valueFree: true,
         },
-        decision: "MARK_REVIEWED",
-        grantId: irpPlanningReport.grantId,
-        organisationId: partner.id,
-        reportingPeriodId: irpPlanningReport.reportingPeriodId,
-        reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
-        reviewerDisplayName: "Fake demo reviewer",
-        reviewStatus: "REVIEWED",
-        safeNote:
-          "Fake demo note: organisation name mapping reviewed as metadata.",
-        targetId: "organisation-name-range-mapping",
-        targetKind: "FIELD_MAPPING",
-        templateVersionId: "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
-      },
+        {
+          appbReportId: irpPlanningReport.id,
+          createdAt: new Date("2026-05-15T00:01:00.000Z"),
+          newDecision: "MARK_UNMAPPED",
+          newReviewStatus: "UNMAPPED",
+          organisationId: partner.id,
+          previousDecision: "KEEP_NEEDS_REVIEW",
+          previousReviewStatus: "NEEDS_REVIEW",
+          reviewedAt: new Date("2026-05-15T00:00:00.000Z"),
+          reviewerDisplayName: "Fake demo reviewer",
+          reviewerUserId: users.operationsManager.id,
+          reviewDecisionId: mappingReviewDecision.id,
+          safeNote: "Fake metadata target marked unmapped.",
+          targetId: "organisation-name-range-mapping",
+          targetKind: "FIELD_MAPPING",
+          templateVersionId:
+            "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+          valueFree: true,
+        },
+        {
+          appbReportId: irpPlanningReport.id,
+          createdAt: new Date("2026-06-01T00:01:00.000Z"),
+          newDecision: "KEEP_NEEDS_REVIEW",
+          newReviewStatus: "NEEDS_REVIEW",
+          organisationId: partner.id,
+          previousDecision: "MARK_UNMAPPED",
+          previousReviewStatus: "UNMAPPED",
+          reviewedAt: new Date("2026-06-01T00:00:00.000Z"),
+          reviewerDisplayName: "Fake demo reviewer",
+          reviewerUserId: users.operationsManager.id,
+          reviewDecisionId: mappingReviewDecision.id,
+          safeNote: "Fake metadata review reopened.",
+          targetId: "organisation-name-range-mapping",
+          targetKind: "FIELD_MAPPING",
+          templateVersionId:
+            "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+          valueFree: true,
+        },
+        {
+          appbReportId: irpPlanningReport.id,
+          createdAt: new Date("2026-06-15T00:01:00.000Z"),
+          newDecision: "MARK_BLOCKED_UNSUPPORTED",
+          newReviewStatus: "BLOCKED_UNSUPPORTED",
+          organisationId: partner.id,
+          previousDecision: "KEEP_NEEDS_REVIEW",
+          previousReviewStatus: "NEEDS_REVIEW",
+          reviewedAt: new Date("2026-06-15T00:00:00.000Z"),
+          reviewerDisplayName: "Fake demo reviewer",
+          reviewerUserId: users.operationsManager.id,
+          reviewDecisionId: mappingReviewDecision.id,
+          safeNote: "Fake metadata target temporarily blocked.",
+          targetId: "organisation-name-range-mapping",
+          targetKind: "FIELD_MAPPING",
+          templateVersionId:
+            "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+          valueFree: true,
+        },
+        {
+          appbReportId: irpPlanningReport.id,
+          createdAt: new Date("2026-07-01T00:01:00.000Z"),
+          newDecision: "MARK_REVIEWED",
+          newReviewStatus: "REVIEWED",
+          organisationId: partner.id,
+          previousDecision: "MARK_BLOCKED_UNSUPPORTED",
+          previousReviewStatus: "BLOCKED_UNSUPPORTED",
+          reviewedAt: new Date("2026-07-01T00:00:00.000Z"),
+          reviewerDisplayName: "Fake demo reviewer",
+          reviewerUserId: users.operationsManager.id,
+          reviewDecisionId: mappingReviewDecision.id,
+          safeNote: mappingReviewSafeNote,
+          targetId: "organisation-name-range-mapping",
+          targetKind: "FIELD_MAPPING",
+          templateVersionId:
+            "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+          valueFree: true,
+        },
+      ],
+    });
+
+    await prisma.auditLog.createMany({
+      data: [
+        {
+          action: "REJECTED",
+          actorUserId: users.operationsManager.id,
+          entityId: irpPlanningReport.id,
+          entityType: "AppbMappingReviewDecisionRecord",
+          metadata: {
+            appbReportId: irpPlanningReport.id,
+            decision: "mark-reviewed",
+            event: "appb_mapping_review_note_rejected",
+            noteLength: 18,
+            rejectionReasonCode: "workbook-cell-or-formula",
+            targetId: "organisation-name-range-mapping",
+            targetKind: "field-mapping",
+            templateVersionId:
+              "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+            valueFree: true,
+          },
+          organisationId: partner.id,
+          summary:
+            "Rejected fake APP&B review note example; text was not stored.",
+        },
+        {
+          action: "REJECTED",
+          actorUserId: users.operationsManager.id,
+          entityId: irpPlanningReport.id,
+          entityType: "AppbMappingReviewDecisionRecord",
+          metadata: {
+            appbReportId: irpPlanningReport.id,
+            decision: "mark-reviewed",
+            event: "appb_mapping_review_note_rejected",
+            noteLength: 24,
+            rejectionReasonCode: "workbook-cell-or-formula",
+            targetId: "organisation-name-range-mapping",
+            targetKind: "field-mapping",
+            templateVersionId:
+              "niaa-irp-ipa-mdbirr-2025-26-annual-planning",
+            valueFree: true,
+          },
+          organisationId: partner.id,
+          summary:
+            "Rejected fake APP&B review note example; text was not stored.",
+        },
+      ],
     });
   }
 

@@ -87,9 +87,13 @@ npm run db:seed
 The seed creates fake organisations, users, memberships, roles, projects,
 ranger programs, organisation capability toggles, trips, trip risk
 assessments, vehicles, bookings, vehicle pre-starts, vehicle defects, vehicle
-maintenance records, Fulcrum placeholders and audit logs. It does not create
-authentication accounts, store Fulcrum tokens, store AI provider credentials or
-call external APIs.
+maintenance records, Fulcrum placeholders and audit logs. The demo partner also
+has APP&B capabilities, fake grant/report records, safe manual-field examples,
+a current mapping decision, five value-free history events and value-free
+rejected-note reason metadata. This exercises the three-event default and
+per-target load-more without storing rejected text or real workbook/manual
+values. The seed does not create authentication accounts, store cursor/Fulcrum
+secrets, store AI provider credentials or call external APIs.
 
 For deployment-style environments, use:
 

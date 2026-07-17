@@ -132,6 +132,11 @@ Vehicles records, and the initial authentication foundation.
   cursor-configuration, report-presence and value-free-history status without
   exposing secret details, workbook/manual values or rejected unsafe note text;
   export remains blocked and unsupported areas remain explicitly labelled.
+- The fake demo partner seed now exercises that panel and the review/history
+  foundation with APP&B capabilities, fake grant/report and manual-field
+  examples, one current mapping decision, five value-free history events and
+  safe rejected-note reason metadata only. It stores no rejected text, real
+  workbook/manual values or cursor secret, and export remains blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

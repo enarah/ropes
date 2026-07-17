@@ -431,6 +431,36 @@ manual APP&B values, review-note text, rejected unsafe note text or raw audit
 logs. The panel is an operator aid, not a health endpoint or capability-
 management interface.
 
+## Safe Demo Seed Coverage
+
+Running `npm run db:seed` rebuilds the clearly fake local demo dataset. The
+`ROPES Demo Aboriginal Corporation` organisation has `reporting`,
+`reporting.appb`, `grants` and `grants.appb` enabled so an authorised local
+demo user can open:
+
+`/reports/appb?org=ropes-demo-aboriginal-corporation`
+
+The APP&B seed coverage includes:
+
+- fake organisation-scoped grants, reporting periods and APP&B reports
+- manual-field status examples for finance, narrative and personnel fields
+- one explicit fake narrative placeholder shown only in the authorised manual
+  editing context; no real manual APP&B or workbook values
+- one current fake mapping-review decision
+- five append-only `valueFree: true` decision-history events for the same target,
+  so the newest three load initially and two older events remain available
+  through per-target load-more
+- two fake rejected-note events containing only value-free reason/count metadata,
+  including safe IDs, a reason code and note length; the rejected text itself is
+  never seeded
+
+The seed does not set or store the cursor-signing secret. Runtime cursor status
+continues to come from server configuration, so local fallback/configured
+warnings can be exercised independently. Database/report rows can show ready,
+manual-field metadata can show warning states and workbook export remains
+blocked. All seeded records are marked or named as fake/demo data and are not
+production fixtures.
+
 ## Production Readiness Checklist
 
 APP&B is ready to deploy only as the current review/history foundation. An
