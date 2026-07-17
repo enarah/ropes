@@ -135,8 +135,9 @@ export default async function AppbReportingPage({
             APP&B reporting foundation
           </h1>
           <p className="mt-3 max-w-3xl text-base leading-7 text-charcoal-700">
-            Placeholder for future grant-scoped APP&B template mapping across
-            multiple funders, program types, grants and reporting periods.
+            Use this tenant-scoped foundation to review report readiness,
+            authorised manual fields and value-free mapping decisions and
+            history. Workbook export and XLSX generation remain blocked.
           </p>
         </div>
         <Link

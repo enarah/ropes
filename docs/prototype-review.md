@@ -150,6 +150,10 @@ Vehicles records, and the initial authentication foundation.
   install, Prisma generation, migration, seed, automated smoke and browser
   checklist sequence, with safe expected output and local-failure guidance. It
   explicitly excludes production, CI and workbook-export readiness.
+- APP&B operator guidance now documents the current tenant-scoped readiness,
+  manual-field, mapping-decision and value-free history workflow, distinguishes
+  local demo use from production operation and future export, and covers safe
+  failure handling while workbook export remains blocked.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
