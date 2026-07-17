@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "appb:inspect": "tsx scripts/inspect-appb-workbooks.ts",
+    "smoke:appb": "tsx scripts/smoke-appb-seed.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

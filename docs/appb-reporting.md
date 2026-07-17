@@ -566,6 +566,56 @@ contains data you need to keep.
 - **Organisation unavailable:** use the exact seeded slug
   `ropes-demo-aboriginal-corporation` and rerun the seed if it is missing.
 
+### Automated seeded-database check
+
+After migrations and seed complete, run:
+
+```bash
+npm run smoke:appb
+```
+
+This local-only TypeScript command checks the database support beneath the
+manual UI checklist. It fails with a safe non-zero result when `DATABASE_URL`
+is missing, the database is unavailable, migrations/seed are incomplete or a
+seed invariant is not met. It prints compact `PASS`/`FAIL` descriptions only.
+
+The command verifies:
+
+- the exact demo organisation and all four APP&B capabilities
+- fake APP&B report and manual-field example presence using IDs, statuses and
+  counts only; manual values are not selected
+- the seeded mapping-review decision
+- exactly five history rows for the seeded target, all `valueFree: true`
+- the existing three-event default query and two-event older-history boundary
+  used by load-more, without creating or printing a cursor token
+- two safe rejected-note metadata events aggregated to the expected reason
+  count, with a strict metadata-key allowlist and the approved generic audit
+  summary; rejected text is neither selected nor printed
+- the code-level generated-workbook marker remains disabled and seeded reports
+  have no exported status or timestamp
+
+Expected successful output is limited to safe lines such as:
+
+```text
+PASS demo organisation exists
+PASS APP&B capabilities enabled
+PASS APP&B reports found
+PASS manual field examples present
+PASS mapping review decision found
+PASS five value-free history events found
+PASS newest three default history events available
+PASS two older history events available
+PASS rejected-note reason count present without rejected text
+PASS workbook export remains unavailable
+PASS APP&B smoke test completed safely
+```
+
+The command does not make HTTP requests, start a browser, call AI/external
+services, generate XLSX files, expose raw audit logs or verify visual rendering.
+Continue to use the manual checklist above for the runtime panel and disclosure
+UI. Never paste a database URL, cursor secret, cursor token or sensitive value
+into smoke-test output or an issue.
+
 ## Production Readiness Checklist
 
 APP&B is ready to deploy only as the current review/history foundation. An

@@ -84,6 +84,13 @@ Seed clearly fake demo data:
 npm run db:seed
 ```
 
+Verify the seeded APP&B database invariants without printing manual values,
+cursor data or rejected text:
+
+```bash
+npm run smoke:appb
+```
+
 The seed creates fake organisations, users, memberships, roles, projects,
 ranger programs, organisation capability toggles, trips, trip risk
 assessments, vehicles, bookings, vehicle pre-starts, vehicle defects, vehicle
@@ -99,7 +106,9 @@ After seeding, follow the
 [local APP&B seed smoke-test checklist](docs/appb-reporting.md#local-seed-smoke-test-checklist)
 to verify the runtime readiness panel, fake manual-field editing context,
 three-event history limit, two-event load-more path, safe rejected-note reason
-count and blocked workbook export state.
+count and blocked workbook export state. The automated command checks the
+seeded database/read-model invariants; the checklist remains the visual UI
+verification step.
 
 For deployment-style environments, use:
 
