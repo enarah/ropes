@@ -16,6 +16,7 @@ import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
   buildAppbMappingReviewHistoryCursorBoundary,
   buildAppbMappingReviewHistoryCursorPageMetadata,
+  isAppbMappingReviewHistoryCursorAnchor,
   parseAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
   type AppbMappingReviewHistoryLoadMoreInput,
@@ -695,7 +696,7 @@ export async function loadOlderAppbMappingReviewHistoryAction(
     } satisfies Prisma.AppbMappingReviewDecisionHistoryRecordWhereInput;
     const cursorRecord =
       await prisma.appbMappingReviewDecisionHistoryRecord.findFirst({
-        select: { id: true },
+        select: { createdAt: true, id: true, reviewedAt: true },
         where: {
           ...historyWhere,
           createdAt: request.cursor.createdAt,
@@ -704,7 +705,9 @@ export async function loadOlderAppbMappingReviewHistoryAction(
         },
       });
 
-    if (!cursorRecord) {
+    if (
+      !isAppbMappingReviewHistoryCursorAnchor(request.cursor, cursorRecord)
+    ) {
       throw new AppbMappingReviewValidationError(
         "APP&B mapping review history cursor was not found for this target.",
       );

@@ -326,14 +326,16 @@ out of scope.
 
 `loadOlderAppbMappingReviewHistoryAction` provides the small per-target
 load-more path. Its request includes organisation slug, APP&B report ID, target
-kind, target ID, template version ID and an opaque cursor made only from the
-last loaded history record's reviewed timestamp, created timestamp and ID.
-Before reading it:
+kind, target ID, template version ID and an HMAC-SHA-256-signed opaque cursor.
+The versioned cursor payload contains only the last loaded history record's
+reviewed timestamp, created timestamp and ID; the server-side signing secret is
+never included. Before reading it:
 
 - requires an authenticated active organisation membership
 - confirms the APP&B report belongs to that organisation
 - checks `reporting`, `reporting.appb`, `grants` and `grants.appb` capabilities
 - resolves the organisation/report/target/current-decision/template scope
+- verifies the cursor signature before accepting its value-free payload
 - verifies the cursor anchor belongs to that exact value-free target history
 - filters history by that decision relation, organisation, report, target,
   template version and `valueFree: true`
@@ -344,6 +346,15 @@ available. Cursor boundaries use reviewed timestamp, created timestamp and ID,
 matching the query order so concurrent inserts do not shift later pages. It
 returns no current decision record, rejected-note counts, raw
 audit logs, workbook values, manual APP&B values or rejected unsafe note text.
+Invalid signatures, unsupported versions and stale or mismatched anchors fail
+with the same safe invalid-request response and do not expose target data.
+
+Production deployments must configure a dedicated
+`APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` of at least 32 UTF-8 bytes. When it
+is absent or too short in production, cursor creation and parsing fail closed.
+Outside production only, ROPES creates a random process-local development
+secret; cursors safely become stale when that process restarts. This fallback
+is not exposed to the client and must not be used as production configuration.
 
 The save action is tenant-guarded and APP&B capability-gated. Audit metadata
 records safe IDs, target kind, decision, review status and note length only; it

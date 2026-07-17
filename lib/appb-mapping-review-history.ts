@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type {
   AppbMappingReviewDecision,
   AppbMappingReviewDecisionHistoryEntry,
@@ -7,8 +8,15 @@ import type {
 
 export const APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT = 3;
 
-const APPB_MAPPING_REVIEW_HISTORY_CURSOR_VERSION = 1;
+const APPB_MAPPING_REVIEW_HISTORY_CURSOR_VERSION = 2;
 const APPB_MAPPING_REVIEW_HISTORY_MAX_CURSOR_LENGTH = 1_000;
+const APPB_MAPPING_REVIEW_HISTORY_MINIMUM_SECRET_BYTES = 32;
+const APPB_MAPPING_REVIEW_HISTORY_SIGNATURE_PATTERN =
+  /^[A-Za-z0-9_-]{43}$/;
+
+const globalForAppbMappingReviewHistory = globalThis as typeof globalThis & {
+  appbMappingReviewHistoryDevelopmentCursorSecret?: string;
+};
 
 export type AppbMappingReviewHistoryCursorRecord = {
   createdAt: Date | string;
@@ -135,13 +143,16 @@ export function countOlderAppbMappingReviewHistoryEvents(
 
 export function createAppbMappingReviewHistoryCursor(
   record: AppbMappingReviewHistoryCursorRecord,
+  signingSecret?: string,
 ) {
   const createdAt = normaliseCursorDate(record.createdAt);
   const reviewedAt = normaliseCursorDate(record.reviewedAt);
+  const secret = resolveAppbMappingReviewHistoryCursorSecret(signingSecret);
 
   if (
     !createdAt ||
     !reviewedAt ||
+    !secret ||
     typeof record.id !== "string" ||
     record.id.length === 0 ||
     record.id.length > 200
@@ -149,18 +160,22 @@ export function createAppbMappingReviewHistoryCursor(
     return undefined;
   }
 
-  return encodeURIComponent(
+  const payload = Buffer.from(
     JSON.stringify({
       c: createdAt.toISOString(),
       i: record.id,
       r: reviewedAt.toISOString(),
       v: APPB_MAPPING_REVIEW_HISTORY_CURSOR_VERSION,
     }),
-  );
+    "utf8",
+  ).toString("base64url");
+
+  return `${payload}.${signAppbMappingReviewHistoryCursorPayload(payload, secret)}`;
 }
 
 export function parseAppbMappingReviewHistoryCursor(
   cursor: string,
+  signingSecret?: string,
 ): AppbMappingReviewHistoryCursor | undefined {
   if (
     typeof cursor !== "string" ||
@@ -171,7 +186,31 @@ export function parseAppbMappingReviewHistoryCursor(
   }
 
   try {
-    const value = JSON.parse(decodeURIComponent(cursor)) as Record<
+    const secret = resolveAppbMappingReviewHistoryCursorSecret(signingSecret);
+    const [payload, signature, extraSegment] = cursor.split(".");
+
+    if (
+      !secret ||
+      !payload ||
+      !signature ||
+      extraSegment !== undefined ||
+      !APPB_MAPPING_REVIEW_HISTORY_SIGNATURE_PATTERN.test(signature) ||
+      !verifyAppbMappingReviewHistoryCursorSignature(
+        payload,
+        signature,
+        secret,
+      )
+    ) {
+      return undefined;
+    }
+
+    const payloadBuffer = Buffer.from(payload, "base64url");
+
+    if (payloadBuffer.toString("base64url") !== payload) {
+      return undefined;
+    }
+
+    const value = JSON.parse(payloadBuffer.toString("utf8")) as Record<
       string,
       unknown
     >;
@@ -218,10 +257,12 @@ export function buildAppbMappingReviewHistoryCursorBoundary(
 export function buildAppbMappingReviewHistoryCursorPageMetadata({
   lastRecord,
   loadedRecordCount,
+  signingSecret,
   totalOlderEventCount,
 }: {
   lastRecord?: AppbMappingReviewHistoryCursorRecord;
   loadedRecordCount: number;
+  signingSecret?: string;
   totalOlderEventCount: number;
 }) {
   const remainingCount = Math.max(
@@ -232,10 +273,80 @@ export function buildAppbMappingReviewHistoryCursorPageMetadata({
   return {
     nextCursor:
       remainingCount > 0 && lastRecord
-        ? createAppbMappingReviewHistoryCursor(lastRecord)
+        ? createAppbMappingReviewHistoryCursor(lastRecord, signingSecret)
         : undefined,
     remainingCount,
   };
+}
+
+export function isAppbMappingReviewHistoryCursorAnchor(
+  cursor: AppbMappingReviewHistoryCursor,
+  record?: AppbMappingReviewHistoryCursorRecord | null,
+) {
+  const createdAt = normaliseCursorDate(record?.createdAt);
+  const reviewedAt = normaliseCursorDate(record?.reviewedAt);
+
+  return Boolean(
+    record &&
+      createdAt &&
+      reviewedAt &&
+      record.id === cursor.id &&
+      createdAt.getTime() === cursor.createdAt.getTime() &&
+      reviewedAt.getTime() === cursor.reviewedAt.getTime(),
+  );
+}
+
+function resolveAppbMappingReviewHistoryCursorSecret(
+  signingSecret?: string,
+) {
+  const configuredSecret =
+    signingSecret ??
+    process.env["APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET"];
+
+  if (configuredSecret?.trim()) {
+    return Buffer.byteLength(configuredSecret, "utf8") >=
+      APPB_MAPPING_REVIEW_HISTORY_MINIMUM_SECRET_BYTES
+      ? configuredSecret
+      : undefined;
+  }
+
+  if (process.env["NODE_ENV"] === "production") {
+    return undefined;
+  }
+
+  globalForAppbMappingReviewHistory.appbMappingReviewHistoryDevelopmentCursorSecret ??=
+    randomBytes(APPB_MAPPING_REVIEW_HISTORY_MINIMUM_SECRET_BYTES).toString(
+      "base64url",
+    );
+
+  return globalForAppbMappingReviewHistory.appbMappingReviewHistoryDevelopmentCursorSecret;
+}
+
+function signAppbMappingReviewHistoryCursorPayload(
+  payload: string,
+  secret: string,
+) {
+  return createHmac("sha256", secret)
+    .update(payload, "utf8")
+    .digest("base64url");
+}
+
+function verifyAppbMappingReviewHistoryCursorSignature(
+  payload: string,
+  signature: string,
+  secret: string,
+) {
+  const expectedSignature = signAppbMappingReviewHistoryCursorPayload(
+    payload,
+    secret,
+  );
+  const actualBuffer = Buffer.from(signature, "utf8");
+  const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(actualBuffer, expectedBuffer)
+  );
 }
 
 function normaliseCursorDate(value: unknown) {

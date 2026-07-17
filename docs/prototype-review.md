@@ -110,6 +110,11 @@ Vehicles records, and the initial authentication foundation.
   ID ordering and is verified against the requested target before use. Current
   decision metadata and rejected-note counts remain separate, and workbook
   export remains blocked.
+- APP&B mapping review history cursors now use versioned HMAC-SHA-256
+  signatures backed by a dedicated server-side production secret. Signature
+  verification happens before the existing authorised target-anchor check;
+  tampered, unsupported and stale cursors fail safely while cursor content and
+  loaded history remain value-free.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.

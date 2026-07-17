@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
 import {
   APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT,
@@ -6,10 +7,14 @@ import {
   buildAppbMappingReviewHistoryCursorPageMetadata,
   countOlderAppbMappingReviewHistoryEvents,
   createAppbMappingReviewHistoryCursor,
+  isAppbMappingReviewHistoryCursorAnchor,
   parseAppbMappingReviewHistoryCursor,
   shapeAppbMappingReviewDecisionHistory,
   type AppbMappingReviewHistoryRecordInput,
 } from "../lib/appb-mapping-review-history";
+
+const cursorSigningSecret =
+  "test-only-appb-mapping-review-history-secret-32-bytes";
 
 test("APP&B mapping review history uses the compact three-event default", () => {
   assert.equal(APPB_MAPPING_REVIEW_HISTORY_DEFAULT_EVENT_LIMIT, 3);
@@ -22,34 +27,115 @@ test("APP&B mapping review history reports only unloaded older events", () => {
 });
 
 test("APP&B mapping review history creates and parses a value-free cursor", () => {
-  const cursor = createAppbMappingReviewHistoryCursor({
-    createdAt: "2026-07-17T09:59:59.000Z",
-    id: "history-3",
-    reviewedAt: "2026-07-17T10:00:00.000Z",
-  });
+  const cursor = createAppbMappingReviewHistoryCursor(
+    {
+      createdAt: "2026-07-17T09:59:59.000Z",
+      id: "history-3",
+      reviewedAt: "2026-07-17T10:00:00.000Z",
+    },
+    cursorSigningSecret,
+  );
 
   assert.ok(cursor);
-  assert.deepEqual(parseAppbMappingReviewHistoryCursor(cursor), {
-    createdAt: new Date("2026-07-17T09:59:59.000Z"),
-    id: "history-3",
-    reviewedAt: new Date("2026-07-17T10:00:00.000Z"),
-  });
+  assert.deepEqual(
+    parseAppbMappingReviewHistoryCursor(cursor, cursorSigningSecret),
+    {
+      createdAt: new Date("2026-07-17T09:59:59.000Z"),
+      id: "history-3",
+      reviewedAt: new Date("2026-07-17T10:00:00.000Z"),
+    },
+  );
+  const [payload, signature] = cursor.split(".");
+  const decodedPayload = JSON.parse(
+    Buffer.from(payload ?? "", "base64url").toString("utf8"),
+  ) as Record<string, unknown>;
+
+  assert.deepEqual(Object.keys(decodedPayload).sort(), ["c", "i", "r", "v"]);
+  assert.equal(typeof signature, "string");
   assert.equal(cursor.includes("workbook"), false);
 });
 
 test("APP&B mapping review history rejects malformed cursors", () => {
-  assert.equal(parseAppbMappingReviewHistoryCursor(""), undefined);
-  assert.equal(parseAppbMappingReviewHistoryCursor("not-json"), undefined);
+  assert.equal(
+    parseAppbMappingReviewHistoryCursor("", cursorSigningSecret),
+    undefined,
+  );
+  assert.equal(
+    parseAppbMappingReviewHistoryCursor("not-a-token", cursorSigningSecret),
+    undefined,
+  );
+});
+
+test("APP&B mapping review history rejects tampered payloads", () => {
+  const cursor = createTestCursor();
+  const [payload, signature] = cursor.split(".");
+  const tamperedPayload = `${payload?.slice(0, -1)}${payload?.endsWith("A") ? "B" : "A"}`;
+
   assert.equal(
     parseAppbMappingReviewHistoryCursor(
-      encodeURIComponent(
-        JSON.stringify({
-          c: "2026-07-17T09:59:59.000Z",
-          i: "history-3",
-          r: "2026-07-17T10:00:00.000Z",
-          v: 2,
-        }),
-      ),
+      `${tamperedPayload}.${signature}`,
+      cursorSigningSecret,
+    ),
+    undefined,
+  );
+});
+
+test("APP&B mapping review history rejects tampered signatures", () => {
+  const cursor = createTestCursor();
+  const [payload, signature] = cursor.split(".");
+  const tamperedSignature = `${signature?.slice(0, -1)}${signature?.endsWith("A") ? "B" : "A"}`;
+
+  assert.equal(
+    parseAppbMappingReviewHistoryCursor(
+      `${payload}.${tamperedSignature}`,
+      cursorSigningSecret,
+    ),
+    undefined,
+  );
+});
+
+test("APP&B mapping review history rejects a valid signature for an unsupported version", () => {
+  const payload = Buffer.from(
+    JSON.stringify({
+      c: "2026-07-17T09:59:59.000Z",
+      i: "history-3",
+      r: "2026-07-17T10:00:00.000Z",
+      v: 1,
+    }),
+    "utf8",
+  ).toString("base64url");
+  const signature = createHmac("sha256", cursorSigningSecret)
+    .update(payload, "utf8")
+    .digest("base64url");
+
+  assert.equal(
+    parseAppbMappingReviewHistoryCursor(
+      `${payload}.${signature}`,
+      cursorSigningSecret,
+    ),
+    undefined,
+  );
+});
+
+test("APP&B mapping review history rejects cursors signed with another secret", () => {
+  assert.equal(
+    parseAppbMappingReviewHistoryCursor(
+      createTestCursor(),
+      "another-test-only-cursor-signing-secret-with-32-bytes",
+    ),
+    undefined,
+  );
+});
+
+test("APP&B mapping review history rejects a configured secret shorter than 32 bytes", () => {
+  assert.equal(
+    createAppbMappingReviewHistoryCursor(
+      {
+        createdAt: "2026-07-17T09:59:59.000Z",
+        id: "history-3",
+        reviewedAt: "2026-07-17T10:00:00.000Z",
+      },
+      "too-short",
     ),
     undefined,
   );
@@ -57,11 +143,15 @@ test("APP&B mapping review history rejects malformed cursors", () => {
 
 test("APP&B mapping review history builds the stable newest-first cursor boundary", () => {
   const cursor = parseAppbMappingReviewHistoryCursor(
-    createAppbMappingReviewHistoryCursor({
-      createdAt: "2026-07-17T09:59:59.000Z",
-      id: "history-3",
-      reviewedAt: "2026-07-17T10:00:00.000Z",
-    }) ?? "",
+    createAppbMappingReviewHistoryCursor(
+      {
+        createdAt: "2026-07-17T09:59:59.000Z",
+        id: "history-3",
+        reviewedAt: "2026-07-17T10:00:00.000Z",
+      },
+      cursorSigningSecret,
+    ) ?? "",
+    cursorSigningSecret,
   );
 
   assert.ok(cursor);
@@ -90,25 +180,73 @@ test("APP&B mapping review history shapes safe cursor page metadata", () => {
   const page = buildAppbMappingReviewHistoryCursorPageMetadata({
     lastRecord,
     loadedRecordCount: 3,
+    signingSecret: cursorSigningSecret,
     totalOlderEventCount: 5,
   });
 
   assert.equal(page.remainingCount, 2);
   assert.ok(page.nextCursor);
-  assert.deepEqual(parseAppbMappingReviewHistoryCursor(page.nextCursor), {
-    createdAt: new Date(lastRecord.createdAt),
-    id: lastRecord.id,
-    reviewedAt: new Date(lastRecord.reviewedAt),
-  });
+  assert.deepEqual(
+    parseAppbMappingReviewHistoryCursor(
+      page.nextCursor,
+      cursorSigningSecret,
+    ),
+    {
+      createdAt: new Date(lastRecord.createdAt),
+      id: lastRecord.id,
+      reviewedAt: new Date(lastRecord.reviewedAt),
+    },
+  );
   assert.deepEqual(
     buildAppbMappingReviewHistoryCursorPageMetadata({
       lastRecord,
       loadedRecordCount: 2,
+      signingSecret: cursorSigningSecret,
       totalOlderEventCount: 2,
     }),
     { nextCursor: undefined, remainingCount: 0 },
   );
 });
+
+test("APP&B mapping review history rejects stale or mismatched cursor anchors", () => {
+  const cursor = parseAppbMappingReviewHistoryCursor(
+    createTestCursor(),
+    cursorSigningSecret,
+  );
+
+  assert.ok(cursor);
+  assert.equal(isAppbMappingReviewHistoryCursorAnchor(cursor, null), false);
+  assert.equal(
+    isAppbMappingReviewHistoryCursorAnchor(cursor, {
+      createdAt: cursor.createdAt,
+      id: "another-history-record",
+      reviewedAt: cursor.reviewedAt,
+    }),
+    false,
+  );
+  assert.equal(
+    isAppbMappingReviewHistoryCursorAnchor(cursor, {
+      createdAt: cursor.createdAt,
+      id: cursor.id,
+      reviewedAt: cursor.reviewedAt,
+    }),
+    true,
+  );
+});
+
+function createTestCursor() {
+  const cursor = createAppbMappingReviewHistoryCursor(
+    {
+      createdAt: "2026-07-17T09:59:59.000Z",
+      id: "history-3",
+      reviewedAt: "2026-07-17T10:00:00.000Z",
+    },
+    cursorSigningSecret,
+  );
+
+  assert.ok(cursor);
+  return cursor;
+}
 
 const target = {
   appbReportId: "report-1",
