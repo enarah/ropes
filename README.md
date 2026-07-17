@@ -97,6 +97,20 @@ For deployment-style environments, use:
 npm run db:deploy
 ```
 
+Production deployments must also set one stable, server-side APP&B history
+cursor secret on every application instance:
+
+```bash
+APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET="generate-with-openssl-rand-base64-32"
+```
+
+Generate it with `openssl rand -base64 32`. ROPES validates this setting when
+the APP&B reporting overview is loaded in production and raises a server-side
+configuration error if it is missing or shorter than 32 UTF-8 bytes. Keep the
+same secret across instances. Rotating it safely invalidates outstanding
+history cursors, so users must refresh the report to receive a newly signed
+cursor. The secret is never returned to the client.
+
 ## Authentication setup
 
 ROPES uses Auth.js/NextAuth with JWT sessions for the initial authentication

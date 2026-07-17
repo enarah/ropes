@@ -115,6 +115,11 @@ Vehicles records, and the initial authentication foundation.
   verification happens before the existing authorised target-anchor check;
   tampered, unsupported and stale cursors fail safely while cursor content and
   loaded history remain value-free.
+- APP&B cursor signing configuration now has a central production runtime
+  validator. The APP&B overview fails with a clear server-side configuration
+  error when the stable shared secret is missing or shorter than 32 UTF-8
+  bytes, while the process-local non-production fallback remains available and
+  no secret enters cursor payloads or client responses.
 - Trips MVP with Prisma-backed core trip reads/create/update and persisted
   participant, vehicle allocation and itinerary rows when a local database is
   configured, plus demo fallback when no database is available.
