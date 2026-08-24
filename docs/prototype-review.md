@@ -294,6 +294,44 @@ seed data, APP&B workbook export behaviour, XLSX generation, uploaded template
 storage, AI calls, external services, tenant guards, capability checks or
 value-free APP&B review/history boundaries.
 
+## Runtime dependency audit triage snapshot
+
+On 24 August 2026, runtime audit triage for issue #136 inspected:
+
+```bash
+npm audit --omit=dev
+npm audit --json --omit=dev
+```
+
+Initial runtime audit output reported 14 findings: 5 moderate, 8 high and 1
+critical. The only narrow direct runtime patch applied in this slice was
+`next-auth` from `4.24.14` to `4.24.15`. That patch removes the critical
+Auth.js finding and the runtime `uuid` finding that was introduced through
+`next-auth`, with a small `package.json` and `package-lock.json` change only.
+
+After the patch, `npm audit --omit=dev` reports 12 findings: 4 moderate, 8 high
+and 0 critical. No broad automated fix or forced upgrade was run.
+
+| Package | Direct/transitive | Severity | Dependency path | Context | Safe patch/minor available | Major required | Proposed action | Follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `next` | Direct | High | `ropes -> next@16.2.9` | Runtime production. ROPES uses the App Router and server actions, so framework advisories should be treated as runtime relevant even where exploitability depends on deployed routing/image/proxy configuration. | Patch candidate `16.2.11` exists; npm currently wants `16.3.2` under the existing range. | No | Open a focused Next.js patch/minor remediation issue, prefer the smallest version that clears direct advisories, then run the full validation suite. | Yes |
+| `postcss` | Transitive | High | `ropes -> next -> postcss` | Next framework build/runtime dependency. Current ROPES does not expose user-controlled CSS/source-map processing as an app workflow, but the finding remains tied to the runtime framework package. | Likely through a focused Next.js update or override review. | No | Handle with the Next.js remediation issue; avoid standalone override unless Next cannot remediate cleanly. | Yes |
+| `sharp` | Transitive | High | `ropes -> next -> sharp` | Optional Next image optimisation dependency. APP&B does not upload templates, generate XLSX files or process workbook images, but deployed image optimisation should still be reviewed. | Likely through Next.js/sharp update review. | No | Handle with the Next.js remediation issue and verify image optimisation behaviour if used. | Yes |
+| `nanoid` | Transitive | High | `ropes -> next -> postcss -> nanoid` | Framework/tooling path under Next/PostCSS. ROPES does not call `nanoid` directly or expose custom generator size inputs. | Likely through Next/PostCSS update review. | No | Track with the Next.js remediation issue. | Yes |
+| `prisma` | Direct | High | `ropes -> prisma@7.8.0` and `@prisma/client -> prisma@7.8.0` | Runtime install/tooling scope. Prisma CLI is used for generate, migrate and seed; it is not request-time application code. | Minor `7.9.1` is available for Prisma packages. | No | Open a focused Prisma-family minor update issue covering `prisma`, `@prisma/client` and `@prisma/adapter-pg` together. | Yes |
+| `@prisma/config` | Transitive | High | `prisma -> @prisma/config -> deepmerge-ts` | Prisma CLI/config tooling path, not app request-time code. | Likely through Prisma-family minor update. | No | Track with the Prisma-family update issue. | Yes |
+| `deepmerge-ts` | Transitive | High | `prisma -> @prisma/config -> deepmerge-ts` | Prisma config merge tooling path. No current ROPES workflow accepts recursive user-controlled config objects for this package. | Likely through Prisma-family minor update. | No | Track with the Prisma-family update issue. | Yes |
+| `@prisma/dev` | Transitive | Moderate | `prisma -> @prisma/dev` | Prisma CLI/development tooling path, not ROPES request-time code. | Likely through Prisma-family minor update. | No | Track with the Prisma-family update issue. | Yes |
+| `@hono/node-server` | Transitive | Moderate | `prisma -> @prisma/dev -> @hono/node-server` | Prisma development tooling server path. ROPES does not use Hono as its app server. | Likely through Prisma-family minor update. | No | Track with the Prisma-family update issue. | Yes |
+| `hono` | Transitive | Moderate | `prisma -> @prisma/dev -> hono` | Prisma development tooling dependency. ROPES request handling is Next.js, not Hono. | Likely through Prisma-family minor update. | No | Track with the Prisma-family update issue. | Yes |
+| `valibot` | Transitive | Moderate | `prisma -> @prisma/dev -> valibot` | Prisma development tooling validation path. ROPES does not call this dependency directly. | Likely through Prisma-family minor update. | No | Track with the Prisma-family update issue. | Yes |
+| `fast-uri` | Transitive | High | `prisma -> @prisma/dev -> @prisma/streams-local -> ajv -> fast-uri` | Prisma tooling/validation path, not ROPES request-time URL parsing. | Likely through Prisma-family minor update. | No | Track with the Prisma-family update issue. | Yes |
+
+The attempted Next patch was not retained in this slice because the package
+install did not complete cleanly in the local environment and produced no
+Next-related lockfile diff. Keep the Next remediation separate so the framework
+patch/minor choice, lockfile impact and validation results stay easy to review.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
