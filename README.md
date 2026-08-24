@@ -204,6 +204,14 @@ The [current APP&B operator workflow](docs/appb-reporting.md#current-operator-wo
 explains the safe sequence for report cards, manual fields, mapping decisions,
 value-free notes and history, plus how local demo use differs from production.
 
+### Dependency audit triage
+
+If `npm install` or `npm audit` reports dependency findings, use the
+[dependency audit triage plan](docs/prototype-review.md#dependency-audit-triage-plan)
+before changing packages. Keep updates small and justified, separate runtime
+risk from development-tooling risk, avoid unrelated lockfile churn and do not
+run `npm audit fix --force` unless a later issue explicitly scopes that path.
+
 ## Fulcrum token encryption setup
 
 ROPES can store a per-organisation Fulcrum API token encrypted at rest for the

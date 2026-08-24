@@ -224,6 +224,76 @@ Vehicles records, and the initial authentication foundation.
   save/update/disable, Fulcrum connection test success/failure, sync job
   placeholder events and safe Fulcrum import events.
 
+## Dependency audit triage plan
+
+Recent APP&B validation runs completed `npm install` successfully while
+reporting existing dependency audit findings. Dependency remediation should be
+handled as a small, reviewable triage pass before any package updates are made.
+Do not run broad automated fixes, and do not use `npm audit fix --force`
+unless a later issue explicitly scopes a major-upgrade path.
+
+Recommended triage commands:
+
+```bash
+npm audit
+npm audit --omit=dev
+```
+
+Run audit commands from a local shell without printing or pasting secrets,
+tokens, database URLs, cursor secrets or other environment values. Audit output
+should be treated as package metadata only.
+
+For each finding, document:
+
+- package
+- direct or transitive dependency
+- severity
+- runtime production path or development-tooling only
+- affected dependency path
+- safe patch or minor update available
+- major upgrade required
+- proposed action
+- deferred issue needed
+- validation required after change
+
+Triage should separate runtime risk from development-tooling risk. Findings
+that affect production dependencies or request-time code should be prioritised
+above findings isolated to local build/test tooling. Findings that are not
+currently exploitable in the ROPES context should still be recorded with the
+reason, affected path and revisit trigger.
+
+Dependency changes should be small, justified and limited to the package or
+lockfile entries needed for the reviewed finding. Avoid unrelated lockfile
+churn. Safe patch or minor updates can be grouped only when they share the same
+root cause and validation surface. Major framework or tooling upgrades need
+separate issues with their own risk notes and rollback plan.
+
+After any future dependency update, run:
+
+```bash
+npm install
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npx prisma validate
+npm run db:generate
+git diff --check
+```
+
+If a disposable local database is intentionally configured, also run:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run smoke:appb
+```
+
+Dependency audit work must not change application features, database schema,
+seed data, APP&B workbook export behaviour, XLSX generation, uploaded template
+storage, AI calls, external services, tenant guards, capability checks or
+value-free APP&B review/history boundaries.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
