@@ -118,6 +118,9 @@ Vehicles records, and the initial authentication foundation.
   verification happens before the existing authorised target-anchor check;
   tampered, unsupported and stale cursors fail safely while cursor content and
   loaded history remain value-free.
+- APP&B mapping review operator UX now adds decision guidance, value-free note
+  examples, rejected-note handling reminders and clearer newest-three/load-more
+  history wording while keeping workbook export blocked.
 - APP&B cursor signing configuration now has a central production runtime
   validator. The APP&B overview fails with a clear server-side configuration
   error when the stable shared secret is missing or shorter than 32 UTF-8

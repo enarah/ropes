@@ -942,8 +942,18 @@ function MappingReviewPanel({
       </summary>
       <p className="mt-2 text-xs leading-5 text-charcoal-600">
         Metadata-only review panel. It shows labels, statuses, decisions and safe
-        notes only; workbook values and manual report values stay hidden.
+        notes only; workbook values and manual report values stay hidden. Ready
+        for future export records review intent only; export remains blocked.
       </p>
+      <div className="mt-3 rounded-md border border-earth-200 bg-earth-50 p-3 text-xs leading-5 text-charcoal-600">
+        <p>
+          Decision guide: keep needs review leaves work open; reviewed records a
+          checked mapping; blocked decisions explain formula, hidden-sheet or
+          unsupported constraints; unmapped records that no mapping target is
+          selected; ready for future export records intent for a later export
+          build only.
+        </p>
+      </div>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <MappingReviewList
@@ -1078,6 +1088,10 @@ function MappingReviewHistoryDisplay({
       <p className="mt-2 text-xs font-semibold uppercase text-ochre-700">
         Current decision
       </p>
+      <p className="mt-1 text-xs leading-5 text-charcoal-600">
+        Current decision is the latest persisted metadata for this target.
+        Decision version events below show how that metadata changed over time.
+      </p>
       <dl className="mt-2 grid gap-2 text-xs text-charcoal-600 sm:grid-cols-2">
         <div>
           <dt className="font-semibold text-charcoal-700">Decision</dt>
@@ -1138,8 +1152,8 @@ function MappingReviewHistoryDisplay({
         ) : (
           <>
             <p className="mt-1 text-xs leading-5 text-charcoal-600">
-              Most recent value-free events first. Current decision metadata is
-              shown above.
+              The three newest value-free events load first. Older events can
+              be loaded for this target only when a remaining count is shown.
             </p>
             <MappingReviewDecisionVersionList
               versions={recentDecisionVersions}
@@ -1190,7 +1204,8 @@ function MappingReviewHistoryDisplay({
 
       <p className="mt-3 text-xs leading-5 text-charcoal-600">
         History shows metadata only. Rejected unsafe note text, workbook values
-        and manual APP&B values are never displayed here.
+        and manual APP&B values are never displayed here. Load-more uses scoped
+        server-side cursor handling; do not inspect or print cursor tokens.
       </p>
     </details>
   );
@@ -1257,14 +1272,16 @@ function MappingReviewDecisionForm({
           defaultValue={review.note?.text ?? ""}
           maxLength={240}
           name="safeNote"
-          placeholder="Metadata only, e.g. range reviewed against template structure"
+          placeholder="Value-free metadata only, e.g. template structure reviewed"
         />
       </label>
 
       <p className="mt-2 text-xs leading-5 text-charcoal-600">
         Use short metadata notes only. Do not enter workbook values, financial
-        figures, personal details, report narrative, private links or copied
-        worksheet text. Unsafe notes are rejected without storing the text.
+        figures, personal details, formulas, cell references, report narrative,
+        private links, manual values or copied worksheet text. Safe examples:
+        template structure reviewed; blocked pending export implementation.
+        Unsafe notes are rejected without storing or redisplaying the text.
       </p>
 
       <button

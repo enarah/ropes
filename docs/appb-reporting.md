@@ -293,22 +293,45 @@ manual report values. A persisted mapping marked reviewed or
 ready-for-future-export can make readiness wording clearer, but workbook export
 remains blocked until a separate export implementation exists.
 
+The mapping review panel now includes a compact operator decision guide:
+
+- `Keep needs review` leaves review work open.
+- `Mark reviewed` records that the mapping metadata has been checked.
+- Formula, hidden-sheet and unsupported blocked decisions record why a target
+  cannot be used for export work yet.
+- `Mark unmapped` records that there is no current target mapping.
+- `Mark ready for future export` records review intent only and does not enable
+  workbook export today.
+
+Safe review notes must be short and value-free. Acceptable examples include
+`template structure reviewed` or `blocked pending export implementation`.
+Operators must not enter workbook values, manual APP&B values, financial
+figures, personal information, formulas, cell references, report narrative,
+private links or copied worksheet text. Unsafe notes are rejected server-side
+without storing, logging or redisplaying the rejected text.
+
 Report-specific review panels also include a safe history section for each
 mapping target. The history section shows the current persisted decision,
 review status, reviewer display name, reviewed timestamp, target kind, target
 ID, template version and stored safe note. It also shows compact value-free
 decision-version events sorted with the most recently reviewed event first.
 The current decision metadata is shown before the event list, including the
-target label, kind and ID. The backend and UI share a three-event default: only
-the three most recent value-free events are loaded for each target. A filtered
-per-target count records how many older events were not loaded, and the local
-load-more control requests one three-event page at a time for that target.
-Loaded pages are appended below the default events while current decision
-metadata stays separate. Creation events use `Current decision recorded`, while
-update events use `Decision changed` and `Status changed` wording for
-previous-to-new metadata. Value-free rejected note attempt counts remain a
-separate section. The history view does not show raw audit logs, rejected unsafe
-note text, workbook values or manual APP&B values.
+target label, kind and ID. Current decision means the latest persisted metadata
+for that target; decision-version history shows how that metadata changed over
+time.
+
+The backend and UI share a three-event default: only the three most recent
+value-free events are loaded for each target. A filtered per-target count
+records how many older events were not loaded, and the local load-more control
+requests one three-event page at a time for that target. Loaded pages are
+appended below the default events while current decision metadata stays
+separate. Load-more uses scoped server-side cursor handling; operators should
+refresh the report if a cursor becomes stale and must not inspect, print or
+paste cursor tokens, payloads, signatures or secret lengths. Creation events
+use `Current decision recorded`, while update events use `Decision changed` and
+`Status changed` wording for previous-to-new metadata. Value-free rejected note
+attempt counts remain a separate section. The history view does not show raw
+audit logs, rejected unsafe note text, workbook values or manual APP&B values.
 
 Persisted mapping review decisions are stored in
 `AppbMappingReviewDecisionRecord` and scoped to:
@@ -497,10 +520,11 @@ generation or export workflow.
    target label, kind, current status and decision as metadata only. Decisions
    can keep review open, mark a target reviewed, blocked or unmapped, or record
    readiness for a future export implementation; none enables export today.
-7. Save a mapping decision with an optional short value-free note such as a
-   template-structure review comment. Do not enter workbook values, financial
-   figures, personal information, manual report values, report narrative,
-   private links, formulas, cell references or copied worksheet text.
+7. Save a mapping decision with an optional short value-free note such as
+   `template structure reviewed` or `blocked pending export implementation`.
+   Do not enter workbook values, financial figures, personal information,
+   manual report values, report narrative, private links, formulas, cell
+   references or copied worksheet text.
 8. If note safety validation rejects the note, rewrite it as metadata only.
    ROPES does not store, log or redisplay the rejected text. The safe history
    area may show only a value-free reason/count summary for rejected attempts.
@@ -508,7 +532,8 @@ generation or export workflow.
    newest value-free version events. Use `Load older events` for that target
    when a remaining count appears. History stays separate from current decision
    metadata and rejected-note counts, and never displays manual or workbook
-   values.
+   values. Load-more cursor handling stays server-side; refresh the report if
+   older history becomes unavailable, and do not inspect or print cursor tokens.
 10. Confirm `Workbook export` remains `Blocked` and no download or XLSX action
     is available. Completing review or clearing readiness warnings does not
     change this boundary.

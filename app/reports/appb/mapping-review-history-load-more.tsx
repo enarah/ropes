@@ -83,7 +83,8 @@ export function AppbMappingReviewHistoryLoadMore({
       ) : remainingCount > 0 ? (
         <p className="mt-2 text-xs leading-5 text-charcoal-600">
           Older value-free events are available, but the safe cursor is no
-          longer valid. Refresh this report before loading them.
+          longer valid. Refresh this report before loading them; do not inspect
+          or print cursor tokens.
         </p>
       ) : events.length > 0 ? (
         <p className="mt-2 text-xs leading-5 text-charcoal-600">
