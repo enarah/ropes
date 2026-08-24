@@ -390,6 +390,41 @@ Prisma update issue. APP&B workbook export remains blocked throughout this
 work, and no XLSX generation, uploaded template storage, AI calls or external
 services should be added.
 
+## Next.js runtime audit remediation result
+
+Issue #140 applied the focused Next.js remediation path by updating the direct
+`next` dependency from `^16.2.9` to `^16.3.2`. This stayed within the existing
+Next.js major version and avoided `npm audit fix --force`, broad automated
+fixes, Prisma-family dependency updates, application feature changes, schema
+changes and seed-data changes.
+
+Post-update dependency inspection shows the targeted cluster now resolves as:
+
+| Package | Path after update | Result |
+| --- | --- | --- |
+| `next` | `ropes -> next@16.3.2` | Direct Next.js advisories cleared from `npm audit --omit=dev`. |
+| `postcss` | `ropes -> next -> postcss@8.5.23` | Nested Next/PostCSS audit findings cleared through the Next dependency graph. |
+| `sharp` | `ropes -> next -> sharp@0.35.3` | Optional Next/sharp audit finding cleared through the Next dependency graph. |
+| `nanoid` | `ropes -> postcss -> nanoid@3.3.18` | Nanoid finding cleared through the PostCSS dependency graph. |
+
+After the update, `npm audit --omit=dev` reports 8 remaining runtime-scope
+findings: 4 moderate, 4 high and 0 critical. Those remaining findings are the
+Prisma-family cluster only:
+
+- direct `prisma`
+- transitive `@prisma/config`
+- transitive `@prisma/dev`
+- transitive `@hono/node-server`
+- transitive `deepmerge-ts`
+- transitive `fast-uri`
+- transitive `hono`
+- transitive `valibot`
+
+Keep those remaining findings out of Next.js remediation work and address them
+through a separate focused Prisma-family update issue. APP&B workbook export
+remains blocked, and the APP&B tenant, capability and value-free review/history
+boundaries remain unchanged.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
