@@ -332,6 +332,64 @@ install did not complete cleanly in the local environment and produced no
 Next-related lockfile diff. Keep the Next remediation separate so the framework
 patch/minor choice, lockfile impact and validation results stay easy to review.
 
+## Next.js runtime audit remediation plan
+
+Issue #138 should remain a planning-only slice. It documents the next focused
+dependency remediation PR without changing `next`, package metadata, application
+features, schema, seed data, APP&B workbook export behaviour, tenant guards,
+capability checks or value-free APP&B review/history boundaries.
+
+On 24 August 2026, `npm audit --omit=dev` and
+`npm audit --json --omit=dev` still report 12 runtime-scope findings after the
+`next-auth` patch: 4 moderate, 8 high and 0 critical. The Next.js-related
+cluster is:
+
+| Finding/package | Direct or transitive | Dependency path | Likely remediation path | Smallest target to try first | Validation needed | Follow-up |
+| --- | --- | --- | --- | --- | --- | --- |
+| `next` advisories | Direct | `ropes -> next@16.2.9` | Update `next` through the smallest safe patch/minor path that clears direct App Router, Server Action, middleware/proxy, rewrite, cache and image optimisation advisories. | Treat `16.2.11` as the direct-advisory floor, but prefer testing `16.3.2` first because it is the current npm audit candidate under `^16.2.9` and also carries patched transitive ranges. | Full test/type/lint/build suite, plus focused App Router page load, server-action save paths, middleware/proxy/routing behaviour and image optimisation review if deployed. | Yes: focused Next.js remediation PR. |
+| `postcss` | Transitive through `next` | `ropes -> next -> postcss` | Handle through the Next.js update first. Avoid a standalone override unless a Next patch/minor cannot remediate cleanly. | `next@16.2.11` still declares `postcss@8.4.31`, which remains in the vulnerable range; `next@16.3.2` declares `postcss@8.5.23`. | Confirm `npm audit --omit=dev` no longer reports the nested Next/PostCSS path; run CSS/Tailwind build validation. | Same Next.js remediation PR unless unresolved. |
+| `sharp` | Transitive/optional through `next` | `ropes -> next -> sharp` | Handle through the Next.js update first. Avoid direct optional dependency pinning unless Next cannot remediate cleanly. | `next@16.2.11` declares `sharp@^0.34.5`, which may remain vulnerable; `next@16.3.2` declares `sharp@^0.35.3`. | Confirm image optimisation dependency path and build behaviour; if image optimisation is enabled in deployment, validate representative image routes. | Same Next.js remediation PR unless unresolved. |
+| `nanoid` | Transitive through `next`/`postcss` | `ropes -> next -> postcss -> nanoid` | Handle through the Next/PostCSS remediation path first. ROPES does not call `nanoid` directly or expose custom generator-size inputs. | Expected to clear only if the Next/PostCSS dependency graph stops pulling vulnerable `nanoid`; verify with audit output after the Next update. | Confirm no remaining nested `nanoid` audit finding; no standalone override unless Next cannot remediate cleanly. | Same Next.js remediation PR unless unresolved. |
+
+The existing semver range is `next: ^16.2.9`, so a future install may resolve to
+`16.3.2` without a major upgrade. The future remediation PR should keep the diff
+small and reviewable: expect `package-lock.json` updates for `next`,
+`@next/env`, platform SWC optional packages, `postcss`, `sharp` and related
+transitives; update `package.json` only if pinning the intended minimum version
+is clearer than relying on the existing caret range. If the lockfile changes
+expand beyond the Next/PostCSS/sharp/nanoid cluster, stop and document the
+unexpected churn before proceeding.
+
+Validation for the future Next.js remediation PR:
+
+```bash
+npm install
+npm audit --omit=dev
+npm audit --json --omit=dev
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npx prisma validate
+npm run db:generate
+git diff --check
+```
+
+If a disposable local database is intentionally configured, also run:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run smoke:appb
+```
+
+Do not use `npm audit fix --force`, do not apply a Next major upgrade, and do
+not remediate Prisma-family findings in the Next.js PR. Any Prisma-family
+findings that remain after the Next slice should stay in a separate focused
+Prisma update issue. APP&B workbook export remains blocked throughout this
+work, and no XLSX generation, uploaded template storage, AI calls or external
+services should be added.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers

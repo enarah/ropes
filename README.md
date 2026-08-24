@@ -211,6 +211,10 @@ If `npm install` or `npm audit` reports dependency findings, use the
 before changing packages. Keep updates small and justified, separate runtime
 risk from development-tooling risk, avoid unrelated lockfile churn and do not
 run `npm audit fix --force` unless a later issue explicitly scopes that path.
+The focused
+[Next.js runtime audit remediation plan](docs/prototype-review.md#nextjs-runtime-audit-remediation-plan)
+tracks the remaining Next/PostCSS/sharp/nanoid remediation path without
+changing APP&B workbook export or value-free review/history boundaries.
 
 ## Fulcrum token encryption setup
 
