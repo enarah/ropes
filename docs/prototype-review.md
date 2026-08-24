@@ -425,6 +425,77 @@ through a separate focused Prisma-family update issue. APP&B workbook export
 remains blocked, and the APP&B tenant, capability and value-free review/history
 boundaries remain unchanged.
 
+## Prisma-family runtime audit remediation plan
+
+Issue #142 is a planning-only slice for the remaining Prisma-family audit
+cluster. It must not update dependencies, run `npm audit fix --force`, apply
+major upgrades, change application features, change database schema or seed
+data, or change APP&B workbook export, tenant, capability or value-free
+review/history boundaries.
+
+After the Next.js remediation in issue #140, `npm audit --omit=dev` reports 8
+remaining runtime-scope findings: 4 moderate, 4 high and 0 critical. The
+remaining findings are isolated to the Prisma CLI/config/dev dependency graph:
+
+| Finding/package | Direct or transitive | Dependency path | Context | Likely remediation path | Smallest target to try first | Validation needed | Follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `prisma` | Direct dev dependency | `ropes -> prisma@7.8.0` | Prisma CLI/tooling used for generate, validate, migrate and seed. It is installed in the project but is not request-time ROPES application code. | Update the Prisma family together, not with a broad audit fix. | `prisma@7.9.1`, matching the current available patch/minor line. | `prisma validate`, `prisma generate`, lockfile review, full test/type/lint/build suite. | Yes: focused Prisma-family remediation PR. |
+| `@prisma/client` | Direct runtime dependency | `ropes -> @prisma/client@7.8.0`; generated client consumed by request-time code | Request-time ROPES data access depends on the generated Prisma client, so it should stay version-aligned with the CLI even though the reported advisories come through Prisma tooling packages. | Update with `prisma` to keep generated client/runtime compatibility. | `@prisma/client@7.9.1`. | Regenerate client, typecheck all Prisma enum/client imports, run app build and tests. | Same Prisma-family PR. |
+| `@prisma/adapter-pg` | Direct runtime dependency | `ropes -> @prisma/adapter-pg@7.8.0` | Request-time database adapter for PostgreSQL. Not named in the audit finding, but should remain aligned with Prisma client/CLI. | Update with `prisma` and `@prisma/client`. | `@prisma/adapter-pg@7.9.1`. | Typecheck DB adapter setup and run build/tests; run DB smoke only with disposable DB. | Same Prisma-family PR. |
+| `@prisma/config` | Transitive | `prisma -> @prisma/config -> deepmerge-ts` | Prisma CLI/config tooling path, not request-time app code. | Expect remediation through the Prisma-family update. Avoid direct transitive overrides unless Prisma cannot remediate cleanly. | Prisma family `7.9.1`. | Confirm audit result and inspect lockfile path. | Same Prisma-family PR unless unresolved. |
+| `@prisma/dev` | Transitive | `prisma -> @prisma/dev` | Prisma CLI/dev tooling path, not ROPES request handling. | Expect remediation through the Prisma-family update. | Prisma family `7.9.1`. | Confirm `@hono/node-server`, `hono` and `valibot` paths update or disappear as expected. | Same Prisma-family PR unless unresolved. |
+| `@hono/node-server` | Transitive | `prisma -> @prisma/dev -> @hono/node-server` | Prisma development tooling server path. ROPES request handling is Next.js, not Hono. | Expect remediation through the Prisma-family update; do not add Hono directly. | Prisma family `7.9.1`. | Confirm audit result and no new request-time Hono usage. | Same Prisma-family PR unless unresolved. |
+| `hono` | Transitive | `prisma -> @prisma/dev -> hono` | Prisma development tooling dependency. ROPES does not use Hono as its app server. | Expect remediation through the Prisma-family update. | Prisma family `7.9.1`. | Confirm audit result and lockfile path. | Same Prisma-family PR unless unresolved. |
+| `valibot` | Transitive | `prisma -> @prisma/dev -> valibot` | Prisma development tooling validation path. ROPES does not call `valibot` directly. | Expect remediation through the Prisma-family update. | Prisma family `7.9.1`. | Confirm audit result and lockfile path. | Same Prisma-family PR unless unresolved. |
+| `deepmerge-ts` | Transitive | `prisma -> @prisma/config -> deepmerge-ts` | Prisma config merge tooling path. ROPES does not accept user-controlled Prisma config objects at request time. | Expect remediation through the Prisma-family update; avoid standalone override unless Prisma cannot remediate cleanly. | Prisma family `7.9.1`. | Confirm audit result and no unrelated deep merge package churn. | Same Prisma-family PR unless unresolved. |
+| `fast-uri` | Transitive | `prisma -> @prisma/dev -> @prisma/streams-local -> ajv -> fast-uri` | Prisma tooling/validation path, not ROPES request-time URL parsing. | Expect remediation through the Prisma-family update. | Prisma family `7.9.1`. | Confirm audit result and lockfile path. | Same Prisma-family PR unless unresolved. |
+
+The future remediation PR should first run `npm audit --omit=dev` and
+`npm audit --json --omit=dev`, then attempt the smallest same-line Prisma-family
+patch/minor update for `prisma`, `@prisma/client` and `@prisma/adapter-pg`
+together. Keeping those packages version-aligned is safer than updating only the
+CLI because ROPES relies on Prisma-generated client types, runtime data access
+and the PostgreSQL adapter. The expected tracked diff should be limited to
+`package.json`, `package-lock.json` and documentation if the audit results or
+known gaps need recording; generated Prisma client output lives in
+`node_modules` and should be validated, not committed.
+
+After the future update, inspect the package and lockfile diff for unrelated
+dependency churn. Stop and document the unexpected scope if the diff expands
+beyond Prisma-family packages and their transitive tooling dependencies. Do not
+change Prisma schema, migrations, seed data, application behaviour, APP&B
+workbook export, XLSX generation, uploaded template storage, AI calls, external
+services, tenant guards, capability checks or value-free APP&B review/history
+boundaries.
+
+Validation for the future Prisma-family remediation PR:
+
+```bash
+npm install
+npm audit --omit=dev
+npm audit --json --omit=dev
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npx prisma validate
+npm run db:generate
+git diff --check
+```
+
+If a disposable local database is intentionally configured, also run:
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run smoke:appb
+```
+
+If any Prisma-family findings remain after the patch/minor update, document the
+remaining package, dependency path, request-time relevance and whether a
+separate major-upgrade issue is needed. Do not hide unresolved findings and do
+not use `npm audit fix --force` as a shortcut.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers

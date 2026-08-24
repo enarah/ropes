@@ -215,6 +215,9 @@ The focused
 [Next.js runtime audit remediation plan](docs/prototype-review.md#nextjs-runtime-audit-remediation-plan)
 tracks the remaining Next/PostCSS/sharp/nanoid remediation path without
 changing APP&B workbook export or value-free review/history boundaries.
+The
+[Prisma-family runtime audit remediation plan](docs/prototype-review.md#prisma-family-runtime-audit-remediation-plan)
+tracks the remaining Prisma CLI/config/dev tooling findings separately.
 
 ## Fulcrum token encryption setup
 
