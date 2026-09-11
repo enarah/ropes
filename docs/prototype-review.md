@@ -592,6 +592,43 @@ breaking Prisma downgrade for the remaining Prisma-family findings and broad
 automated fixes could introduce unrelated lockfile churn. Future remediation
 should stay small, focused and reviewable.
 
+## Next.js critical audit remediation after September advisory
+
+Issue #148 applied the focused remediation path for the direct critical Next.js
+runtime audit finding identified after issue #146. The remediation updated the
+direct `next` dependency from `^16.3.2` to `^16.3.4`, staying on the same
+Next.js major and minor line while moving above the September advisory floor of
+`16.3.3`.
+
+The same focused dependency pass also cleared the related Next/image and
+compatibility-data findings without unrelated lockfile churn:
+
+| Package | Path after update | Result |
+| --- | --- | --- |
+| `next` | `ropes -> next@16.3.4`; also required by `next-auth` | Direct critical Next.js advisories are no longer reported by `npm audit --omit=dev`. |
+| `sharp` | `ropes -> next@16.3.4 -> sharp@0.35.4` | Cleared through Next's optional image optimisation dependency path. |
+| `baseline-browser-mapping` | `ropes -> next@16.3.4 -> baseline-browser-mapping@2.11.22`; also `ropes -> autoprefixer -> browserslist -> baseline-browser-mapping@2.11.22` | Cleared by a narrow transitive lockfile update under existing package ranges. |
+
+On 11 September 2026, the post-remediation `npm audit --omit=dev` result
+reports 4 remaining runtime-scope findings, all high severity and all in the
+known Prisma-family CLI/config/tooling cluster:
+
+- aggregate `prisma`
+- transitive `@prisma/config`
+- transitive `deepmerge-ts`
+- transitive `mysql2`
+
+No Next.js, `sharp` or `baseline-browser-mapping` findings remain in the
+runtime audit output after this focused pass. The remaining Prisma findings
+still require a separate Prisma-family follow-up; do not use
+`npm audit fix --force`, because npm currently suggests a breaking Prisma
+downgrade path.
+
+This remediation did not change application features, Prisma schema, seed data,
+APP&B workbook export, XLSX generation, uploaded template storage, AI calls,
+external services, tenant guards, capability checks or value-free APP&B
+review/history boundaries.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
