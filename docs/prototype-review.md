@@ -547,6 +547,51 @@ prefer another focused same-line Prisma-family update. If npm continues to
 suggest `npm audit fix --force` or a Prisma major/downgrade path, create a
 separate planning issue before applying it.
 
+## Audit regression triage after Prisma update
+
+Issue #146 captures the current runtime audit state after the focused
+Prisma-family update in issue #144. This is a triage snapshot only: it should
+not update dependencies, run `npm audit fix --force`, change application
+features, change schema or seed data, or change APP&B workbook export, tenant,
+capability or value-free review/history boundaries.
+
+On 11 September 2026, the required commands were:
+
+```bash
+npm audit --omit=dev
+npm audit --json --omit=dev
+npm ls next sharp baseline-browser-mapping prisma @prisma/config deepmerge-ts mysql2 --all
+```
+
+`npm audit --omit=dev` reports 7 current runtime-scope findings: 1 moderate, 5
+high and 1 critical.
+
+| Finding/package | Group | Direct or transitive | Dependency path observed | Current triage | Follow-up |
+| --- | --- | --- | --- | --- | --- |
+| `next` | Non-Prisma | Direct | `ropes -> next@16.3.2`; also required by `next-auth` | Critical advisories published on 8 September 2026 affect `next >=16.0.0 <16.3.3`. This is a newly disclosed/current audit-feed finding after PR #141, not evidence that PR #141 regressed the dependency graph. Because Next serves request-time application routes, this needs urgent focused remediation. | Open a focused Next.js patch issue, likely testing the smallest safe update at or above `16.3.3`. |
+| `sharp` | Non-Prisma | Transitive optional dependency | `ropes -> next@16.3.2 -> sharp@0.35.3` | High advisory published on 8 September 2026 affects `sharp <0.35.4`. This is tied to Next image optimisation packaging in the current graph and should be remediated with the focused Next.js/image dependency path where possible. | Include in the focused Next.js follow-up unless Next cannot lift `sharp`; then plan a narrow image-dependency remediation. |
+| `baseline-browser-mapping` | Non-Prisma | Transitive | `ropes -> next@16.3.2 -> baseline-browser-mapping@2.10.38`; also `ropes -> autoprefixer -> browserslist -> baseline-browser-mapping@2.10.38` | Moderate advisory was published on 13 August 2026 and updated on 8 September 2026. It is dependency metadata/build-tooling scope used by Next/Browserslist-style compatibility data, not a ROPES request-time route handler. Current audit feed reports it now; it was not introduced by the Prisma update. | Track with focused Next/tooling audit work; avoid broad lockfile churn. |
+| `prisma` | Prisma-family | Direct dev dependency | `ropes -> prisma@7.9.1` | Aggregate high finding remains because the Prisma CLI still depends on vulnerable tooling packages. Prisma CLI is used for generate, validate, migrate and seed, not request-time ROPES handling. | Monitor for a same-line Prisma release that lifts `deepmerge-ts` and `mysql2`; do not use forced downgrade/major remediation. |
+| `@prisma/config` / `deepmerge-ts` | Prisma-family | Transitive | `ropes -> prisma@7.9.1 -> @prisma/config@7.9.1 -> deepmerge-ts@7.1.5` | High tooling/config finding remains. ROPES does not accept user-controlled Prisma config objects at request time. npm currently reports the available fix through `npm audit fix --force`, which would install `prisma@6.19.3` and is out of scope. | Create a follow-up only when Prisma publishes a safe same-line fix, or plan a separate major/downgrade investigation explicitly. |
+| `mysql2` | Prisma-family | Transitive | `ropes -> prisma@7.9.1 -> mysql2@3.15.3` | High finding appears through Prisma CLI tooling. ROPES request-time database access uses PostgreSQL through `@prisma/client` and `@prisma/adapter-pg`; it does not use Prisma's bundled MySQL client dependency for application DB access. npm currently reports only a forced Prisma downgrade path. | Track with Prisma-family follow-up; do not add direct MySQL usage or broad overrides in this triage slice. |
+
+The #146 dependency graph confirms that PR #145 cleared the previously reported
+Prisma-family `@hono/node-server`, `hono`, `valibot` and vulnerable `fast-uri`
+paths. The current graph shows `fast-uri@3.1.7` under Prisma tooling, which is
+outside the reported vulnerable range.
+
+The most urgent current follow-up is the direct Next.js critical finding because
+it affects the request-time web framework package. The `sharp` advisory should
+be reviewed with that Next.js follow-up because it is present through Next's
+optional image optimisation dependency. The remaining Prisma findings are still
+CLI/config/tooling scope for this project, and `baseline-browser-mapping` is
+compatibility-data/build-tooling metadata scope.
+
+`npm audit fix --force` remains out of scope because npm currently proposes a
+breaking Prisma downgrade for the remaining Prisma-family findings and broad
+automated fixes could introduce unrelated lockfile churn. Future remediation
+should stay small, focused and reviewable.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
