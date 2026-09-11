@@ -629,6 +629,71 @@ APP&B workbook export, XLSX generation, uploaded template storage, AI calls,
 external services, tenant guards, capability checks or value-free APP&B
 review/history boundaries.
 
+## Remaining Prisma-family audit findings follow-up plan
+
+Issue #150 is a planning-only follow-up for the Prisma-family audit findings
+that remain after issue #148 cleared the urgent non-Prisma audit findings. It
+must not update dependencies, run `npm audit fix --force`, change application
+features, change Prisma schema or seed data, or change APP&B workbook export,
+tenant, capability or value-free review/history boundaries.
+
+On 11 September 2026, the required commands were:
+
+```bash
+npm audit --omit=dev
+npm audit --json --omit=dev
+npm ls prisma @prisma/config deepmerge-ts mysql2 --all
+npm view prisma version
+npm view @prisma/client version
+npm view @prisma/adapter-pg version
+```
+
+`npm audit --omit=dev` reports 4 current runtime-scope findings: 0 moderate, 4
+high and 0 critical. All remaining findings are in the Prisma CLI/config/tooling
+cluster:
+
+| Finding/package | Direct or transitive | Dependency path observed | Request-time ROPES risk | Current remediation signal | Planned next step |
+| --- | --- | --- | --- | --- | --- |
+| `prisma` | Direct dev dependency | `ropes -> prisma@7.9.1` | Prisma CLI is used for generate, validate, migrate and seed; it is not a request-time ROPES route handler. | npm aggregates the finding through `@prisma/config` and `mysql2`, and currently suggests `npm audit fix --force` with a breaking `prisma@6.19.3` downgrade. | Do not force-fix or downgrade. Monitor for a same-line Prisma release that lifts both transitive paths. |
+| `@prisma/config` / `deepmerge-ts` | Transitive | `ropes -> prisma@7.9.1 -> @prisma/config@7.9.1 -> deepmerge-ts@7.1.5` | Prisma config tooling path. ROPES does not accept user-controlled Prisma config objects at request time. | `@prisma/config@7.10.0` still depends on `deepmerge-ts@7.1.5`; `prisma@7.10.0` does not clear this finding. | Wait for Prisma upstream to move to `deepmerge-ts >=8`, or create a separate explicit override-risk investigation. |
+| `mysql2` | Transitive | `ropes -> prisma@7.9.1 -> mysql2@3.15.3` | Prisma CLI bundled dependency. ROPES request-time database access uses PostgreSQL through `@prisma/client` and `@prisma/adapter-pg`, not Prisma's bundled MySQL client. | `prisma@7.10.0` still depends on `mysql2@3.15.3`; npm suggests only the forced Prisma downgrade path. | Wait for Prisma upstream to update bundled `mysql2`, or create a separate major/downgrade/override investigation if operational exposure changes. |
+
+Current npm registry inspection shows:
+
+- `npm view prisma version` returns `8.0.0-rc.13`
+- `npm view @prisma/client version` returns `7.10.0`
+- `npm view @prisma/adapter-pg version` returns `7.10.0`
+- stable `prisma@7.10.0` exists, but still depends on `@prisma/config@7.10.0`
+  and `mysql2@3.15.3`
+- `@prisma/config@7.10.0` still depends on `deepmerge-ts@7.1.5`
+
+Because the stable same-line Prisma candidate does not clear the remaining
+findings, the safest next step is monitoring rather than another immediate
+dependency PR. Re-check the Prisma-family audit after new stable Prisma 7.x
+patch/minor releases, after a Prisma 8 stable release is available and planned,
+or at least weekly while these audit findings remain open.
+
+Direct overrides are not the default safe path. Overriding `deepmerge-ts` or
+`mysql2` under Prisma could alter Prisma CLI/config/runtime-tooling assumptions
+without upstream support. Only consider overrides in a separate issue that
+checks Prisma compatibility, generated client behaviour, migration/generate
+commands and lockfile scope explicitly.
+
+A separate major-upgrade or downgrade investigation is justified only if one of
+these conditions becomes true:
+
+- Prisma publishes guidance requiring a major upgrade or downgrade to remediate
+  these advisories.
+- The findings move from Prisma CLI/config/tooling into request-time ROPES
+  application code.
+- ROPES starts using Prisma's bundled MySQL tooling path.
+- Production deployment policy requires immediate remediation despite the
+  tooling-only exposure.
+
+Until then, keep `npm audit fix --force` out of scope. It currently proposes a
+breaking Prisma downgrade and could introduce broad lockfile churn unrelated to
+the remaining Prisma-family findings.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
