@@ -496,6 +496,57 @@ remaining package, dependency path, request-time relevance and whether a
 separate major-upgrade issue is needed. Do not hide unresolved findings and do
 not use `npm audit fix --force` as a shortcut.
 
+## Prisma-family runtime audit remediation result
+
+Issue #144 applied the focused Prisma-family remediation path by updating the
+aligned Prisma packages from `^7.8.0` to `^7.9.1`:
+
+- `prisma`
+- `@prisma/client`
+- `@prisma/adapter-pg`
+
+The update kept the Prisma CLI, generated client package and PostgreSQL adapter
+on the same Prisma release line. It did not run `npm audit fix --force`, apply a
+major upgrade, change application features, change Prisma schema or seed data,
+or change APP&B workbook export, tenant, capability or value-free
+review/history boundaries.
+
+The Prisma dependency graph after the update is:
+
+| Package | Path after update | Result |
+| --- | --- | --- |
+| `prisma` | `ropes -> prisma@7.9.1` | Direct Prisma package updated, but the aggregate audit finding remains because Prisma still depends on vulnerable tooling packages. |
+| `@prisma/client` | `ropes -> @prisma/client@7.9.1` | Client package remains aligned with the Prisma CLI. |
+| `@prisma/adapter-pg` | `ropes -> @prisma/adapter-pg@7.9.1` | PostgreSQL adapter remains aligned with the Prisma client. |
+| `@prisma/dev` | `prisma -> @prisma/dev@0.24.17` | Updated through Prisma; the prior `@hono/node-server`, `hono` and `valibot` audit paths are no longer reported. |
+| `@prisma/streams-local` / `fast-uri` | `prisma -> @prisma/dev -> @prisma/streams-local@0.1.11 -> ajv -> fast-uri@3.1.7` | Updated through Prisma; the prior `fast-uri` audit finding is no longer reported. |
+| `@prisma/config` / `deepmerge-ts` | `prisma -> @prisma/config@7.9.1 -> deepmerge-ts@7.1.5` | Still reported by `npm audit --omit=dev`; no same-line Prisma patch/minor currently removes this path. |
+| `mysql2` | `prisma -> mysql2@3.15.3` | Newly reported under the Prisma CLI dependency graph; npm marks the available remediation as a forced downgrade to `prisma@6.19.3`, which is out of scope. |
+
+On 11 September 2026, the post-update `npm audit --omit=dev` result reports 7
+runtime-scope findings: 1 moderate, 5 high and 1 critical. The remaining
+Prisma-family findings are:
+
+- direct aggregate `prisma`
+- transitive `@prisma/config`
+- transitive `deepmerge-ts`
+- transitive `mysql2`
+
+The same audit output also reports current non-Prisma findings for
+`baseline-browser-mapping`, `next` and `sharp`. Those are outside the
+Prisma-family remediation scope and should be triaged in separate focused
+issues. Do not remediate them by broad automated audit fixes in the Prisma PR.
+
+The remaining Prisma-family risk is still in Prisma CLI/config/tooling
+dependencies, not in request-time ROPES application code. ROPES uses PostgreSQL
+through `@prisma/client` and `@prisma/adapter-pg`; it does not use Prisma's
+bundled MySQL client dependency for request-time application database access.
+
+If a future Prisma release removes the `deepmerge-ts` and `mysql2` audit paths,
+prefer another focused same-line Prisma-family update. If npm continues to
+suggest `npm audit fix --force` or a Prisma major/downgrade path, create a
+separate planning issue before applying it.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
