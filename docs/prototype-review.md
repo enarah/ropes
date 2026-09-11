@@ -694,6 +694,73 @@ Until then, keep `npm audit fix --force` out of scope. It currently proposes a
 breaking Prisma downgrade and could introduce broad lockfile churn unrelated to
 the remaining Prisma-family findings.
 
+## Pull request validation CI plan
+
+Issue #152 plans a lightweight GitHub Actions validation workflow for pull
+requests. It is documentation-only: do not add the workflow, change
+dependencies, change application features, change schema or seed data, or change
+APP&B workbook export, tenant, capability or value-free review/history
+boundaries in this planning slice.
+
+The future workflow should give reviewers a visible GitHub status check on PR
+head commits before merge. Start with one small workflow file, for example
+`.github/workflows/pr-validation.yml`, triggered on pull requests targeting
+`main` and optionally by `workflow_dispatch` for manual re-runs. A later issue
+can decide whether to also run the same validation on pushes to `main`.
+
+Use the same validation commands that recent local PR reviews have relied on:
+
+```bash
+npm install
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npx prisma validate
+npm run db:generate
+git diff --check
+```
+
+The first implementation should keep the workflow intentionally small:
+
+| Area | Planned CI behaviour | Notes |
+| --- | --- | --- |
+| Runner | Use a standard GitHub-hosted Linux runner. | Keep OS-specific checks out of the first slice unless a failure proves they are needed. |
+| Node setup | Pin a supported Node major that satisfies the current Next.js and Prisma versions. | Prefer matching the documented/local validation runtime where practical; confirm the exact major in the implementation PR. |
+| Install | Run `npm install` for parity with the current validation checklist. | A separate issue can evaluate switching CI to `npm ci` for stricter lockfile reproducibility. |
+| Test suite | Run `npm test`. | This covers the existing Node test files under `tests/**/*.test.ts`. |
+| Static checks | Run typecheck, lint and build. | This catches App Router, server-action, Prisma adapter and UI compile regressions. |
+| Prisma checks | Run `npx prisma validate` and `npm run db:generate`. | These must not require a live production database or commit generated client output from `node_modules`. |
+| Whitespace check | Run `git diff --check`. | This should fail PRs with whitespace errors while avoiding broad repository mutation checks. |
+| Secrets | Do not expose secrets or environment-specific values. | The baseline workflow should not print database URLs, cursor secrets, tokens or generated cursor payloads. |
+
+Keep database-backed commands out of the first PR validation workflow. Do not
+run migrations, seed data or `npm run smoke:appb` in the baseline PR check
+unless a separate disposable database workflow is explicitly planned. The local
+APP&B smoke-test runbook remains the right path for seeded demo/database
+verification.
+
+Do not make `npm audit` a blocking step in the first PR validation workflow.
+Audit remediation is tracked separately because known Prisma-family
+CLI/config/tooling findings may remain while upstream fixes are monitored. A
+future scheduled or manually triggered audit workflow can be planned separately
+if maintainers want a non-blocking dependency signal.
+
+The workflow should use least-privilege GitHub token permissions, avoid
+uploading dependency or generated-client artifacts by default, and use npm cache
+only when it stays keyed to `package-lock.json` and does not obscure clean
+install failures.
+
+After the workflow is added and proves stable, repository administrators can
+make the new check required in GitHub branch protection. Treat branch protection
+configuration as a separate repository setting step, not as a code change in the
+workflow PR.
+
+The implementation PR for the workflow should validate locally with the same
+command sequence, then verify that a test PR shows the expected GitHub status.
+If the workflow uncovers existing failures, document them directly and avoid
+weakening the validation commands merely to make the first status check green.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
