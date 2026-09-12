@@ -219,6 +219,14 @@ The
 [Prisma-family runtime audit remediation plan](docs/prototype-review.md#prisma-family-runtime-audit-remediation-plan)
 tracks the remaining Prisma CLI/config/dev tooling findings separately.
 
+### Pull request validation
+
+A lightweight GitHub Actions validation workflow is planned so future pull
+requests show a GitHub status check before merge. The plan is documented in
+[the prototype review notes](docs/prototype-review.md#pull-request-validation-ci-plan)
+and covers the current local validation sequence: install, tests, typecheck,
+lint, build, Prisma validation/generation and `git diff --check`.
+
 ## Fulcrum token encryption setup
 
 ROPES can store a per-organisation Fulcrum API token encrypted at rest for the
