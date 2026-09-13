@@ -696,41 +696,37 @@ the remaining Prisma-family findings.
 
 ## Pull request validation CI plan
 
-Issue #152 plans a lightweight GitHub Actions validation workflow for pull
-requests. It is documentation-only: do not add the workflow, change
-dependencies, change application features, change schema or seed data, or change
-APP&B workbook export, tenant, capability or value-free review/history
-boundaries in this planning slice.
+Issue #152 planned, and issue #154 added, a lightweight GitHub Actions
+validation workflow for pull requests. The workflow lives at
+`.github/workflows/pr-validation.yml`, runs on pull requests targeting `main`
+and can also be started with `workflow_dispatch`.
 
-The future workflow should give reviewers a visible GitHub status check on PR
-head commits before merge. Start with one small workflow file, for example
-`.github/workflows/pr-validation.yml`, triggered on pull requests targeting
-`main` and optionally by `workflow_dispatch` for manual re-runs. A later issue
-can decide whether to also run the same validation on pushes to `main`.
-
-Use the same validation commands that recent local PR reviews have relied on:
+The workflow gives reviewers a visible GitHub status check on PR head commits
+before merge. It uses the same validation coverage that recent local PR reviews
+have relied on:
 
 ```bash
 npm install
+npm run db:generate
 npm test
 npm run typecheck
 npm run lint
 npm run build
 npx prisma validate
-npm run db:generate
 git diff --check
 ```
 
-The first implementation should keep the workflow intentionally small:
+The implementation is intentionally small:
 
-| Area | Planned CI behaviour | Notes |
+| Area | CI behaviour | Notes |
 | --- | --- | --- |
-| Runner | Use a standard GitHub-hosted Linux runner. | Keep OS-specific checks out of the first slice unless a failure proves they are needed. |
-| Node setup | Pin a supported Node major that satisfies the current Next.js and Prisma versions. | Prefer matching the documented/local validation runtime where practical; confirm the exact major in the implementation PR. |
-| Install | Run `npm install` for parity with the current validation checklist. | A separate issue can evaluate switching CI to `npm ci` for stricter lockfile reproducibility. |
+| Runner | Uses a standard GitHub-hosted Linux runner. | Keep OS-specific checks out of the first slice unless a failure proves they are needed. |
+| Node setup | Pins Node 26, matching the local validation runtime used when the workflow was added. | Revisit if GitHub runner support or project engine requirements change. |
+| Install | Runs `npm install` for parity with the current validation checklist. | A separate issue can evaluate switching CI to `npm ci` for stricter lockfile reproducibility. |
+| Prisma generation | Runs `npm run db:generate` immediately after install. | Clean runners need generated Prisma types before tests and typecheck. |
 | Test suite | Run `npm test`. | This covers the existing Node test files under `tests/**/*.test.ts`. |
 | Static checks | Run typecheck, lint and build. | This catches App Router, server-action, Prisma adapter and UI compile regressions. |
-| Prisma checks | Run `npx prisma validate` and `npm run db:generate`. | These must not require a live production database or commit generated client output from `node_modules`. |
+| Prisma checks | Run `npx prisma validate`. | This must not require a live production database or commit generated client output from `node_modules`. |
 | Whitespace check | Run `git diff --check`. | This should fail PRs with whitespace errors while avoiding broad repository mutation checks. |
 | Secrets | Do not expose secrets or environment-specific values. | The baseline workflow should not print database URLs, cursor secrets, tokens or generated cursor payloads. |
 
@@ -760,6 +756,73 @@ The implementation PR for the workflow should validate locally with the same
 command sequence, then verify that a test PR shows the expected GitHub status.
 If the workflow uncovers existing failures, document them directly and avoid
 weakening the validation commands merely to make the first status check green.
+
+## Pull request validation branch protection rollout plan
+
+Issue #156 plans the repository-settings rollout for making the new pull
+request validation workflow a required status check before merging to `main`.
+This is documentation-only: do not change application features, dependencies,
+schema, seed data, APP&B workbook export, tenant guards, capability checks or
+value-free APP&B review/history boundaries in this planning slice.
+
+Before enabling branch protection, confirm the workflow is stable on at least
+one current pull request. PR #155 verified the check after the clean-run Prisma
+client generation ordering was fixed. The required check to select in GitHub
+should be the workflow job status shown for PRs:
+
+- workflow name: `Pull request validation`
+- job/check name: `Validate`
+- workflow file: `.github/workflows/pr-validation.yml`
+
+Roll out the required check in small operational steps:
+
+1. Open the repository branch protection or ruleset settings for `main`.
+2. Add or update the rule that applies to the `main` branch.
+3. Require status checks to pass before merging.
+4. Select the `Validate` check from the `Pull request validation` workflow.
+5. Prefer requiring branches to be up to date before merge if the team wants
+   every merge to validate against the latest `main`; otherwise document that
+   merge queue or reviewer judgement covers fast-moving branches.
+6. Keep administrator bypass behaviour explicit and limited to emergency use.
+7. Save the rule and verify a test PR cannot merge while the check is pending
+   or failing.
+8. Verify a passing PR can still merge through the normal reviewed path.
+
+The rollout should not add database-backed checks, migrations, seed data,
+`npm run smoke:appb` or `npm audit` to the required PR gate. Those remain
+separate workflows or local runbooks unless explicitly planned later. The
+required check should stay focused on install, Prisma client generation, tests,
+typecheck, lint, build, Prisma schema validation and whitespace validation.
+
+Expected safe failure behaviour:
+
+- A failing `Validate` check blocks normal merges to `main`.
+- A pending, cancelled or missing `Validate` check blocks normal merges when
+  branch protection is active.
+- Reviewers should inspect the failing job log and fix the branch instead of
+  bypassing the check.
+- If GitHub Actions has an outage or the workflow is clearly misconfigured,
+  use an explicit administrator bypass only if the repository policy permits it,
+  then create a follow-up issue to fix the CI gate.
+
+Known rollout caveats:
+
+- GitHub repository settings changes are not represented in the codebase, so
+  the rule change must be applied by a repository administrator.
+- The check name may appear as `Validate` or as
+  `Pull request validation / Validate` depending on GitHub's settings UI; select
+  the check associated with `.github/workflows/pr-validation.yml`.
+- Existing known dependency audit findings are tracked separately and should not
+  be used to weaken this validation gate.
+- The workflow currently uses `actions/checkout@v4` and `actions/setup-node@v4`;
+  GitHub may show action-runtime deprecation warnings that are not validation
+  failures. Plan an actions-version follow-up only if those warnings become
+  blocking.
+
+After rollout, add the required status-check expectation to reviewer habits:
+reviewed PRs should have a passing `Validate` check before merge, and any PR
+body that reports local validation should still defer to the GitHub status check
+for merge readiness.
 
 ## Still demo-only
 
