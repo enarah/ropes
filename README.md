@@ -221,11 +221,14 @@ tracks the remaining Prisma CLI/config/dev tooling findings separately.
 
 ### Pull request validation
 
-A lightweight GitHub Actions validation workflow is planned so future pull
-requests show a GitHub status check before merge. The plan is documented in
-[the prototype review notes](docs/prototype-review.md#pull-request-validation-ci-plan)
-and covers the current local validation sequence: install, tests, typecheck,
-lint, build, Prisma validation/generation and `git diff --check`.
+Pull requests targeting `main` now run the lightweight
+`Pull request validation` GitHub Actions workflow. It covers the current local
+validation sequence: install, Prisma client generation, tests, typecheck, lint,
+build, Prisma schema validation and `git diff --check`.
+
+The rollout plan for making that workflow a required branch-protection status
+check is documented in
+[the prototype review notes](docs/prototype-review.md#pull-request-validation-branch-protection-rollout-plan).
 
 ## Fulcrum token encryption setup
 
