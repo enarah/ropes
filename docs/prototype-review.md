@@ -824,6 +824,21 @@ reviewed PRs should have a passing `Validate` check before merge, and any PR
 body that reports local validation should still defer to the GitHub status check
 for merge readiness.
 
+## Controlled live testing deployment readiness plan
+
+Issue #158 adds a [repository-side readiness plan](live-testing-deployment-readiness.md)
+for `ropes.enarah.net.au` on Argus. It documents runtime/configuration evidence,
+Hera's authority from the dedicated sentinel machine, server questions, safe
+test data, authentication, migrations, backup/rollback, access restrictions,
+go/no-go and post-deployment checks, and a concise future handover.
+
+Key gaps are explicit: no package start script or dedicated health endpoint,
+demo authentication fallback not gated by production mode, destructive seed
+behaviour, and seed-command configuration requiring a disposable rehearsal.
+The plan is not deployment approval. It makes no server, dependency, schema,
+seed, feature or automation changes. APP&B workbook export remains blocked,
+with tenant/capability and value-free review/history boundaries unchanged.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
