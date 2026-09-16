@@ -1,0 +1,350 @@
+# Live testing deployment readiness: ropes.enarah.net.au
+
+Issue #158 documents the repository-side plan for controlled internal testing.
+It does not authorise deployment. Current decision: **NO-GO until the checklist
+below is completed and Hera and Enarah approve the handover**. No server has
+been inspected or configured for this plan.
+
+## Architecture and responsibility
+
+| Term | Responsibility |
+| --- | --- |
+| Hera | Enarah's sentinel/admin agent and server-side authority. |
+| Sentinel machine | Hera's dedicated operating/control machine. Hera runs here, not on Argus. |
+| Argus | `argus.enarah.net.au`, the proposed deployment server which Hera administers remotely with full SSH administrative access. |
+| ROPES test domain | `ropes.enarah.net.au`, intended for controlled live testing before production rollout. |
+| Codex | Repository-side implementation and documentation only. Prepares evidence and questions for Hera; does not choose or configure Argus infrastructure. |
+| GitHub | Source of truth for application code, issues, reviewed pull requests and CI: [enarah/ropes](https://github.com/enarah/ropes). |
+
+Deployment is a future handover and agreement between repository maintainers,
+Enarah and Hera. All Argus configuration remains unconfirmed until Hera supplies
+it. Enarah approves testers, data and access policy; Hera confirms operational
+choices and the rollback owner before any server work.
+
+## Repository facts and readiness gaps
+
+These observations were made from the repository at the issue #158 planning
+branch, based on main commit `8728c61`. Recheck them against the eventual
+reviewed deployment commit; this base commit is not a release approval.
+
+| Area | Evidence and implication |
+| --- | --- |
+| Runtime | `package-lock.json` locks Next.js 16.3.4 and Prisma/client/adapter 7.9.1. Next declares Node >=20.9.0; Prisma and client accept `^20.19`, `^22.12` or `>=24.0`. CI selects Node 26. Use CI's Node 26 as the validation reference, with exact runtime/npm versions agreed by Hera; the older README wording “20 or newer” is not a sufficient deployment constraint. There is no root `engines` policy. |
+| Install | CI runs `npm install`, including development dependencies needed for TypeScript, Prisma CLI and build tools. A future release should test `npm ci` against the committed lockfile for reproducibility; that switch is not implemented here. Reject unexplained package/lockfile differences. Do not omit development dependencies before generation/build/migrations, or copy a developer's `node_modules` to Argus. |
+| Generation/build | `npm run db:generate` runs `prisma generate`; generate before tests/typecheck/build on a clean checkout. `npm run build` runs `next build --webpack`. Generated client output under `node_modules` and `.next` are not source artifacts to commit. Build for the chosen runtime/platform. |
+| Start | There is **no `start` package script**. Installed Next supports `next start` after build; the existing binary can be invoked as `./node_modules/.bin/next start`. `npm run dev` is a development server, not the live testing service. Hera must agree the service command, working directory and environment; a package-script addition needs a later scoped PR. |
+| Bind address | Installed Next's CLI defaults to port 3000 (overridable by `PORT` or `--port`) and hostname `0.0.0.0` (overridable by `--hostname`). Do not expose that default directly. Hera must select a private upstream/interface and explicit port appropriate to the proxy/container arrangement. |
+| Environment | Use Next's production build/start mode for controlled live testing, while keeping the database/data strictly test-only. Production mode does not disable ROPES's demo-auth fallback. A build passing without runtime credentials is not an authentication or database readiness check. |
+| Database | `prisma/schema.prisma` uses PostgreSQL and `prisma-client-js`. `lib/db.ts` uses the PostgreSQL adapter. `prisma.config.ts` reads `DATABASE_URL` and the committed `prisma/migrations` directory. `npm run db:deploy` applies migrations; `db:migrate` is `migrate dev` and belongs to local development. |
+| Seed | `prisma/seed.ts` begins with broad `deleteMany` calls before creating demo records. It is destructive, not an incremental live environment update. `package.json` declares the seed command, but `prisma.config.ts` does not declare `migrations.seed`; prove `npm run db:seed` actually runs the intended seed with the locked CLI on a disposable database before relying on it. Any configuration fix is separate work. |
+| Auth/access | `lib/auth-options.ts`, `lib/auth-session.ts`, `lib/read-access-mode.ts` and `lib/demo-session.ts` select demo fallback when auth/database configuration is absent, without a production-mode guard. See the access gate below. |
+| Operations | `next.config.ts` is empty. There is no repository service manager, deployment workflow, dedicated health endpoint or deployment-environment indicator. Architecture suggestions in `architecture.md` are not evidence of an installed Docker or storage setup. |
+| Validation | `.github/workflows/pr-validation.yml` runs `Pull request validation` / `Validate` for PRs to main, with Prisma generation before typecheck. It has no database service, migration/seed/smoke test, deployment step or audit gate. Branch protection is a rollout plan, not proof that settings are enabled. |
+
+The [prototype review](prototype-review.md) also documents incomplete user
+provisioning, role-specific permissions and capability administration. Its
+[Prisma audit follow-up](prototype-review.md#remaining-prisma-family-audit-findings-follow-up-plan)
+is a dated snapshot, not a current clearance certificate. Before release,
+maintainers must assess the selected lockfile's current audit and record the
+decision without forced fixes or dependency changes in this planning slice.
+
+## Authentication and initial access gate
+
+Recommend an Enarah staff/tester-only stage with an outer access restriction
+plus configured application authentication. Hera and Enarah must select among
+VPN-only, IP allowlisting, reverse-proxy authentication, ROPES authenticated
+users only, or a combination. Application-only access is not the recommended
+initial choice given the fallback behaviour and incomplete role controls.
+
+`isAuthenticationConfigured()` requires a non-empty session secret and at least
+one configured OAuth provider. Google requires its client ID and secret; Entra
+requires its client ID and secret and defaults to a common tenant if the tenant
+ID is absent. Enarah must approve the provider/tenant, callback registration and
+test accounts. OAuth email must match a ROPES `User.email` with active
+organisation membership; seed users are fake and do not create OAuth accounts.
+There is no invitation/provisioning UI to fill that gap automatically.
+
+With auth unconfigured, a request can resolve to a fake user's seeded
+memberships. With auth or database configuration absent, page access can select
+demo mode. Neither path tests `NODE_ENV`. Therefore merely setting production
+mode or placing a proxy in front does not establish application identity or
+organisation isolation. Demo fallback is unacceptable for the authenticated
+live testing stage. Verify real session resolution and deny unauthorised reads
+and writes before admitting testers. A deliberate demo-only preview, if ever
+requested, needs separate approval and must not be counted as passing this plan.
+
+Before any public exposure, scope a fail-closed production auth/configuration
+change that disables these fallback paths, test missing-config behaviour, and
+resolve the test-user provisioning and permission policy. This document does
+not implement or enable authentication. If configuration is lost during the
+restricted stage, Hera must withdraw access until it is restored and verified.
+
+## Environment inventory: names only
+
+Never put actual environment values in issues, PRs, docs, workflow logs or
+committed commands. `.env` and `.env*.local` are ignored, but that does not make
+all possible environment filenames safe to commit. Hera selects a private
+secret store, ownership/permissions and injection method. Do not print
+environment dumps, URLs containing credentials, cursor tokens, payloads,
+signatures or measured secret lengths.
+
+| Variable/category | Classification | Requirement/decision |
+| --- | --- | --- |
+| `DATABASE_URL` | Required for live testing | Dedicated PostgreSQL test database; secure ownership, network path, credentials and backup agreed by Hera. |
+| `NEXTAUTH_URL` | Required for live testing | Canonical HTTPS application origin matching the test domain and approved provider callbacks. |
+| `NEXTAUTH_SECRET` | Required for live testing | Stable private session secret shared by app instances. Restart/reload behaviour and rotation/session invalidation must be agreed. |
+| `AUTH_SECRET` | Optional compatibility alias | Code falls back to this only when `NEXTAUTH_SECRET` is absent; an empty primary setting masks it. Prefer one canonical configuration, not conflicting values. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Integration-specific; required if Google is chosen | Existing supported sign-in provider, separately provisioned/approved by Enarah. At least one supported provider must be configured. |
+| `MICROSOFT_ENTRA_ID_CLIENT_ID`, `MICROSOFT_ENTRA_ID_CLIENT_SECRET`, `MICROSOFT_ENTRA_ID_TENANT_ID` | Integration-specific; required if Entra is chosen under the agreed tenant policy | Confirm intended tenant restriction rather than silently relying on the code's common-tenant fallback. |
+| `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` | Required for live testing with APP&B | Stable shared server-only secret, at least 32 UTF-8 bytes. Missing/short production configuration blocks APP&B data loading. Rotation invalidates outstanding cursors; operators refresh the report. Non-production's random process-local fallback is not a live deployment setting. |
+| `NODE_ENV` | Required runtime mode decision | Production mode for build/start; it is not proof that the data or authentication configuration is production-ready. |
+| `PORT` | Optional runtime setting | Next CLI supports this; Hera chooses an explicit upstream port. Host/interface is selected by CLI/service arrangement, not an invented app variable. |
+| `FULCRUM_TOKEN_ENCRYPTION_KEY` | Integration-specific; unneeded for initial testing | Needed for real saved-token encryption, which initial testing must not enable. |
+| `FULCRUM_CONNECTION_TEST_URL`, `FULCRUM_API_BASE_URL`, `FULCRUM_FORMS_IMPORT_URL`, `FULCRUM_RECORDS_IMPORT_URL` | Integration-specific; unneeded for initial testing | Existing server endpoint overrides. Do not set them to enable unplanned connection tests/imports. |
+| AI provider credentials or other new integration secrets | Prohibited/unneeded for initial testing | No AI provider calls or new integrations are required for this deployment plan. |
+
+Cursor configuration is checked in APP&B runtime/read paths; it is not a global
+startup readiness check. The panel may report a safe blocked state without
+loading report data. Health evidence must test the authorised APP&B route too.
+
+## Questions requiring Hera's answers
+
+Record answers, owner and evidence in the future handover, without secrets.
+
+1. What OS and version is Argus running?
+2. What Node.js versions are installed/preferred, and which exact Node/npm combination will match repository validation?
+3. Should ROPES run directly under Node, systemd, PM2, Docker, Coolify or another deployment manager?
+4. Is PostgreSQL already available on Argus, and what version is supported there?
+5. Should the dedicated test database run on Argus or elsewhere?
+6. Where should application files/releases live, and what disk/storage limits apply?
+7. Which Linux service user should own and run the application?
+8. How should environment variables and secrets be stored and injected?
+9. How should secrets be rotated, including session and cursor invalidation?
+10. What reverse proxy is currently used?
+11. What DNS destination and proxy route should connect the test domain to the private application upstream?
+12. How should TLS certificates be issued/renewed and HTTP redirected to HTTPS?
+13. What firewall/network restrictions should apply to app, database and administration access?
+14. Which initial access restriction should Enarah choose: VPN, IP allowlist, proxy authentication, application authentication or a combination?
+15. Where should application logs be stored and who may read them?
+16. How are logs rotated/retained and sensitive content suppressed?
+17. Which database backup system and restore test should protect this environment?
+18. What application/configuration backup is required, and how are secret-bearing backups protected?
+19. What is the rollback method, who owns the decision, and how is first-deployment withdrawal handled?
+20. Which monitoring/uptime checks, alert owner and disk/backup checks should be enabled?
+21. Does Hera prefer SSH/git pull, release archive, container image, GitHub Actions deployment or another mechanism? This plan implements none of them.
+22. What artifacts/documentation does Hera require from Codex/GitHub before deployment?
+23. Which existing Enarah server standards must ROPES follow?
+
+## Database and safe test data plan
+
+Hera must confirm a dedicated test database, credentials/ownership, PostgreSQL
+version, access restrictions, available storage and backup/restore procedure.
+Keep application access separate from migration privileges where the agreed
+architecture supports it. Check the target privately; do not paste its URL as
+evidence. No database is created or contacted by this planning work.
+
+The future rehearsal sequence, only after separate approval on a disposable
+database, is: install the reviewed lockfile, generate the client, validate the
+schema, inspect migration status, apply committed migrations with
+`npm run db:deploy`, and check status again with `npx prisma migrate status`.
+Do not run `db:migrate`, reset, or create new migrations on the live test server.
+Back up before migration and confirm database/app compatibility on restoration.
+
+Seed only a confirmed disposable/empty target with approved fixtures after a
+backup. Rehearse the `npm run db:seed` configuration gap noted above; treat a
+no-op or missing-seed message as a failure. Do not work around it by blindly
+running a destructive script on Argus. Reseeding deletes tester changes and
+memberships; it is not a deployment or restart step. Agree the safe test-user
+provisioning procedure separately, after initial seed if used.
+
+Initial data must be synthetic, approved demo data or explicitly safe fixtures.
+Do not load production, Traditional Owner, client, ranger personnel, cultural,
+grant financial, real APP&B or Fulcrum data/credentials. Any later exception
+requires a separately approved scope. Fake manual-field values belong only in
+the authorised editing context; review/history remains value-free. No real data
+is required for validation.
+
+The existing [APP&B local runbook](appb-reporting.md#local-disposable-database-smoke-test-runbook)
+and [manual checklist](appb-reporting.md#local-seed-smoke-test-checklist) provide
+fixture checks, not authority to seed Argus. `npm run smoke:appb` expects the
+pristine demo organisation `ropes-demo-aboriginal-corporation`, one current
+mapping decision and five history events. Run it in the rehearsal immediately
+after seed; later edits can legitimately break its fixture assumptions.
+
+## Domain, service and operations agreement
+
+For `ropes.enarah.net.au`, Hera must confirm DNS destination, reverse-proxy
+route, private upstream host/port, TLS issuance/renewal, HTTP-to-HTTPS redirect
+and firewall policy. Agree trusted forwarded host/protocol headers and test
+OAuth redirects and server-action origin handling through the proxy. Do not
+disable origin checks to bypass failures. Confirm streaming/timeouts, request
+and body limits, and any WebSocket requirement against the chosen runtime;
+no custom WebSocket feature is identified by this plan. Do not expose a dev
+server for hot reload. Hera chooses details from Argus's existing infrastructure.
+
+The chosen service manager must support explicit build/start working
+directories, private environment injection, controlled shutdown, restart,
+automatic startup after reboot, log capture, crash recovery and return to a
+previous release. Specify restart limits and how secret changes are loaded.
+Do not infer systemd/PM2/Docker availability or add configuration for them here.
+
+Minimum monitoring covers process health, startup failure, HTTP availability,
+database connectivity failures, application errors, disk usage and backup
+status. Hera selects existing tools and alert ownership; no new external
+service is added. A successful HTTP response from `/` alone is insufficient:
+the app can return a demo page or an access-unavailable state. Pair transport
+checks with authenticated route/data checks using safe fixtures. A dedicated
+health endpoint would require a separately scoped change; none exists now.
+
+Logs must exclude database URLs, session/cursor secrets, API tokens, headers
+containing credentials, sensitive APP&B values and cultural information. Agree
+retention, rotation, access and redaction before startup. Inspect failures in a
+restricted context; share only safe pass/fail categories, never raw environment,
+request, auth or audit payloads. Record the test domain, approved release and
+synthetic organisation as environment evidence; there is no dedicated live-test
+banner today, so confirm how testers will recognise the environment before go-live.
+
+Before the first migration/deployment, require a database backup (including an
+empty baseline where applicable), protected configuration backup and a known-good
+prior application release/commit. For the very first deployment with no prior
+running ROPES, document that fact and agree withdrawal of the new service/access
+plus restoration of the baseline as the fallback. Never invent a previous release.
+
+Hera must provide the exact rollback procedure for the selected architecture and
+identify the rollback decision owner. App rollback alone does not undo database
+migrations: test restoring a compatible database/configuration snapshot or an
+explicitly reviewed recovery path. Success requires the expected release running
+(or safely withdrawn), compatible restored data, working approved access,
+unauthorised access denied, tenant/capability checks passing, preserved safe test
+records, no secret leakage and a still-available backup. Record evidence and
+recovery time without values or credentials. Do not use seed/reset as rollback.
+
+## CI, release and feature boundaries
+
+Deploy only a specifically identified reviewed/merged commit with passing
+`Pull request validation` / `Validate` evidence. Record the immutable commit and
+any agreed tag/release; a moving `main` reference alone is not a rollback plan.
+A repository administrator must confirm branch protection is enabled or record
+an explicit deferral under the [rollout plan](prototype-review.md#pull-request-validation-branch-protection-rollout-plan).
+Deployment must not bypass PR validation. Choose a release/build artifact strategy
+with Hera before use; no automatic GitHub deployment is added here.
+
+The existing validation sequence is:
+
+```bash
+npm install
+npm run db:generate
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npx prisma validate
+git diff --check
+```
+
+This is repository validation, not server, auth, backup or migration evidence.
+Keep generated output and credentials out of source control. Dependencies,
+schema, migrations, seed data and CI remain unchanged by this plan.
+
+The current `tests/` suite covers APP&B cursor/history, note safety and readiness
+helpers; it does not prove end-to-end session, tenant or capability enforcement
+on deployed routes/actions. Arrange those negative access checks during the
+approved rehearsal and track any required test implementation separately.
+
+APP&B stays a manual-field/review/history foundation. Workbook export remains
+blocked: no XLSX generation or uploaded template storage. Tenant and capability
+guards remain required, including `reporting`, `reporting.appb`, `grants` and
+`grants.appb`. No cross-organisation access or financial/workbook/manual-value
+leakage into compact summaries, notes, history or audit observations is allowed.
+Manual values render only inside authorised editing. Rejected unsafe review
+notes are neither stored nor redisplayed; only safe reason/count metadata is
+available. Current decisions, three newest history events and per-target older
+history stay separate from rejected-note counts. Cursor secrets stay server-side;
+operators refresh after stale cursors rather than inspecting or printing tokens.
+
+Fulcrum has existing manual connection-test/import code that can call external
+endpoints if configured; it is not merely a placeholder. Initial testing must
+not introduce tokens, saved live connections, endpoint overrides or unplanned
+sync/import activity. Keep capabilities/access restricted as agreed and use
+safe placeholders only. AI remains optional/provider-agnostic and separately
+scoped, with no provider calls added. No external integration is needed merely
+to make ROPES run; the existing approved authentication provider is the explicit
+sign-in dependency, not permission to add other integrations.
+
+## Pre-deployment go/no-go checklist
+
+Each item needs an owner and safe evidence in the eventual handover. All boxes
+are intentionally unchecked. Any unsatisfied required item means **NO-GO**.
+
+- [ ] Selected reviewed/merged commit/release identified; PR validation passes.
+- [ ] Branch protection enabled or consciously deferred by a repository administrator.
+- [ ] Hera has reviewed the handover and answered the infrastructure questions.
+- [ ] Argus OS, Node/npm/runtime compatibility and storage constraints confirmed.
+- [ ] Deployment method, directory, service user and start/restart/reboot behaviour agreed.
+- [ ] Private upstream, reverse proxy, headers and firewall/access approach agreed.
+- [ ] DNS destination and TLS issuance, renewal and redirect confirmed.
+- [ ] Dedicated test database and credentials ready; target privately verified.
+- [ ] Database/configuration backup and recovery ownership confirmed.
+- [ ] Environment variables securely provisioned; production-mode cursor configuration valid.
+- [ ] Demo-auth fallback decision recorded; authenticated mode verified; public exposure blocked pending fail-closed follow-up.
+- [ ] Safe test users provisioned with intended active memberships and no unintended access.
+- [ ] Safe fixture set approved; seed invocation rehearsed and destructive behaviour understood.
+- [ ] No production/client/cultural/grant data or live Fulcrum credentials loaded.
+- [ ] Migrations tested on a disposable target and selected database state verified.
+- [ ] Rollback documented/rehearsed, with compatible prior release or first-deployment withdrawal plan.
+- [ ] Tenant read/write isolation tests and unauthorised-access tests passing.
+- [ ] Capability boundary tests passing, including the four APP&B capabilities.
+- [ ] APP&B export blocked, values confined to editing, review/history value-free.
+- [ ] Logging/redaction, rotation, monitoring, alert owner and backups confirmed.
+- [ ] Enarah/Hera approve the internal access restriction and environment identification.
+- [ ] Current dependency findings reviewed for the selected release; residual risk decision recorded.
+
+## Planned post-deployment smoke test
+
+Hera and an approved tester perform these only after a separately authorised
+deployment. Record safe result categories and release identity, not record
+contents, raw logs or credentials. Stop access and use the agreed recovery
+procedure if a security boundary fails.
+
+- [ ] HTTPS and HTTP redirect work; certificate/domain match; environment/release and synthetic organisation are identifiable.
+- [ ] Approved sign-in works, resolves a real session and correct active memberships, without demo fallback.
+- [ ] Signed-out, unknown and inactive users cannot read/write organisation data; test direct routes/actions, not just navigation.
+- [ ] Switching or tampering with another organisation's identifiers does not expose or change its records.
+- [ ] Disabled capabilities block both page access and relevant writes; granted capabilities work.
+- [ ] Dashboard `/`, `/trips` and `/vehicles` load for the intended organisation; placeholder content is recognised as such.
+- [ ] `/reports/appb?org=ropes-demo-aboriginal-corporation` loads only for authorised membership/capabilities, when that approved fixture is used.
+- [ ] APP&B readiness rows reflect working database/auth/cursor configuration; report fixtures appear.
+- [ ] Manual values stay within editing; current mapping metadata and three initial history events are value-free; two older seeded events load where the fixture remains pristine.
+- [ ] Rejected-note counts show safe metadata without rejected text; workbook export stays unavailable.
+- [ ] Safe create/update flows work on synthetic trips/vehicles/manual fields, and persisted changes survive refresh and service restart.
+- [ ] Logout/session behaviour denies subsequent protected operations as intended.
+- [ ] Process health, database connectivity, disk/backup monitoring and logs meet the agreed expectations without value/secret leakage.
+- [ ] Restart/reboot recovery and rollback pathway remain available; backup/restore evidence is retained safely.
+
+## Future Hera handover block
+
+Copy and complete this block only after review; unresolved fields remain NO-GO.
+
+| Handover item | Repository position / Hera confirmation required |
+| --- | --- |
+| App/domain/server | ROPES controlled testing at `ropes.enarah.net.au` on Argus. Hera operates from the sentinel machine and administers Argus remotely. |
+| Source/release | `https://github.com/enarah/ropes`; deployment commit/tag/release **unselected**. Supply reviewed immutable SHA and passing Validate link. |
+| Runtime | Node 26 is CI's reference; lockfile engine constraints above. Hera confirms OS, Node/npm, service user, storage and deployment method. |
+| Environment names | `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET`, `NODE_ENV`; chosen Google or Entra variable names from the inventory; optional `PORT`. No values. No Fulcrum/AI credentials for initial testing. |
+| Database | Dedicated test PostgreSQL, approved credentials/ownership, safe fixtures, tested backup/restore. Hera confirms location/version; seed/provisioning gaps must be resolved. |
+| Generate/migrate | Future approved rehearsal: `npm run db:generate`, `npx prisma validate`, `npx prisma migrate status`, `npm run db:deploy`, then status again. No `migrate dev` or seed on existing live test data. |
+| Build/start | `npm run build`; no `npm start` today. Existing binary `./node_modules/.bin/next start` requires Hera's explicit private host/port, working directory, environment and service arrangement. |
+| Health | No dedicated endpoint. HTTPS transport plus authenticated route/DB/APP&B checks, process/disk/backup monitoring and safe error categories. Hera chooses check tooling and alert owner. |
+| Safety | Staff/test users only, synthetic data, tenant/capability guards, value-free review/history, rejected notes unstored, export/XLSX/template storage blocked, no new AI/Fulcrum integration. |
+| Decisions outstanding | All Hera questions above, authentication fallback/public-exposure gate, provisioning, seed invocation, release method, environment identification and initial access policy. |
+| Rollback | Hera provides command/process, decision owner, prior release or withdrawal baseline, protected DB/config backups and successful recovery evidence before deployment. |
+
+Next steps are review of this plan, Hera's infrastructure answers, separately
+scoped fixes for confirmed repository gaps, an approved disposable rehearsal,
+and completion of the go/no-go evidence. Only then seek a separate deployment
+decision from Enarah and Hera. This PR does not send the handover to Hera.
+
+No SSH, server/DNS/TLS/proxy/database changes, secrets, deployment scripts,
+service/container configuration, deployment workflow or application changes are
+part of issue #158. Subsequent implementation and server operations require
+separately scoped work after this handover has been reviewed.

@@ -230,6 +230,15 @@ The rollout plan for making that workflow a required branch-protection status
 check is documented in
 [the prototype review notes](docs/prototype-review.md#pull-request-validation-branch-protection-rollout-plan).
 
+### Controlled live testing deployment planning
+
+The [live testing deployment readiness plan](docs/live-testing-deployment-readiness.md)
+records repository facts, authentication/seed/start-command gaps, questions for
+Hera, go/no-go and smoke-test checklists, and a future handover for
+`ropes.enarah.net.au` on Argus. Hera operates from the dedicated sentinel machine
+and administers Argus remotely. Deployment requires Hera's infrastructure
+decisions and Enarah's approval; the plan does not deploy or configure anything.
+
 ## Fulcrum token encryption setup
 
 ROPES can store a per-organisation Fulcrum API token encrypted at rest for the
