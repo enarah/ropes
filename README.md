@@ -28,8 +28,8 @@ The first implementation stream will establish:
 
 Requirements:
 
-- Node.js 20 or newer
-- npm
+- Node.js 26 for repository validation and the controlled-testing runtime
+- npm 11 or newer
 
 Install dependencies:
 
@@ -299,11 +299,58 @@ check is documented in
 ### Controlled live testing deployment planning
 
 The [live testing deployment readiness plan](docs/live-testing-deployment-readiness.md)
-records repository facts, authentication/seed/start-command gaps, questions for
+records repository facts, runtime/start-contract decisions, authentication and seed gaps, questions for
 Hera, go/no-go and smoke-test checklists, and a future handover for
 `ropes.enarah.net.au` on Argus. Hera operates from the dedicated sentinel machine
 and administers Argus remotely. Deployment requires Hera's infrastructure
 decisions and Enarah's approval; the plan does not deploy or configure anything.
+
+ROPES has a repository-supported production start contract:
+
+```bash
+npm run build
+npm start
+```
+
+`npm start` runs `next start` against an already-built production application.
+It does not install packages, rebuild, generate Prisma client output, run
+migrations, run seed data, provision users, create databases, alter
+capabilities or call external services. Those remain separate reviewed
+operator steps. For controlled testing, build the deployable application on
+Linux x86_64 with the same Node major version used at runtime; do not treat a
+macOS sentinel-machine build as the deployable Argus artefact.
+
+Next 16.3.4 supports `PORT` or `--port` for the listener port and
+`--hostname` for the listener interface. Hera must choose a private/loopback
+listener and keep the Node server behind nginx/Plesk; do not intentionally
+expose the Node listener directly to the public internet. For example, Hera's
+service layer can pass supported Next options such as:
+
+```bash
+npm start -- --hostname 127.0.0.1 --port 3000
+```
+
+The controlled-testing runtime environment names are documented in the
+deployment plan. `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET` or the
+supported Auth.js equivalent, selected OAuth provider variables,
+`APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` when APP&B is enabled,
+`NODE_ENV=production`, the chosen Next listener configuration and blank/unset
+`ROPES_DEMO_MODE` are configured externally. Do not commit secret values.
+
+The production-style operational sequence stays separated:
+
+1. install locked dependencies
+2. run `npm run db:generate`
+3. validate, test and build
+4. separately run authorised `npm run db:deploy` against the approved database
+5. separately provision approved users with `npm run provision:user` if authorised
+6. start with `npm start`
+7. verify `/api/health`
+8. verify `/api/ready`
+
+Startup success alone does not mean deployment is ready: `/api/health` checks
+liveness, while `/api/ready` may return HTTP 503 until database, authentication
+and demo-mode readiness checks pass.
 
 ROPES also exposes two anonymous, minimal monitoring endpoints for controlled
 testing infrastructure:

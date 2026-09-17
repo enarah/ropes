@@ -29,11 +29,11 @@ reviewed deployment commit; this base commit is not a release approval.
 
 | Area | Evidence and implication |
 | --- | --- |
-| Runtime | `package-lock.json` locks Next.js 16.3.4 and Prisma/client/adapter 7.9.1. Next declares Node >=20.9.0; Prisma and client accept `^20.19`, `^22.12` or `>=24.0`. CI selects Node 26. Use CI's Node 26 as the validation reference, with exact runtime/npm versions agreed by Hera; the older README wording “20 or newer” is not a sufficient deployment constraint. There is no root `engines` policy. |
+| Runtime | `package-lock.json` locks Next.js 16.3.4 and Prisma/client/adapter 7.9.1. Next declares Node >=20.9.0; Prisma and client accept `^20.19`, `^22.12` or `>=24.0`. ROPES declares Node 26 / npm 11 as the repository validation and controlled-testing runtime contract. Use the same Node major for build and runtime unless a different pairing is explicitly tested and reviewed. |
 | Install | CI runs `npm install`, including development dependencies needed for TypeScript, Prisma CLI and build tools. A future release should test `npm ci` against the committed lockfile for reproducibility; that switch is not implemented here. Reject unexplained package/lockfile differences. Do not omit development dependencies before generation/build/migrations, or copy a developer's `node_modules` to Argus. |
-| Generation/build | `npm run db:generate` runs `prisma generate`; generate before tests/typecheck/build on a clean checkout. `npm run build` runs `next build --webpack`. Generated client output under `node_modules` and `.next` are not source artifacts to commit. Build for the chosen runtime/platform. |
-| Start | There is **no `start` package script**. Installed Next supports `next start` after build; the existing binary can be invoked as `./node_modules/.bin/next start`. `npm run dev` is a development server, not the live testing service. Hera must agree the service command, working directory and environment; a package-script addition needs a later scoped PR. |
-| Bind address | Installed Next's CLI defaults to port 3000 (overridable by `PORT` or `--port`) and hostname `0.0.0.0` (overridable by `--hostname`). Do not expose that default directly. Hera must select a private upstream/interface and explicit port appropriate to the proxy/container arrangement. |
+| Generation/build | `npm run db:generate` runs `prisma generate`; generate before tests/typecheck/build on a clean checkout. `npm run build` runs `next build --webpack`. Generated client output under `node_modules` and `.next` are not source artifacts to commit. Build deployable Linux x86_64 artefacts on Linux for the chosen runtime/platform, not on the macOS sentinel machine. |
+| Start | `npm start` is the supported repository entrypoint and runs `next start` against an already-built production application. `npm run dev` is a development server, not the live testing service. Startup must not run migrations, seed data, provisioning, package installation, rebuilds, capability changes or external service calls. |
+| Bind address | Installed Next 16.3.4 documents `next start [directory]`, `--port <port>` / `PORT`, and `--hostname <hostname>`; defaults are port 3000 and hostname `0.0.0.0`. Do not expose that default directly. Hera must select a private upstream/interface and explicit port appropriate to the proxy/container arrangement, for example through supported `npm start -- --hostname ... --port ...` arguments. |
 | Environment | Use Next's production build/start mode for controlled live testing, while keeping the database/data strictly test-only. Demo fallback is controlled by explicit `ROPES_DEMO_MODE` local/demo configuration rather than missing auth/database configuration. A build passing without runtime credentials is not an authentication or database readiness check. |
 | Database | `prisma/schema.prisma` uses PostgreSQL and `prisma-client-js`. `lib/db.ts` uses the PostgreSQL adapter. `prisma.config.ts` reads `DATABASE_URL` and the committed `prisma/migrations` directory. `npm run db:deploy` applies migrations; `db:migrate` is `migrate dev` and belongs to local development. |
 | Seed | `prisma/seed.ts` begins with broad `deleteMany` calls before creating demo records. It is destructive, not an incremental live environment update. `package.json` declares the seed command, but `prisma.config.ts` does not declare `migrations.seed`; prove `npm run db:seed` actually runs the intended seed with the locked CLI on a disposable database before relying on it. Any configuration fix is separate work. |
@@ -106,7 +106,7 @@ signatures or measured secret lengths.
 | `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET` | Required for live testing with APP&B | Stable shared server-only secret, at least 32 UTF-8 bytes. Missing/short production configuration blocks APP&B data loading. Rotation invalidates outstanding cursors; operators refresh the report. Non-production's random process-local fallback is not a live deployment setting. |
 | `ROPES_DEMO_MODE` | Must stay disabled for live testing | Optional local/demo-only switch. Leave unset or blank for controlled/live environments; production builds ignore demo mode and fail closed without real auth and database configuration. |
 | `NODE_ENV` | Required runtime mode decision | Production mode for build/start; it is not proof that the data or authentication configuration is production-ready. |
-| `PORT` | Optional runtime setting | Next CLI supports this; Hera chooses an explicit upstream port. Host/interface is selected by CLI/service arrangement, not an invented app variable. |
+| `PORT` | Optional runtime setting | Next CLI supports this; Hera chooses an explicit upstream port. Host/interface is selected with Next's supported `--hostname` option in the service arrangement, not an invented app variable. |
 | `FULCRUM_TOKEN_ENCRYPTION_KEY` | Integration-specific; unneeded for initial testing | Needed for real saved-token encryption, which initial testing must not enable. |
 | `FULCRUM_CONNECTION_TEST_URL`, `FULCRUM_API_BASE_URL`, `FULCRUM_FORMS_IMPORT_URL`, `FULCRUM_RECORDS_IMPORT_URL` | Integration-specific; unneeded for initial testing | Existing server endpoint overrides. Do not set them to enable unplanned connection tests/imports. |
 | AI provider credentials or other new integration secrets | Prohibited/unneeded for initial testing | No AI provider calls or new integrations are required for this deployment plan. |
@@ -142,6 +142,72 @@ Record answers, owner and evidence in the future handover, without secrets.
 21. Does Hera prefer SSH/git pull, release archive, container image, GitHub Actions deployment or another mechanism? This plan implements none of them.
 22. What artifacts/documentation does Hera require from Codex/GitHub before deployment?
 23. Which existing Enarah server standards must ROPES follow?
+
+## Production runtime and start contract
+
+The repository-supported production entrypoint is:
+
+```bash
+npm start
+```
+
+It runs the installed Next 16.3.4 production server command `next start`.
+Inspection of the installed CLI confirms that `next start` starts a production
+server from an application already compiled with `next build`; it supports
+`next start [directory]`, `--port <port>` or `PORT`, `--hostname <hostname>`,
+`--keepAliveTimeout`, and standard stdout/stderr logging. It defaults to port
+3000 and hostname `0.0.0.0`, so Hera must provide an explicit private listener
+choice through the service command/environment and keep the Node listener behind
+the nginx/Plesk reverse proxy.
+
+The supported invocation shape is:
+
+```bash
+npm start -- --hostname <private-or-loopback-host> --port <private-port>
+```
+
+Do not commit hostnames, private IPs, ports or secret values to the repository.
+Do not intentionally expose the Node listener directly to the public internet.
+Hera owns the eventual systemd/proxy/firewall implementation separately.
+
+The production sequence is deliberately separated:
+
+1. install the reviewed lockfile
+2. run `npm run db:generate`
+3. run validation, tests and `npm run build`
+4. separately run authorised `npm run db:deploy` against the approved database
+5. separately run `npm run provision:user` only if approved
+6. run `npm start` against the already-built application
+7. verify `/api/health`
+8. verify `/api/ready`
+
+`npm start` must not install packages, rebuild, generate Prisma output, run
+`prisma migrate dev`, run `prisma migrate deploy`, seed data, provision users,
+generate demo data, create databases, alter capabilities or call OAuth, Fulcrum,
+AI or other external services. Application startup is therefore not database
+mutation, migration approval, seed approval, user provisioning or deployment
+approval.
+
+Build the deployable artefact on Linux x86_64 for Argus. The macOS sentinel
+machine is an administration/control machine, not the source of the deployable
+Linux runtime artefact unless that is separately tested and approved. Build and
+runtime Node major versions should match; repository validation and controlled
+testing use Node 26 and npm 11.
+
+With the current non-standalone Next mode, a reviewed release needs the built
+`.next` output, installed `node_modules`, `package.json`, `package-lock.json`,
+the generated Prisma client under `node_modules`, `prisma/schema.prisma`,
+committed migrations, and any public/static assets. Do not switch to Next
+standalone output, create release archives or add deployment automation in this
+plan without a separate reviewed issue.
+
+Standard Next startup writes normal process logs to stdout/stderr and handles
+SIGINT/SIGTERM cleanup itself before exiting with signal-based exit codes.
+Prefer that standard behaviour. Do not add PM2, custom wrappers, file-based app
+logs or custom signal handling unless a later issue demonstrates a repository
+requirement. Logs must not include database URLs, session/cursor secrets, OAuth
+tokens, APP&B values, request-header dumps or culturally sensitive/operational
+record content.
 
 ## Database and safe test data plan
 
@@ -300,7 +366,10 @@ are intentionally unchecked. Any unsatisfied required item means **NO-GO**.
 - [ ] Branch protection enabled or consciously deferred by a repository administrator.
 - [ ] Hera has reviewed the handover and answered the infrastructure questions.
 - [ ] Argus OS, Node/npm/runtime compatibility and storage constraints confirmed.
+- [ ] Node 26 / npm 11 build and runtime contract accepted, or a separately tested exception recorded.
+- [ ] Reviewed Linux x86_64 build artefact strategy agreed; no macOS sentinel build is treated as the deployable artefact.
 - [ ] Deployment method, directory, service user and start/restart/reboot behaviour agreed.
+- [ ] `npm start` service invocation agreed with explicit private host/port using supported Next options.
 - [ ] Private upstream, reverse proxy, headers and firewall/access approach agreed.
 - [ ] DNS destination and TLS issuance, renewal and redirect confirmed.
 - [ ] Dedicated test database and credentials ready; target privately verified.
@@ -351,12 +420,12 @@ Copy and complete this block only after review; unresolved fields remain NO-GO.
 | --- | --- |
 | App/domain/server | ROPES controlled testing at `ropes.enarah.net.au` on Argus. Hera operates from the sentinel machine and administers Argus remotely. |
 | Source/release | `https://github.com/enarah/ropes`; deployment commit/tag/release **unselected**. Supply reviewed immutable SHA and passing Validate link. |
-| Runtime | Node 26 is CI's reference; lockfile engine constraints above. Hera confirms OS, Node/npm, service user, storage and deployment method. |
+| Runtime | Node 26 / npm 11 is the repository validation and controlled-testing runtime contract; lockfile engine constraints above. Hera confirms OS, Node/npm, service user, storage and deployment method. |
 | Environment names | `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `APPB_MAPPING_REVIEW_HISTORY_CURSOR_SECRET`, `NODE_ENV`; `ROPES_DEMO_MODE` explicitly unset/blank; chosen Google or Entra variable names from the inventory; optional `PORT`. No values. No Fulcrum/AI credentials for initial testing. |
 | Database | Dedicated test PostgreSQL, approved credentials/ownership, safe fixtures, tested backup/restore. Hera confirms location/version; seed/provisioning gaps must be resolved. |
-| Generate/migrate | Future approved rehearsal: `npm run db:generate`, `npx prisma validate`, `npx prisma migrate status`, `npm run db:deploy`, then status again. No `migrate dev` or seed on existing live test data. |
-| Build/start | `npm run build`; no `npm start` today. Existing binary `./node_modules/.bin/next start` requires Hera's explicit private host/port, working directory, environment and service arrangement. |
-| Health | No dedicated endpoint. HTTPS transport plus authenticated route/DB/APP&B checks, process/disk/backup monitoring and safe error categories. Hera chooses check tooling and alert owner. |
+| Generate/migrate | Future approved rehearsal: `npm run db:generate`, `npx prisma validate`, `npx prisma migrate status`, `npm run db:deploy`, then status again. No `migrate dev` or seed on existing live test data. Migrations are not part of `npm start`. |
+| Build/start | `npm run build`, then `npm start` from the built release. Hera supplies explicit private host/port with supported Next `--hostname`/`--port` or `PORT` options, working directory, environment and service arrangement. `npm start` does not rebuild, migrate, seed or provision. |
+| Health | `/api/health` is liveness; `/api/ready` is coarse application readiness and may be HTTP 503 while the process is running. Pair endpoint checks with authenticated route/DB/APP&B checks, process/disk/backup monitoring and safe error categories. Hera chooses check tooling and alert owner. |
 | Safety | Staff/test users only, synthetic data, tenant/capability guards, value-free review/history, rejected notes unstored, export/XLSX/template storage blocked, no new AI/Fulcrum integration. |
 | Decisions outstanding | All Hera questions above, public-exposure gate, provisioning, seed invocation, release method, environment identification and initial access policy. |
 | Rollback | Hera provides command/process, decision owner, prior release or withdrawal baseline, protected DB/config backups and successful recovery evidence before deployment. |
