@@ -4,7 +4,7 @@ import {
 } from "@/lib/dashboard-data";
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
-import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
+import { isDemoFallbackMode } from "@/lib/read-access-mode";
 import {
   isActivityRiskCode,
   isTripTypeCode,
@@ -561,7 +561,7 @@ async function getPersistedTripsForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
   if (!isDatabaseConfigured()) {
-    return null;
+    return isDemoFallbackMode() ? null : [];
   }
 
   try {
@@ -626,7 +626,7 @@ async function getPersistedTripsForOrganisation(
     });
 
     if (!organisation) {
-      return isAuthenticatedDatabaseMode() ? [] : null;
+      return isDemoFallbackMode() ? null : [];
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -637,7 +637,7 @@ async function getPersistedTripsForOrganisation(
       mapPersistedTripToDemoTrip(organisationSlug, trip),
     );
   } catch {
-    return isAuthenticatedDatabaseMode() ? [] : null;
+    return isDemoFallbackMode() ? null : [];
   }
 }
 

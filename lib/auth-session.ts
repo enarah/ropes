@@ -9,6 +9,7 @@ import {
 import { demoOrganisations, fakeCurrentSession } from "@/lib/dashboard-data";
 import { getFakeTenantGuardSession } from "@/lib/demo-session";
 import { isDatabaseConfigured } from "@/lib/db";
+import { isDemoFallbackMode } from "@/lib/read-access-mode";
 import {
   requireOrganisationAccess,
   type TenantGuardSession,
@@ -36,14 +37,16 @@ export async function getTenantGuardSessionForRequest(
   prisma: PrismaClient,
 ): Promise<TenantGuardSession> {
   if (!isAuthenticationConfigured()) {
-    return getFakeTenantGuardSession(prisma);
+    return isDemoFallbackMode()
+      ? getFakeTenantGuardSession(prisma)
+      : { memberships: [], userId: null };
   }
 
   const authSession = await getServerSession(authOptions);
   const email = authSession?.user?.email;
 
   if (!email) {
-    return { memberships: [], userId: null };
+    return buildTenantGuardSessionFromAuthLookup(authSession, null);
   }
 
   const user = await prisma.user.findUnique({
@@ -52,28 +55,14 @@ export async function getTenantGuardSessionForRequest(
         include: {
           role: true,
         },
-        where: {
-          status: "ACTIVE",
-        },
       },
     },
     where: {
-      email,
+      email: email ?? "",
     },
   });
 
-  if (!user) {
-    return { memberships: [], userId: null };
-  }
-
-  return {
-    userId: user.id,
-    memberships: user.memberships.map((membership) => ({
-      organisationId: membership.organisationId,
-      role: membership.role.name,
-      status: membership.status,
-    })),
-  };
+  return buildTenantGuardSessionFromAuthLookup(authSession, user);
 }
 
 export async function canReadOrganisation(
@@ -94,23 +83,19 @@ export async function getDashboardAuthContext(
   prisma?: PrismaClient,
 ): Promise<DashboardAuthContext> {
   const authConfigured = isAuthenticationConfigured();
+  const demoFallbackEnabled = isDemoFallbackMode();
 
   if (!isDatabaseConfigured() || !prisma) {
-    return {
-      availableOrganisations: demoOrganisations.map((organisation) => ({
-        capabilityKeys: [...defaultDemoCapabilityKeys],
-        name: organisation.name,
-        slug: organisation.slug,
-        type: "Demo fallback",
-      })),
-      email: fakeCurrentSession.user.email,
-      isAuthConfigured: authConfigured,
-      name: fakeCurrentSession.user.name,
-      source: "demo-fallback",
-    };
+    return demoFallbackEnabled
+      ? demoDashboardAuthContext(authConfigured, "Demo fallback")
+      : unavailableDashboardAuthContext(authConfigured);
   }
 
   if (!authConfigured) {
+    if (!demoFallbackEnabled) {
+      return unavailableDashboardAuthContext(false);
+    }
+
     const fakeSession = await getFakeTenantGuardSession(prisma);
     const organisationIds = new Set(
       fakeSession.memberships?.map((membership) => membership.organisationId),
@@ -213,6 +198,75 @@ export async function getDashboardAuthContext(
   };
 }
 
+export type AuthSessionForTenantLookup = {
+  user?: {
+    email?: string | null;
+    name?: string | null;
+  } | null;
+} | null;
+
+type AuthLookupUser = {
+  id: string;
+  memberships: Array<{
+    organisationId: string;
+    role: {
+      name: string;
+    };
+    status: string;
+  }>;
+} | null;
+
+export function buildTenantGuardSessionFromAuthLookup(
+  authSession: AuthSessionForTenantLookup,
+  user: AuthLookupUser,
+): TenantGuardSession {
+  const email = authSession?.user?.email;
+
+  if (!email || !user) {
+    return { memberships: [], userId: null };
+  }
+
+  return {
+    userId: user.id,
+    memberships: user.memberships
+      .filter((membership) => membership.status === "ACTIVE")
+      .map((membership) => ({
+        organisationId: membership.organisationId,
+        role: membership.role.name,
+        status: "ACTIVE",
+      })),
+  };
+}
+
 function normaliseCapabilityKeys(keys: string[]) {
   return [...new Set(keys)].filter(isOrganisationCapabilityKey);
+}
+
+function demoDashboardAuthContext(
+  authConfigured: boolean,
+  organisationType: string,
+): DashboardAuthContext {
+  return {
+    availableOrganisations: demoOrganisations.map((organisation) => ({
+      capabilityKeys: [...defaultDemoCapabilityKeys],
+      name: organisation.name,
+      slug: organisation.slug,
+      type: organisationType,
+    })),
+    email: fakeCurrentSession.user.email,
+    isAuthConfigured: authConfigured,
+    name: fakeCurrentSession.user.name,
+    source: "demo-fallback",
+  };
+}
+
+function unavailableDashboardAuthContext(
+  authConfigured: boolean,
+): DashboardAuthContext {
+  return {
+    availableOrganisations: [],
+    isAuthConfigured: authConfigured,
+    name: authConfigured ? "Not signed in" : "Authentication unavailable",
+    source: "unauthenticated",
+  };
 }

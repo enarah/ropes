@@ -137,8 +137,9 @@ cursor. The secret is never returned to the client.
 ## Authentication setup
 
 ROPES uses Auth.js/NextAuth with JWT sessions for the initial authentication
-foundation. Authentication is enabled only when a session secret and at least
-one OAuth provider are configured.
+foundation. Controlled/live environments fail closed unless authentication and
+the database are configured. Authentication is enabled only when a session
+secret and at least one OAuth provider are configured.
 
 Add local values to `.env`:
 
@@ -150,6 +151,7 @@ GOOGLE_CLIENT_SECRET=""
 MICROSOFT_ENTRA_ID_CLIENT_ID=""
 MICROSOFT_ENTRA_ID_CLIENT_SECRET=""
 MICROSOFT_ENTRA_ID_TENANT_ID=""
+ROPES_DEMO_MODE=""
 ```
 
 Generate a local secret with a command such as:
@@ -160,14 +162,27 @@ openssl rand -base64 32
 
 The signed-in OAuth email must match a `User.email` in the ROPES database.
 Only active memberships for that user are exposed to the organisation switcher
-and tenant guards. If auth providers are not configured, the local prototype
-keeps the clearly labelled fake/demo session fallback for development.
+and tenant guards. Unknown users, users without active memberships, invited or
+suspended memberships, missing session emails and cross-organisation requests
+receive no organisation access.
+
+Local/demo fallback is available only when explicitly enabled outside
+production:
+
+```bash
+ROPES_DEMO_MODE="enabled"
+```
+
+Leave `ROPES_DEMO_MODE` unset or blank for controlled/live environments.
+Production builds ignore demo mode and require real authentication plus
+`DATABASE_URL`; missing live configuration shows a safe unavailable state
+instead of fake users, demo organisations or default demo capabilities.
 
 When both authentication and `DATABASE_URL` are configured, organisation-scoped
 dashboard, Trips, Vehicles and Fulcrum pages check the signed-in user's active
 membership before loading server-side organisation data. Users without access
-see an unauthorised state instead of fake fallback data. Local demo fallback is
-kept only for development when authentication or the database is not configured.
+see an unauthorised state instead of fake fallback data. This fail-closed
+behaviour does not rely on `NODE_ENV=production` alone.
 
 ### APP&B production readiness
 
@@ -437,8 +452,8 @@ The current app includes:
   decision details and rejected-note reason counts while workbook export remains
   blocked
 - Trips MVP with Prisma-backed core trip reads/create/update when
-  `DATABASE_URL` is configured, plus demo fallback when no database is
-  available
+  `DATABASE_URL` is configured, plus explicitly enabled local demo fallback
+  for development
 - Structured trip participant, vehicle allocation and itinerary rows persisted
   as organisation-scoped records, with row order preserved and vehicle
   allocations linked to matching organisation vehicles where practical
@@ -502,8 +517,8 @@ import, Fulcrum app writes, background workers, scheduled sync, AI provider
 calls, AI API keys, AI provider credentials or external service credentials
 beyond local environment configuration.
 Persisted writes and manual Fulcrum imports use Auth.js sessions when
-configured, or the clearly labelled fake/demo session fallback when auth is not
-configured for local development.
+configured. The clearly labelled fake/demo session fallback is available only
+when `ROPES_DEMO_MODE` is explicitly enabled for local development.
 
 ## Build principles
 

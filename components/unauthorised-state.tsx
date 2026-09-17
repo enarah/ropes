@@ -31,9 +31,9 @@ export function UnauthorisedState({
             </p>
           ) : null}
           <p className="mt-4 text-sm leading-6 text-charcoal-600">
-            Local demo fallback is only used when authentication or the database
-            is not configured. In authenticated mode ROPES does not show fake
-            data in place of denied organisation data.
+            Local demo fallback is available only when explicitly enabled for
+            local/demo use. Controlled environments fail closed and do not show
+            fake data in place of unavailable or denied organisation access.
           </p>
         </div>
       </div>

@@ -4,7 +4,7 @@ import {
 } from "@/lib/dashboard-data";
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
-import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
+import { isDemoFallbackMode } from "@/lib/read-access-mode";
 
 export type VehicleStatus = "Available" | "Booked" | "Maintenance" | "Retired";
 export type PreStartStatus =
@@ -807,7 +807,7 @@ async function getPersistedVehiclesForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
   if (!isDatabaseConfigured()) {
-    return null;
+    return isDemoFallbackMode() ? null : [];
   }
 
   try {
@@ -857,7 +857,7 @@ async function getPersistedVehiclesForOrganisation(
     });
 
     if (!organisation) {
-      return isAuthenticatedDatabaseMode() ? [] : null;
+      return isDemoFallbackMode() ? null : [];
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -868,7 +868,7 @@ async function getPersistedVehiclesForOrganisation(
       mapPersistedVehicleToDemoVehicle(organisationSlug, vehicle),
     );
   } catch {
-    return isAuthenticatedDatabaseMode() ? [] : null;
+    return isDemoFallbackMode() ? null : [];
   }
 }
 
@@ -876,7 +876,7 @@ async function getPersistedVehicleMaintenanceRecordsForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
   if (!isDatabaseConfigured()) {
-    return null;
+    return isDemoFallbackMode() ? null : [];
   }
 
   try {
@@ -896,7 +896,7 @@ async function getPersistedVehicleMaintenanceRecordsForOrganisation(
     });
 
     if (!organisation) {
-      return isAuthenticatedDatabaseMode() ? [] : null;
+      return isDemoFallbackMode() ? null : [];
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -910,7 +910,7 @@ async function getPersistedVehicleMaintenanceRecordsForOrganisation(
       ),
     );
   } catch {
-    return isAuthenticatedDatabaseMode() ? [] : null;
+    return isDemoFallbackMode() ? null : [];
   }
 }
 
@@ -918,7 +918,7 @@ async function getPersistedVehiclePreStartsForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
   if (!isDatabaseConfigured()) {
-    return null;
+    return isDemoFallbackMode() ? null : [];
   }
 
   try {
@@ -938,7 +938,7 @@ async function getPersistedVehiclePreStartsForOrganisation(
     });
 
     if (!organisation) {
-      return isAuthenticatedDatabaseMode() ? [] : null;
+      return isDemoFallbackMode() ? null : [];
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -949,7 +949,7 @@ async function getPersistedVehiclePreStartsForOrganisation(
       mapPersistedPreStartToDemoPreStart(organisationSlug, preStart),
     );
   } catch {
-    return isAuthenticatedDatabaseMode() ? [] : null;
+    return isDemoFallbackMode() ? null : [];
   }
 }
 
@@ -957,7 +957,7 @@ async function getPersistedVehicleDefectsForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
   if (!isDatabaseConfigured()) {
-    return null;
+    return isDemoFallbackMode() ? null : [];
   }
 
   try {
@@ -977,7 +977,7 @@ async function getPersistedVehicleDefectsForOrganisation(
     });
 
     if (!organisation) {
-      return isAuthenticatedDatabaseMode() ? [] : null;
+      return isDemoFallbackMode() ? null : [];
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -988,7 +988,7 @@ async function getPersistedVehicleDefectsForOrganisation(
       mapPersistedDefectToDemoDefect(organisationSlug, defect),
     );
   } catch {
-    return isAuthenticatedDatabaseMode() ? [] : null;
+    return isDemoFallbackMode() ? null : [];
   }
 }
 
@@ -996,7 +996,7 @@ async function getPersistedVehicleBookingsForOrganisation(
   organisationSlug: OrganisationSlug,
 ) {
   if (!isDatabaseConfigured()) {
-    return null;
+    return isDemoFallbackMode() ? null : [];
   }
 
   try {
@@ -1017,7 +1017,7 @@ async function getPersistedVehicleBookingsForOrganisation(
     });
 
     if (!organisation) {
-      return isAuthenticatedDatabaseMode() ? [] : null;
+      return isDemoFallbackMode() ? null : [];
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -1028,7 +1028,7 @@ async function getPersistedVehicleBookingsForOrganisation(
       mapPersistedBookingToDemoBooking(organisationSlug, booking),
     );
   } catch {
-    return isAuthenticatedDatabaseMode() ? [] : null;
+    return isDemoFallbackMode() ? null : [];
   }
 }
 
