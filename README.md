@@ -305,6 +305,19 @@ Hera, go/no-go and smoke-test checklists, and a future handover for
 and administers Argus remotely. Deployment requires Hera's infrastructure
 decisions and Enarah's approval; the plan does not deploy or configure anything.
 
+ROPES also exposes two anonymous, minimal monitoring endpoints for controlled
+testing infrastructure:
+
+- `GET /api/health` returns HTTP 200 with `{ "status": "ok" }` when the
+  application process can execute the route. It performs no database,
+  authentication, tenant, APP&B or external-service lookup.
+- `GET /api/ready` returns HTTP 200 only when required application-level
+  readiness checks pass, or HTTP 503 with coarse safe categories when they do
+  not. It checks database configuration/reachability, authentication
+  configuration and that explicit demo mode is not enabled. It never returns
+  secrets, connection details, tenant/user data, raw database errors or APP&B
+  values.
+
 ## Fulcrum token encryption setup
 
 ROPES can store a per-organisation Fulcrum API token encrypted at rest for the

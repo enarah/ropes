@@ -839,6 +839,24 @@ The plan is not deployment approval. It makes no server, dependency, schema,
 seed, feature or automation changes. APP&B workbook export remains blocked,
 with tenant/capability and value-free review/history boundaries unchanged.
 
+Issue #165 adds minimal anonymous application monitoring endpoints for the
+future controlled-testing deployment:
+
+- `GET /api/health` is a liveness check only. It returns HTTP 200 with
+  `{ "status": "ok" }` when the route can execute and performs no database,
+  authentication, session, tenant, APP&B or external-service lookup.
+- `GET /api/ready` is a coarse readiness check. It returns HTTP 200 only when
+  database configuration/reachability, authentication configuration and the
+  explicit demo-mode check pass; otherwise it returns HTTP 503 with safe
+  categories such as `database_unconfigured`, `database_unavailable`,
+  `authentication_unconfigured` or `demo_mode_enabled`.
+
+The readiness payload does not expose secrets, connection details, raw SQL or
+stack errors, tenant/user identifiers, capability assignments, APP&B values or
+cursor material. It does not replace Hera's process, reverse-proxy/TLS,
+PostgreSQL, disk, backup, log or external HTTPS monitoring, and it makes no
+server, DNS, database, deployment or secret changes.
+
 ## Still demo-only
 
 - Local development still uses fake/demo session fallback when auth providers
