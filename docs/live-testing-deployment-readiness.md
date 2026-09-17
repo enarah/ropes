@@ -38,7 +38,7 @@ reviewed deployment commit; this base commit is not a release approval.
 | Database | `prisma/schema.prisma` uses PostgreSQL and `prisma-client-js`. `lib/db.ts` uses the PostgreSQL adapter. `prisma.config.ts` reads `DATABASE_URL` and the committed `prisma/migrations` directory. `npm run db:deploy` applies migrations; `db:migrate` is `migrate dev` and belongs to local development. |
 | Seed | `prisma/seed.ts` begins with broad `deleteMany` calls before creating demo records. It is destructive, not an incremental live environment update. `package.json` declares the seed command, but `prisma.config.ts` does not declare `migrations.seed`; prove `npm run db:seed` actually runs the intended seed with the locked CLI on a disposable database before relying on it. Any configuration fix is separate work. |
 | Auth/access | `lib/auth-options.ts`, `lib/auth-session.ts`, `lib/read-access-mode.ts` and `lib/demo-session.ts` require explicit local/demo mode for fallback access. Controlled/live use still requires configured auth, `DATABASE_URL`, real users and active memberships. See the access gate below. |
-| Operations | `next.config.ts` is empty. There is no repository service manager, deployment workflow, dedicated health endpoint or deployment-environment indicator. Architecture suggestions in `architecture.md` are not evidence of an installed Docker or storage setup. |
+| Operations | `next.config.ts` is empty. There is no repository service manager, deployment workflow or deployment-environment indicator. ROPES now includes minimal anonymous `/api/health` and `/api/ready` endpoints for application-level monitoring only. Architecture suggestions in `architecture.md` are not evidence of an installed Docker or storage setup. |
 | Validation | `.github/workflows/pr-validation.yml` runs `Pull request validation` / `Validate` for PRs to main, with Prisma generation before typecheck. It has no database service, migration/seed/smoke test, deployment step or audit gate. Branch protection is a rollout plan, not proof that settings are enabled. |
 
 The [prototype review](prototype-review.md) also documents incomplete user
@@ -200,9 +200,21 @@ Minimum monitoring covers process health, startup failure, HTTP availability,
 database connectivity failures, application errors, disk usage and backup
 status. Hera selects existing tools and alert ownership; no new external
 service is added. A successful HTTP response from `/` alone is insufficient:
-the app can return a demo page or an access-unavailable state. Pair transport
-checks with authenticated route/data checks using safe fixtures. A dedicated
-health endpoint would require a separately scoped change; none exists now.
+the app can return an access-unavailable state. Use `/api/health` for a
+liveness signal and `/api/ready` for coarse application-level readiness, then
+pair those transport checks with authenticated route/data checks using safe
+fixtures.
+
+The monitoring endpoints are deliberately small and anonymous:
+
+| Endpoint | Success behaviour | Failure behaviour | Scope limits |
+| --- | --- | --- | --- |
+| `GET /api/health` | HTTP 200 with `{ "status": "ok" }` when the app process can execute the route. | No dependency checks are performed by design. | No database, auth, session, tenant, APP&B, OAuth, Fulcrum, AI or other external calls. |
+| `GET /api/ready` | HTTP 200 with coarse `ok` checks when database configuration/reachability, authentication configuration and explicit demo-mode checks pass. | HTTP 503 with `status: "not_ready"` and safe categories such as `database_unconfigured`, `database_unavailable`, `authentication_unconfigured` or `demo_mode_enabled`. | Does not reveal `DATABASE_URL`, hosts, users, OAuth/client/session/cursor secrets, SQL errors, stack traces, tenant/user data, capability assignments or APP&B values. It does not call OAuth providers, Fulcrum or AI providers. |
+
+These endpoints do not replace Hera's systemd/process, reverse-proxy/TLS,
+PostgreSQL, disk, backup, log and external HTTPS monitoring. APP&B-specific
+operator checks remain in the authenticated APP&B readiness panel.
 
 Logs must exclude database URLs, session/cursor secrets, API tokens, headers
 containing credentials, sensitive APP&B values and cultural information. Agree
@@ -295,6 +307,7 @@ are intentionally unchecked. Any unsatisfied required item means **NO-GO**.
 - [ ] Database/configuration backup and recovery ownership confirmed.
 - [ ] Environment variables securely provisioned; production-mode cursor configuration valid.
 - [ ] `ROPES_DEMO_MODE` left unset/blank; authenticated mode verified; no demo fallback visible in controlled/live access checks.
+- [ ] `/api/health` and `/api/ready` monitoring expectations agreed, with only safe coarse response categories shared.
 - [ ] Safe test users provisioned with intended active memberships and no unintended access, using the explicit provisioning command rather than the destructive demo seed.
 - [ ] Safe fixture set approved; seed invocation rehearsed and destructive behaviour understood.
 - [ ] No production/client/cultural/grant data or live Fulcrum credentials loaded.
@@ -315,6 +328,7 @@ contents, raw logs or credentials. Stop access and use the agreed recovery
 procedure if a security boundary fails.
 
 - [ ] HTTPS and HTTP redirect work; certificate/domain match; environment/release and synthetic organisation are identifiable.
+- [ ] `/api/health` returns the expected liveness response and `/api/ready` reports ready only after required database/auth/demo-mode checks pass.
 - [ ] Approved sign-in works, resolves a real session and correct active memberships, without demo fallback.
 - [ ] Signed-out, unknown and inactive users cannot read/write organisation data; test direct routes/actions, not just navigation.
 - [ ] Switching or tampering with another organisation's identifiers does not expose or change its records.
