@@ -79,6 +79,13 @@ policy. This document does not implement or enable authentication credentials.
 If configuration is lost during the restricted stage, Hera must withdraw access
 until it is restored and verified.
 
+Repository-side controlled-test user provisioning is handled by the explicit
+operator command `npm run provision:user -- ...`. It defaults to dry-run and
+requires `--apply` before writing User, Membership, canonical Role,
+organisation or explicitly requested capability records. It must not run during
+application startup, migration, build or OAuth sign-in. Do not use the
+destructive demo seed for controlled/live tester provisioning.
+
 ## Environment inventory: names only
 
 Never put actual environment values in issues, PRs, docs, workflow logs or
@@ -288,7 +295,7 @@ are intentionally unchecked. Any unsatisfied required item means **NO-GO**.
 - [ ] Database/configuration backup and recovery ownership confirmed.
 - [ ] Environment variables securely provisioned; production-mode cursor configuration valid.
 - [ ] `ROPES_DEMO_MODE` left unset/blank; authenticated mode verified; no demo fallback visible in controlled/live access checks.
-- [ ] Safe test users provisioned with intended active memberships and no unintended access.
+- [ ] Safe test users provisioned with intended active memberships and no unintended access, using the explicit provisioning command rather than the destructive demo seed.
 - [ ] Safe fixture set approved; seed invocation rehearsed and destructive behaviour understood.
 - [ ] No production/client/cultural/grant data or live Fulcrum credentials loaded.
 - [ ] Migrations tested on a disposable target and selected database state verified.
