@@ -120,6 +120,57 @@ For deployment-style environments, use:
 npm run db:deploy
 ```
 
+## Controlled-test user provisioning
+
+ROPES controlled/live authentication fails closed: a valid Google or Entra
+login does not create ROPES access by itself. The OAuth email must already
+match a ROPES `User` with an `ACTIVE` membership for the selected organisation.
+Unknown OAuth users remain denied.
+
+Initial controlled-test users must be provisioned with the explicit operator
+tool, not the destructive demo seed:
+
+```bash
+npm run provision:user -- --email user@example.test --name "User Name" --organisation enarah-services --role "Enarah Admin" --status ACTIVE
+```
+
+The command defaults to dry-run. It inspects the configured database and reports
+the role, organisation, user, membership and capability actions it would take
+without printing `DATABASE_URL`, OAuth secrets, session secrets, cursor secrets
+or API tokens. To bootstrap the initial Enarah organisation in a freshly
+migrated controlled-test database, the operator must be explicit:
+
+```bash
+npm run provision:user -- --email user@example.test --name "User Name" --organisation enarah-services --organisation-name "Enarah Services" --organisation-type ENARAH --bootstrap-organisation --role "Enarah Admin" --status ACTIVE
+```
+
+Writes require deliberate apply mode:
+
+```bash
+npm run provision:user -- --apply --email user@example.test --name "User Name" --organisation enarah-services --organisation-name "Enarah Services" --organisation-type ENARAH --bootstrap-organisation --role "Enarah Admin" --status ACTIVE
+```
+
+Run dry-run first, review the output, apply only after separate authorisation,
+then run dry-run again to confirm idempotence. Capabilities are not granted
+globally and APP&B remains optional; use repeated `--capability <key>` inputs
+only for reviewed organisation-scoped capability bootstrap. Role/status changes,
+membership suspension/reactivation, user removal and rollback/removal are
+separate administrative operations, not side effects of this command.
+
+The current controlled-test planning record identifies
+`mabel@enarah.com.au` as the initial administrator with the `Enarah Admin`
+membership role, not `Platform Owner`. `daryl.clarke@enarah.com.au` and
+`accounts@enarah.com.au` require explicit role choices before any provisioning
+run. `accounts@enarah.com.au` also needs separate confirmation that it is an
+interactive Google identity if direct sign-in is expected. These addresses are
+documentation/operator inputs only and are not embedded in reusable
+authorization logic.
+
+Do not run `prisma/seed.ts` against controlled/live data. The seed is
+destructive and exists for disposable local demo data only. No real
+operational, client, cultural, APP&B, Fulcrum or grant data is required merely
+to bootstrap tester access.
+
 Production deployments must also set one stable, server-side APP&B history
 cursor secret on every application instance:
 

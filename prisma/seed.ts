@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { canonicalRoleDefinitions } from "../lib/canonical-roles";
 import {
   defaultDemoCapabilityKeys,
   getModuleKeyForCapability,
@@ -956,6 +957,13 @@ async function main() {
 }
 
 async function createRoles() {
+  const roles = await Promise.all(
+    canonicalRoleDefinitions.map((role) =>
+      prisma.role.create({
+        data: role,
+      }),
+    ),
+  );
   const [
     platformOwner,
     enarahAdmin,
@@ -964,50 +972,7 @@ async function createRoles() {
     headRanger,
     fieldStaff,
     readOnlyPartner,
-  ] = await Promise.all([
-    prisma.role.create({
-      data: {
-        name: "Platform Owner",
-        description: "Full control across the whole platform.",
-      },
-    }),
-    prisma.role.create({
-      data: {
-        name: "Enarah Admin",
-        description: "Can support Enarah and partner organisation setup.",
-      },
-    }),
-    prisma.role.create({
-      data: {
-        name: "Organisation Admin",
-        description: "Can manage one partner organisation.",
-      },
-    }),
-    prisma.role.create({
-      data: {
-        name: "Operations Manager",
-        description: "Can manage trips, vehicles, staff allocation and reports.",
-      },
-    }),
-    prisma.role.create({
-      data: {
-        name: "Ranger Coordinator / Head Ranger",
-        description: "Can coordinate trips, ranger activity and field records.",
-      },
-    }),
-    prisma.role.create({
-      data: {
-        name: "Field Staff / Ranger",
-        description: "Can view assigned trips and submit field updates.",
-      },
-    }),
-    prisma.role.create({
-      data: {
-        name: "Read-only Partner / Funder",
-        description: "Can view approved dashboards and reports.",
-      },
-    }),
-  ]);
+  ] = roles;
 
   return {
     platformOwner,
