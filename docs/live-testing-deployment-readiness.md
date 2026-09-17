@@ -217,12 +217,50 @@ Keep application access separate from migration privileges where the agreed
 architecture supports it. Check the target privately; do not paste its URL as
 evidence. No database is created or contacted by this planning work.
 
-The future rehearsal sequence, only after separate approval on a disposable
-database, is: install the reviewed lockfile, generate the client, validate the
-schema, inspect migration status, apply committed migrations with
-`npm run db:deploy`, and check status again with `npx prisma migrate status`.
-Do not run `db:migrate`, reset, or create new migrations on the live test server.
-Back up before migration and confirm database/app compatibility on restoration.
+The repository now includes a dedicated `Disposable PostgreSQL rehearsal`
+workflow for this proof. It is separate from normal pull request validation and
+uses a PostgreSQL 16 GitHub Actions service container with synthetic ephemeral
+credentials. It can be run manually with `workflow_dispatch` and also runs on
+pull requests that touch the rehearsal workflow, Prisma schema/migrations,
+provisioning, package/runtime, health/readiness or assertion paths. The service
+container is destroyed with the job and must never become the Argus ROPES
+database, a persistent staging database or a source of operational records.
+
+The rehearsal sequence is: install the reviewed lockfile, run
+`npm run db:generate`, validate the schema, inspect migration status on the
+fresh database, apply committed migrations with `npm run db:deploy`, verify
+status is clean, run `npm run db:deploy` a second time to prove idempotence,
+then verify status again. It deliberately does not run `db:migrate`, reset,
+`db push`, manual SQL or the destructive demo seed.
+
+Provisioning proof uses only synthetic records:
+
+- organisation `ROPES Rehearsal Organisation` / `ropes-rehearsal`, type
+  `ENARAH`, `isDemo=false`
+- user `ROPES Rehearsal Admin` / `rehearsal.admin@example.test`, `isDemo=false`
+- role `Enarah Admin`
+- membership status `ACTIVE`
+
+The workflow first runs `npm run provision:user` without `--apply`, asserts the
+dry-run wrote no synthetic records, then applies the same command, asserts the
+expected organisation/user/membership/role state, repeats dry-run/apply to prove
+idempotence, and reasserts no duplicates. No capabilities are enabled in the
+minimum rehearsal, APP&B stays disabled, and no trips, vehicles, grants,
+APP&B values, Fulcrum records, audit logs or other operational rows are created.
+
+After migration/provisioning proof, the workflow builds the app, starts the
+built application with `npm start -- --hostname 127.0.0.1 --port <test-port>`,
+and verifies `/api/health` plus `/api/ready` using synthetic CI-only auth
+configuration and the disposable database. It does not contact Google,
+Microsoft, Fulcrum, AI providers or any production service. Passing the
+rehearsal is evidence for the repository path only; it does not authorise
+deployment, Argus changes, database creation, real-user provisioning or public
+exposure.
+
+Future live-test migration rehearsal against an approved target remains a
+separate authorised operation. Do not run `db:migrate`, reset, or create new
+migrations on the live test server. Back up before migration and confirm
+database/app compatibility on restoration.
 
 Seed only a confirmed disposable/empty target with approved fixtures after a
 backup. Rehearse the `npm run db:seed` configuration gap noted above; treat a
