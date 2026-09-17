@@ -9,7 +9,7 @@ import {
   type OrganisationCapabilityKey,
 } from "@/lib/capability-registry";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
-import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
+import { isDemoFallbackMode } from "@/lib/read-access-mode";
 
 export type CapabilityCheckResult =
   | { capability: OrganisationCapabilityKey; status: "enabled" }
@@ -32,7 +32,7 @@ export async function getOrganisationCapabilities(
   organisationSlug: string,
 ): Promise<OrganisationCapabilityKey[]> {
   if (!isDatabaseConfigured()) {
-    return [...defaultDemoCapabilityKeys];
+    return isDemoFallbackMode() ? [...defaultDemoCapabilityKeys] : [];
   }
 
   try {
@@ -52,9 +52,7 @@ export async function getOrganisationCapabilities(
     });
 
     if (!organisation) {
-      return isAuthenticatedDatabaseMode()
-        ? []
-        : [...defaultDemoCapabilityKeys];
+      return isDemoFallbackMode() ? [...defaultDemoCapabilityKeys] : [];
     }
 
     if (!(await canReadOrganisation(prisma, organisation.id))) {
@@ -65,7 +63,7 @@ export async function getOrganisationCapabilities(
       organisation.capabilities.map((capability) => capability.key),
     );
   } catch {
-    return isAuthenticatedDatabaseMode() ? [] : [...defaultDemoCapabilityKeys];
+    return isDemoFallbackMode() ? [...defaultDemoCapabilityKeys] : [];
   }
 }
 

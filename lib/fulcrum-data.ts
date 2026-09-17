@@ -3,7 +3,7 @@ import type { OrganisationSlug } from "@/lib/dashboard-data";
 import { canReadOrganisation } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import { isFulcrumTokenEncryptionConfigured } from "@/lib/fulcrum-token-encryption";
-import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
+import { isDemoFallbackMode } from "@/lib/read-access-mode";
 
 export const fulcrumSections = [
   {
@@ -174,7 +174,9 @@ export async function getFulcrumConnectionState(
 
   if (!isDatabaseConfigured()) {
     return {
-      connections: getFulcrumConnectionsForOrganisation(organisationSlug),
+      connections: isDemoFallbackMode()
+        ? getFulcrumConnectionsForOrganisation(organisationSlug)
+        : [],
       encryptionConfigured,
       isDatabaseAvailable: false,
       isDatabaseConfigured: false,
@@ -217,9 +219,9 @@ export async function getFulcrumConnectionState(
 
     if (!organisation) {
       return {
-        connections: isAuthenticatedDatabaseMode()
-          ? []
-          : getFulcrumConnectionsForOrganisation(organisationSlug),
+        connections: isDemoFallbackMode()
+          ? getFulcrumConnectionsForOrganisation(organisationSlug)
+          : [],
         encryptionConfigured,
         isDatabaseAvailable: false,
         isDatabaseConfigured: true,
@@ -267,9 +269,9 @@ export async function getFulcrumConnectionState(
     };
   } catch {
     return {
-      connections: isAuthenticatedDatabaseMode()
-        ? []
-        : getFulcrumConnectionsForOrganisation(organisationSlug),
+      connections: isDemoFallbackMode()
+          ? getFulcrumConnectionsForOrganisation(organisationSlug)
+          : [],
       encryptionConfigured,
       isDatabaseAvailable: false,
       isDatabaseConfigured: true,
@@ -282,7 +284,9 @@ export async function getFulcrumAppsForOrganisation(
   organisationSlug: OrganisationSlug,
 ): Promise<DemoFulcrumApp[]> {
   if (!isDatabaseConfigured()) {
-    return getDemoFulcrumAppsForOrganisation(organisationSlug);
+    return isDemoFallbackMode()
+      ? getDemoFulcrumAppsForOrganisation(organisationSlug)
+      : [];
   }
 
   try {
@@ -308,13 +312,15 @@ export async function getFulcrumAppsForOrganisation(
     });
 
     if (!organisation || !(await canReadOrganisation(prisma, organisation.id))) {
-      return isAuthenticatedDatabaseMode()
-        ? []
-        : getDemoFulcrumAppsForOrganisation(organisationSlug);
+      return isDemoFallbackMode()
+        ? getDemoFulcrumAppsForOrganisation(organisationSlug)
+        : [];
     }
 
     if (!organisation.fulcrumApps.length) {
-      return getDemoFulcrumAppsForOrganisation(organisationSlug);
+      return isDemoFallbackMode()
+        ? getDemoFulcrumAppsForOrganisation(organisationSlug)
+        : [];
     }
 
     return organisation.fulcrumApps.map((app) => ({
@@ -331,9 +337,9 @@ export async function getFulcrumAppsForOrganisation(
       requiredFields: [],
     }));
   } catch {
-    return isAuthenticatedDatabaseMode()
-      ? []
-      : getDemoFulcrumAppsForOrganisation(organisationSlug);
+    return isDemoFallbackMode()
+        ? getDemoFulcrumAppsForOrganisation(organisationSlug)
+        : [];
   }
 }
 
@@ -341,7 +347,9 @@ export async function getFulcrumRecordsForOrganisation(
   organisationSlug: OrganisationSlug,
 ): Promise<DemoFulcrumRecord[]> {
   if (!isDatabaseConfigured()) {
-    return getDemoFulcrumRecordsForOrganisation(organisationSlug);
+    return isDemoFallbackMode()
+      ? getDemoFulcrumRecordsForOrganisation(organisationSlug)
+      : [];
   }
 
   try {
@@ -374,13 +382,15 @@ export async function getFulcrumRecordsForOrganisation(
     });
 
     if (!organisation || !(await canReadOrganisation(prisma, organisation.id))) {
-      return isAuthenticatedDatabaseMode()
-        ? []
-        : getDemoFulcrumRecordsForOrganisation(organisationSlug);
+      return isDemoFallbackMode()
+        ? getDemoFulcrumRecordsForOrganisation(organisationSlug)
+        : [];
     }
 
     if (!organisation.fulcrumRecords.length) {
-      return getDemoFulcrumRecordsForOrganisation(organisationSlug);
+      return isDemoFallbackMode()
+        ? getDemoFulcrumRecordsForOrganisation(organisationSlug)
+        : [];
     }
 
     return organisation.fulcrumRecords.map((record) => ({
@@ -398,9 +408,9 @@ export async function getFulcrumRecordsForOrganisation(
       title: getPersistedRecordTitle(record.rawJson, record.fulcrumApp.name),
     }));
   } catch {
-    return isAuthenticatedDatabaseMode()
-      ? []
-      : getDemoFulcrumRecordsForOrganisation(organisationSlug);
+    return isDemoFallbackMode()
+        ? getDemoFulcrumRecordsForOrganisation(organisationSlug)
+        : [];
   }
 }
 

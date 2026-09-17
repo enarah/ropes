@@ -313,7 +313,9 @@ function Field({
 
 function getSetupStatus(connectionState: FulcrumConnectionState) {
   if (!connectionState.isDatabaseConfigured) {
-    return "Local demo fallback is active because DATABASE_URL is not configured.";
+    return connectionState.connections.length
+      ? "Explicit local demo fallback is active; DATABASE_URL is not configured."
+      : "DATABASE_URL is not configured, so persisted Fulcrum data is unavailable.";
   }
 
   if (!connectionState.isDatabaseAvailable) {

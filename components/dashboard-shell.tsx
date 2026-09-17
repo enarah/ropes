@@ -347,10 +347,12 @@ function getOrganisationSwitcherNote(authContext: DashboardAuthContext) {
   }
 
   if (authContext.source === "unauthenticated") {
-    return "Sign in to load active organisation memberships.";
+    return authContext.isAuthConfigured
+      ? "Sign in to load active organisation memberships."
+      : "Authentication and database configuration are required for controlled access.";
   }
 
   return authContext.isAuthConfigured
-    ? "Using demo fallback because the app database is not available."
-    : "Using local demo memberships until auth providers are configured.";
+    ? "Using explicit local demo fallback because the app database is not available."
+    : "Using explicit local demo memberships without configured auth providers.";
 }

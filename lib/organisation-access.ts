@@ -11,8 +11,15 @@ import {
   getSelectedOrganisation,
   type DashboardOrganisation,
 } from "@/lib/dashboard-data";
-import { getPrismaClient } from "@/lib/db";
-import { isAuthenticatedDatabaseMode } from "@/lib/read-access-mode";
+import {
+  getPrismaClient,
+  isDatabaseConfigured,
+} from "@/lib/db";
+import { isAuthenticationConfigured } from "@/lib/auth-options";
+import {
+  isAuthenticatedDatabaseMode,
+  isDemoFallbackMode,
+} from "@/lib/read-access-mode";
 import {
   isTenantGuardError,
   requireOrganisationAccess,
@@ -41,6 +48,14 @@ export async function getOrganisationPageAccess(
   selectedOrganisationSlug?: string | null,
 ): Promise<OrganisationPageAccess> {
   if (!isAuthenticatedDatabaseMode()) {
+    if (!isDemoFallbackMode()) {
+      return deniedAccess({
+        attemptedOrganisationSlug: selectedOrganisationSlug ?? undefined,
+        message: unavailableAccessMessage(),
+        title: unavailableAccessTitle(),
+      });
+    }
+
     const organisation = getSelectedOrganisation(selectedOrganisationSlug);
 
     return {
@@ -150,6 +165,30 @@ function deniedAccess({
     status: "denied",
     title,
   };
+}
+
+function unavailableAccessTitle() {
+  if (!isDatabaseConfigured()) {
+    return "Database configuration required";
+  }
+
+  if (!isAuthenticationConfigured()) {
+    return "Authentication configuration required";
+  }
+
+  return "Organisation access unavailable";
+}
+
+function unavailableAccessMessage() {
+  if (!isDatabaseConfigured()) {
+    return "ROPES cannot load organisation data until the database is configured.";
+  }
+
+  if (!isAuthenticationConfigured()) {
+    return "ROPES cannot load organisation data until authentication is configured.";
+  }
+
+  return "ROPES could not confirm authenticated organisation access.";
 }
 
 function formatOrganisationType(type: OrganisationType) {
