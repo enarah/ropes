@@ -296,6 +296,17 @@ The rollout plan for making that workflow a required branch-protection status
 check is documented in
 [the prototype review notes](docs/prototype-review.md#pull-request-validation-branch-protection-rollout-plan).
 
+The repository also includes a separate `Disposable PostgreSQL rehearsal`
+workflow for migration/provisioning confidence. It runs on demand and on PRs
+that touch database, provisioning or runtime-readiness paths. The workflow uses
+an ephemeral PostgreSQL 16 service container, synthetic `.example.test`
+identity data and no production secrets; it applies committed migrations with
+`npm run db:deploy`, proves a second deploy is idempotent, runs
+`npm run provision:user` dry-run/apply/idempotence checks for
+`ropes-rehearsal`, verifies `/api/health` and `/api/ready`, and then lets the
+Actions job destroy the database. It does not run the destructive demo seed and
+does not authorise deployment.
+
 ### Controlled live testing deployment planning
 
 The [live testing deployment readiness plan](docs/live-testing-deployment-readiness.md)

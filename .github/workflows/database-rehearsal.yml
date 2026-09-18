@@ -1,0 +1,199 @@
+name: Disposable PostgreSQL rehearsal
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/database-rehearsal.yml"
+      - "app/api/health/route.ts"
+      - "app/api/ready/route.ts"
+      - "lib/auth-options.ts"
+      - "lib/canonical-roles.ts"
+      - "lib/capability-registry.ts"
+      - "lib/db.ts"
+      - "lib/health-readiness.ts"
+      - "lib/provisioning.ts"
+      - "lib/read-access-mode.ts"
+      - "next.config.ts"
+      - "package-lock.json"
+      - "package.json"
+      - "prisma.config.ts"
+      - "prisma/migrations/**"
+      - "prisma/schema.prisma"
+      - "scripts/assert-database-rehearsal.ts"
+      - "scripts/provision-user.ts"
+      - "tests/database-rehearsal-workflow.test.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-rehearsal-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rehearse:
+    name: Rehearse migrations and provisioning
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ropes_rehearsal
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: ropes_rehearsal
+        options: >-
+          --health-cmd "pg_isready -U ropes_rehearsal -d ropes_rehearsal"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://ropes_rehearsal@localhost:5432/ropes_rehearsal
+      GOOGLE_CLIENT_ID: rehearsal-google-client-id
+      GOOGLE_CLIENT_SECRET: rehearsal-google-client-secret
+      NEXTAUTH_SECRET: rehearsal-nextauth-secret-for-ci-only
+      NEXTAUTH_URL: http://127.0.0.1:4321
+      ROPES_DEMO_MODE: ""
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Confirm pending migrations before first deploy
+        run: |
+          set +e
+          npx prisma migrate status
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "ERROR expected pending migrations before first deploy on a fresh database"
+            exit 1
+          fi
+          echo "PASS fresh database reports pending migrations before first deploy"
+
+      - name: Deploy committed migrations
+        run: npm run db:deploy
+
+      - name: Confirm migration status is clean
+        run: npx prisma migrate status
+
+      - name: Confirm migration deployment is idempotent
+        run: |
+          npm run db:deploy
+          npx prisma migrate status
+
+      - name: Assert no synthetic records exist before provisioning
+        run: npm run rehearsal:assert -- before-apply
+
+      - name: Provision synthetic user dry-run
+        run: >-
+          npm run provision:user -- --email rehearsal.admin@example.test
+          --name "ROPES Rehearsal Admin"
+          --organisation ropes-rehearsal
+          --organisation-name "ROPES Rehearsal Organisation"
+          --organisation-type ENARAH
+          --bootstrap-organisation
+          --role "Enarah Admin"
+          --status ACTIVE
+
+      - name: Assert dry-run did not write synthetic records
+        run: npm run rehearsal:assert -- before-apply
+
+      - name: Provision synthetic user apply
+        run: >-
+          npm run provision:user -- --apply
+          --email rehearsal.admin@example.test
+          --name "ROPES Rehearsal Admin"
+          --organisation ropes-rehearsal
+          --organisation-name "ROPES Rehearsal Organisation"
+          --organisation-type ENARAH
+          --bootstrap-organisation
+          --role "Enarah Admin"
+          --status ACTIVE
+
+      - name: Assert synthetic provisioning state
+        run: npm run rehearsal:assert
+
+      - name: Confirm provisioning dry-run is idempotent
+        run: >-
+          npm run provision:user -- --email rehearsal.admin@example.test
+          --name "ROPES Rehearsal Admin"
+          --organisation ropes-rehearsal
+          --organisation-name "ROPES Rehearsal Organisation"
+          --organisation-type ENARAH
+          --bootstrap-organisation
+          --role "Enarah Admin"
+          --status ACTIVE
+
+      - name: Confirm provisioning apply is idempotent
+        run: >-
+          npm run provision:user -- --apply
+          --email rehearsal.admin@example.test
+          --name "ROPES Rehearsal Admin"
+          --organisation ropes-rehearsal
+          --organisation-name "ROPES Rehearsal Organisation"
+          --organisation-type ENARAH
+          --bootstrap-organisation
+          --role "Enarah Admin"
+          --status ACTIVE
+
+      - name: Reassert synthetic provisioning state after idempotent apply
+        run: npm run rehearsal:assert
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start built app and verify health/readiness
+        env:
+          NODE_ENV: production
+        run: |
+          npm start -- --hostname 127.0.0.1 --port 4321 > /tmp/ropes-start.log 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            if kill -0 "$app_pid" 2>/dev/null; then
+              kill "$app_pid"
+              wait "$app_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4321/api/health > /tmp/ropes-health.json; then
+              break
+            fi
+            sleep 1
+          done
+
+          node -e 'const fs = require("node:fs"); const payload = JSON.parse(fs.readFileSync("/tmp/ropes-health.json", "utf8")); if (payload.status !== "ok") throw new Error("health payload was not ok"); console.log("PASS /api/health returned ok");'
+
+          curl -fsS http://127.0.0.1:4321/api/ready > /tmp/ropes-ready.json
+
+          node -e 'const fs = require("node:fs"); const payload = JSON.parse(fs.readFileSync("/tmp/ropes-ready.json", "utf8")); if (payload.status !== "ok") throw new Error("readiness status was not ok"); for (const key of ["database", "authentication", "demoMode"]) { if (payload.checks?.[key] !== "ok") throw new Error(`${key} readiness was not ok`); } const text = JSON.stringify(payload); for (const forbidden of [process.env.NEXTAUTH_SECRET, process.env.GOOGLE_CLIENT_SECRET, "DATABASE_URL", "ropes_rehearsal@localhost"]) { if (forbidden && text.includes(forbidden)) throw new Error("readiness payload exposed forbidden configuration material"); } console.log("PASS /api/ready returned safe ok checks");'
+
+          cleanup
+          trap - EXIT
+
+      - name: Check diff whitespace
+        run: git diff --check
