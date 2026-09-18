@@ -239,7 +239,7 @@ the Node 26/npm 11 environment and the canonical repository start command:
 npm start -- --hostname 127.0.0.1 --port 13060
 ```
 
-Reviewable example only:
+Reviewable example only — **FUTURE EXECUTION, NOT INSTALLED BY THIS PR**:
 
 ```ini
 [Service]
@@ -247,7 +247,8 @@ User=ropes
 Group=ropes
 WorkingDirectory=/opt/ropes/current
 EnvironmentFile=/etc/ropes/production.env
-ExecStart=/usr/bin/npm start -- --hostname 127.0.0.1 --port 13060
+Environment="PATH=/opt/plesk/node/26/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+ExecStart=/opt/plesk/node/26/bin/npm start -- --hostname 127.0.0.1 --port 13060
 Restart=on-failure
 NoNewPrivileges=true
 PrivateTmp=true
@@ -255,6 +256,12 @@ ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/opt/ropes/current/.next/cache
 ```
+
+Hera verified the intended Argus Node 26/npm 11 toolchain under
+`/opt/plesk/node/26/bin/`, including Node at `/opt/plesk/node/26/bin/node` and
+npm at `/opt/plesk/node/26/bin/npm`. Do not assume `/usr/bin/npm` selects the
+reviewed runtime. Recheck the exact Node/npm patch versions immediately before
+execution.
 
 Preserve useful existing concepts where compatible:
 

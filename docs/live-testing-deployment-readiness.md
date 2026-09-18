@@ -164,33 +164,43 @@ Cursor configuration is checked in APP&B runtime/read paths; it is not a global
 startup readiness check. The panel may report a safe blocked state without
 loading report data. Health evidence must test the authorised APP&B route too.
 
-## Questions requiring Hera's answers
+## Verified Hera findings and remaining operational decisions
 
-Record answers, owner and evidence in the future handover, without secrets.
+Record future handover evidence without secrets. These verified findings are
+not execution approval and do not make deployment authorised.
 
-1. What OS and version is Argus running?
-2. What Node.js versions are installed/preferred, and which exact Node/npm combination will match repository validation?
-3. Should ROPES run directly under Node, systemd, PM2, Docker, Coolify or another deployment manager?
-4. Is PostgreSQL already available on Argus, and what version is supported there?
-5. Should the dedicated test database run on Argus or elsewhere?
-6. Where should application files/releases live, and what disk/storage limits apply?
-7. Which Linux service user should own and run the application?
-8. How should environment variables and secrets be stored and injected?
-9. How should secrets be rotated, including session and cursor invalidation?
-10. What reverse proxy is currently used?
-11. What DNS destination and proxy route should connect the test domain to the private application upstream?
-12. How should TLS certificates be issued/renewed and HTTP redirected to HTTPS?
-13. What firewall/network restrictions should apply to app, database and administration access?
-14. Which initial access restriction should Enarah choose: VPN, IP allowlist, proxy authentication, application authentication or a combination?
-15. Where should application logs be stored and who may read them?
-16. How are logs rotated/retained and sensitive content suppressed?
-17. Which database backup system and restore test should protect this environment?
-18. What application/configuration backup is required, and how are secret-bearing backups protected?
-19. What is the rollback method, who owns the decision, and how is first-deployment withdrawal handled?
-20. Which monitoring/uptime checks, alert owner and disk/backup checks should be enabled?
-21. Does Hera prefer SSH/git pull, release archive, container image, GitHub Actions deployment or another mechanism? This plan implements none of them.
-22. What artifacts/documentation does Hera require from Codex/GitHub before deployment?
-23. Which existing Enarah server standards must ROPES follow?
+Verified Hera findings:
+
+- Argus OS/platform: AlmaLinux 9.8 x86_64.
+- Canonical Argus admin hostname: `argus.enarah.com.au`.
+- Node 26.9.0 is available.
+- npm 11.19.1 is available.
+- systemd is the existing service manager for the superseded ROPES service.
+- dedicated runtime identity `ropes:ropes` exists.
+- working/release layout exists under `/opt/ropes`.
+- the old ROPES app listener model was loopback-only at `127.0.0.1:13060`.
+- PostgreSQL 16.15 is available on Argus and is loopback-only.
+- Plesk/nginx plus Apache currently serve the static-root path for
+  `ropes.enarah.net.au`.
+- a root-managed environment file mechanism exists.
+- journald/Plesk logging exists.
+- clean-slate replacement is approved in #171.
+- #172 and the new repository runbook govern the future cutover sequence.
+
+Remaining operational decisions and acceptance items:
+
+- exact execution window and explicit DC/Enarah authorisation;
+- final capacity/headroom acceptance;
+- final deny-by-default access mechanism and allowed principals;
+- final Google Workspace OAuth ownership/configuration;
+- final Daryl/Accounts role assignments;
+- final migration/runtime DB role names and credentials;
+- final release artifact, Git SHA and checksum;
+- final request-size and timeout policy;
+- final monitoring/alert implementation and tested delivery;
+- NEW backup retention and RPO;
+- isolated restore proof and RTO;
+- final rollback-baseline acceptance.
 
 ## Production runtime and start contract
 
