@@ -191,6 +191,63 @@ Requirements:
 
 Do not add a deployment archive or binary to the repository.
 
+The repository-side release artifact workflow is:
+
+```text
+.github/workflows/release-artifact.yml
+```
+
+It is a manual build workflow only. It uses `workflow_dispatch`, must be run
+from `main`, and requires an `expected_sha` input that exactly matches the
+dispatch commit SHA. It does not deploy, SSH, SCP, rsync, contact Argus, create
+databases, run persistent migrations, provision users, use production secrets or
+modify DNS/TLS/Plesk/nginx/systemd.
+
+The workflow builds on GitHub-hosted `ubuntu-24.04` Linux x86_64 with Node 26
+and npm major 11. It records the exact `node --version`, `npm --version` and
+`uname -m` values in the release manifest.
+
+The first controlled-cutover artifact intentionally retains the complete
+`npm ci` dependency tree. This is larger than a pruned runtime artifact, but it
+preserves the reviewed operator commands needed by the cutover runbook:
+
+- `npm run db:deploy` requires the Prisma CLI, currently a devDependency;
+- `npm run provision:user` requires `tsx`, currently a devDependency;
+- `scripts/provision-user.ts` imports TypeScript modules from `lib/`;
+- `prisma.config.ts` is required by Prisma operator commands.
+
+Do not use `npm prune --omit=dev` for the controlled cutover artifact until a
+later reviewed change proves migrations, provisioning and `npm start` still
+work from the extracted result.
+
+The workflow uploads a `.tar.gz` archive named like:
+
+```text
+ropes-<short-sha>-linux-x64.tar.gz
+```
+
+It also uploads:
+
+- `ropes-<short-sha>-linux-x64.tar.gz.sha256`;
+- `release-manifest.json`;
+- `release-manifest.md`.
+
+The manifest records the full commit SHA, workflow run ID/ref, build timestamp,
+Linux architecture, Node/npm versions, application/package version, Next and
+Prisma versions, lockfile SHA-256, migration-set SHA-256, artifact SHA-256 and
+workflow path. Artifact retention is 30 days.
+
+The artifact contains the built `.next/` output, full `node_modules/`,
+`package.json`, `package-lock.json`, Prisma schema/migrations/config, and the
+source/config needed for approved operator commands. It must not contain `.git`,
+environment files, secrets, logs, demo databases or host-specific live
+configuration.
+
+After packaging, the workflow extracts the archive and proves `npm start` can
+serve `/api/health` on `127.0.0.1` with an ephemeral CI port. This smoke test is
+liveness proof only; it does not authorise deployment, migrations, provisioning,
+secrets, OAuth, proxy changes, monitoring or cutover.
+
 ## 7. New environment/secrets
 
 Document names only:

@@ -354,6 +354,17 @@ supported Auth.js equivalent, selected OAuth provider variables,
 `NODE_ENV=production`, the chosen Next listener configuration and blank/unset
 `ROPES_DEMO_MODE` are configured externally. Do not commit secret values.
 
+The manual `ROPES release artifact` GitHub Actions workflow builds a
+reviewable Linux x86_64 `.tar.gz` artifact from `main` only. Dispatch it with
+the full `expected_sha` matching the selected commit; the workflow fails closed
+if the ref or SHA does not match. It uses Node 26, npm 11 and `npm ci`, runs the
+normal repository validation sequence, packages the complete dependency tree,
+creates SHA-256 and release-manifest artifacts, then smoke-tests the extracted
+archive with `npm start` and `/api/health` on loopback. It does not deploy,
+contact Argus, use production secrets, create databases, run persistent
+migrations or provision users. Artifact creation is evidence for later review,
+not deployment authorisation.
+
 The production-style operational sequence stays separated:
 
 1. install locked dependencies

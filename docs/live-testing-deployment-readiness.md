@@ -79,7 +79,7 @@ reviewed deployment commit; this base commit is not a release approval.
 | Area | Evidence and implication |
 | --- | --- |
 | Runtime | `package-lock.json` locks Next.js 16.3.4 and Prisma/client/adapter 7.9.1. Next declares Node >=20.9.0; Prisma and client accept `^20.19`, `^22.12` or `>=24.0`. ROPES declares Node 26 / npm 11 as the repository validation and controlled-testing runtime contract. Use the same Node major for build and runtime unless a different pairing is explicitly tested and reviewed. |
-| Install | CI runs `npm install`, including development dependencies needed for TypeScript, Prisma CLI and build tools. A future release should test `npm ci` against the committed lockfile for reproducibility; that switch is not implemented here. Reject unexplained package/lockfile differences. Do not omit development dependencies before generation/build/migrations, or copy a developer's `node_modules` to Argus. |
+| Install | CI runs `npm install`, including development dependencies needed for TypeScript, Prisma CLI and build tools. Pull request validation continues to use `npm install`; the release artifact workflow uses `npm ci` against the committed lockfile for reproducibility. Reject unexplained package/lockfile differences. Do not omit development dependencies before generation/build/migrations, or copy a developer's `node_modules` to Argus. |
 | Generation/build | `npm run db:generate` runs `prisma generate`; generate before tests/typecheck/build on a clean checkout. `npm run build` runs `next build --webpack`. Generated client output under `node_modules` and `.next` are not source artifacts to commit. Build deployable Linux x86_64 artefacts on Linux for the chosen runtime/platform, not on the macOS sentinel machine. |
 | Start | `npm start` is the supported repository entrypoint and runs `next start` against an already-built production application. `npm run dev` is a development server, not the live testing service. Startup must not run migrations, seed data, provisioning, package installation, rebuilds, capability changes or external service calls. |
 | Bind address | Installed Next 16.3.4 documents `next start [directory]`, `--port <port>` / `PORT`, and `--hostname <hostname>`; defaults are port 3000 and hostname `0.0.0.0`. Do not expose that default directly. Hera must select a private upstream/interface and explicit port appropriate to the proxy/container arrangement, for example through supported `npm start -- --hostname ... --port ...` arguments. |
@@ -259,6 +259,62 @@ the generated Prisma client under `node_modules`, `prisma/schema.prisma`,
 committed migrations, and any public/static assets. Do not switch to Next
 standalone output, create release archives or add deployment automation in this
 plan without a separate reviewed issue.
+
+## Release artifact workflow
+
+The repository now includes a manual build-only workflow:
+
+```text
+.github/workflows/release-artifact.yml
+```
+
+It is triggered with `workflow_dispatch` only. It must be dispatched from
+`main`, and the required `expected_sha` input must exactly match the dispatch
+commit SHA. This fail-closed check prevents an arbitrary branch build from being
+treated as a controlled release.
+
+The workflow:
+
+1. checks the dispatch ref and full SHA;
+2. runs on GitHub-hosted `ubuntu-24.04` Linux x86_64;
+3. uses Node 26 and requires npm major 11;
+4. installs with `npm ci`;
+5. runs Prisma generation, tests, typecheck, lint, build, Prisma validation and
+   `git diff --check`;
+6. packages a `.tar.gz` archive named like
+   `ropes-<short-sha>-linux-x64.tar.gz`;
+7. creates a SHA-256 checksum and JSON/Markdown release manifests;
+8. extracts the archive and proves `npm start` serves `/api/health` on
+   `127.0.0.1` with an ephemeral CI port;
+9. uploads the archive, checksum and manifests as GitHub Actions artifacts with
+   30-day retention.
+
+This is not CD. It does not SSH, SCP, rsync, contact Argus, use GitHub
+deployment environments/secrets, create databases, run persistent migrations,
+provision users, create OAuth credentials, deploy or mutate DNS/TLS/Plesk/nginx
+or systemd.
+
+The artifact intentionally retains the complete `npm ci` dependency tree for
+the first controlled cutover. That larger artifact is safer than pruning because
+the reviewed cutover procedure still needs `npm run db:deploy` and
+`npm run provision:user` outside application startup, and those commands depend
+on dev-scoped tools such as Prisma CLI and `tsx`. Do not introduce
+`npm prune --omit=dev` until a later reviewed change proves migrations,
+provisioning and `npm start` still work from the extracted release.
+
+The artifact is environment-neutral. It must not contain `.git`, `.env`,
+`.env.local`, secret-bearing files, database URLs, OAuth values, cursor secrets,
+Fulcrum credentials, AI credentials, logs, demo databases or host-specific live
+configuration. `NEXTAUTH_URL`, database credentials and other live environment
+settings remain Hera-managed environment injection, not artifact content.
+
+Hera later verifies the archive checksum and manifest, stages it under
+`/opt/ropes/releases/<release-id>`, applies administrator ownership, gives the
+runtime `ropes` user read-only access, keeps writable cache/state separate, and
+switches `current` atomically only during authorised cutover. Artifact creation
+alone does not satisfy cutover approval, capacity acceptance, access
+restriction, DB creation, migrations, secrets, OAuth, provisioning, proxy
+changes, monitoring, backup/restore proof or rollback-baseline acceptance.
 
 Standard Next startup writes normal process logs to stdout/stderr and handles
 SIGINT/SIGTERM cleanup itself before exiting with signal-based exit codes.
