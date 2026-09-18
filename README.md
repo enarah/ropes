@@ -315,6 +315,12 @@ Hera, go/no-go and smoke-test checklists, and a future handover for
 `ropes.enarah.net.au` on Argus. Hera operates from the dedicated sentinel machine
 and administers Argus remotely. Deployment requires Hera's infrastructure
 decisions and Enarah's approval; the plan does not deploy or configure anything.
+The canonical repository-side clean-slate decommission and controlled cutover
+runbook is
+[docs/argus-clean-slate-cutover-runbook.md](docs/argus-clean-slate-cutover-runbook.md).
+It records the approved `CLEAN_SLATE_REPLACE` direction from #171 and is for
+planning/review only; it does not authorise deletion, deployment, Argus changes,
+database changes, secret rotation or user provisioning.
 
 ROPES has a repository-supported production start contract:
 

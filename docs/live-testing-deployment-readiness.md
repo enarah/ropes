@@ -2,8 +2,12 @@
 
 Issue #158 documents the repository-side plan for controlled internal testing.
 It does not authorise deployment. Current decision: **NO-GO until the checklist
-below is completed and Hera and Enarah approve the handover**. No server has
-been inspected or configured for this plan.
+below is completed and Hera and Enarah approve the handover**. Since the
+original planning text was written, Hera has completed a read-only inspection of
+Argus and Enarah/DC has approved a clean-slate replacement direction in #171.
+This document is a readiness summary; the canonical clean-slate decommission and
+cutover runbook is [#172](https://github.com/enarah/ropes/issues/172) and
+[the repository runbook](argus-clean-slate-cutover-runbook.md).
 
 ## Architecture and responsibility
 
@@ -11,15 +15,60 @@ been inspected or configured for this plan.
 | --- | --- |
 | Hera | Enarah's sentinel/admin agent and server-side authority. |
 | Sentinel machine | Hera's dedicated operating/control machine. Hera runs here, not on Argus. |
-| Argus | `argus.enarah.net.au`, the proposed deployment server which Hera administers remotely with full SSH administrative access. |
+| Argus | `argus.enarah.com.au`, the canonical control hostname for the deployment server which Hera administers remotely with full SSH administrative access. Legacy wording may refer to `argus.enarah.net.au`, but it is not the canonical admin hostname. |
 | ROPES test domain | `ropes.enarah.net.au`, intended for controlled live testing before production rollout. |
 | Codex | Repository-side implementation and documentation only. Prepares evidence and questions for Hera; does not choose or configure Argus infrastructure. |
 | GitHub | Source of truth for application code, issues, reviewed pull requests and CI: [enarah/ropes](https://github.com/enarah/ropes). |
 
 Deployment is a future handover and agreement between repository maintainers,
-Enarah and Hera. All Argus configuration remains unconfirmed until Hera supplies
-it. Enarah approves testers, data and access policy; Hera confirms operational
-choices and the rollback owner before any server work.
+Enarah and Hera. Hera's read-only inspection confirmed a superseded Node 24
+ROPES installation, old ROPES databases with zero application rows and the
+current static Plesk root path. Enarah approves testers, data and access policy;
+Hera confirms operational choices and the rollback owner before any server work.
+
+## Current Argus findings and clean-slate decision
+
+Issue #171 records the approved `CLEAN_SLATE_REPLACE` direction. The old
+installation is not a rollback baseline, and old secrets/configuration values
+are not the future baseline. The future target is a reviewed Node 26 / npm 11
+release using the canonical `npm start` contract and a NEW PostgreSQL database.
+
+Known old state from Hera's read-only evidence:
+
+- `ropes.service` exists and ran a Node 24.21.0 direct-Next runtime.
+- `/opt/ropes/current` pointed to `/opt/ropes/releases/sentinel-2cd48e1`.
+- the old private Node listener was `127.0.0.1:13060`.
+- old ROPES configuration existed at `/etc/ropes/production.env`.
+- PostgreSQL DBs `ropes` and `ropes_restore_sentinel` existed and contained
+  zero application rows, zero `User` rows, zero `Membership` rows, zero
+  `Organisation` rows, zero `Role` rows and 18 Prisma migration records only.
+- `/var/backups/ropes/sentinel-initial.dump` existed as a historical local dump.
+- the current public root path is:
+
+```text
+internet
+→ Plesk nginx
+→ Apache loopback 7081
+→ static index.html
+```
+
+The approved replacement plan does not migrate the old DBs or restore the old
+dump. Removal of old ROPES-only state is approved in principle, but only during
+a separately reviewed and authorised decommission/cutover runbook. The current
+static Plesk page may remain until the later cutover window.
+
+Repository readiness has advanced since the original issue #158 plan:
+
+- fail-closed auth is implemented;
+- safe explicit provisioning is implemented;
+- `/api/health` exists;
+- `/api/ready` exists;
+- `npm start` is the production start contract;
+- the disposable PostgreSQL rehearsal exists and proves migrations,
+  provisioning idempotence, structural assertions, build, health and readiness
+  on an ephemeral PostgreSQL 16 service.
+
+Destructive demo seed is not part of the controlled bootstrap path.
 
 ## Repository facts and readiness gaps
 
@@ -36,7 +85,7 @@ reviewed deployment commit; this base commit is not a release approval.
 | Bind address | Installed Next 16.3.4 documents `next start [directory]`, `--port <port>` / `PORT`, and `--hostname <hostname>`; defaults are port 3000 and hostname `0.0.0.0`. Do not expose that default directly. Hera must select a private upstream/interface and explicit port appropriate to the proxy/container arrangement, for example through supported `npm start -- --hostname ... --port ...` arguments. |
 | Environment | Use Next's production build/start mode for controlled live testing, while keeping the database/data strictly test-only. Demo fallback is controlled by explicit `ROPES_DEMO_MODE` local/demo configuration rather than missing auth/database configuration. A build passing without runtime credentials is not an authentication or database readiness check. |
 | Database | `prisma/schema.prisma` uses PostgreSQL and `prisma-client-js`. `lib/db.ts` uses the PostgreSQL adapter. `prisma.config.ts` reads `DATABASE_URL` and the committed `prisma/migrations` directory. `npm run db:deploy` applies migrations; `db:migrate` is `migrate dev` and belongs to local development. |
-| Seed | `prisma/seed.ts` begins with broad `deleteMany` calls before creating demo records. It is destructive, not an incremental live environment update. `package.json` declares the seed command, but `prisma.config.ts` does not declare `migrations.seed`; prove `npm run db:seed` actually runs the intended seed with the locked CLI on a disposable database before relying on it. Any configuration fix is separate work. |
+| Seed | `prisma/seed.ts` begins with broad `deleteMany` calls before creating demo records. It is destructive, not an incremental live environment update. It is for disposable local/demo data only and is not part of the controlled Argus bootstrap path. |
 | Auth/access | `lib/auth-options.ts`, `lib/auth-session.ts`, `lib/read-access-mode.ts` and `lib/demo-session.ts` require explicit local/demo mode for fallback access. Controlled/live use still requires configured auth, `DATABASE_URL`, real users and active memberships. See the access gate below. |
 | Operations | `next.config.ts` is empty. There is no repository service manager, deployment workflow or deployment-environment indicator. ROPES now includes minimal anonymous `/api/health` and `/api/ready` endpoints for application-level monitoring only. Architecture suggestions in `architecture.md` are not evidence of an installed Docker or storage setup. |
 | Validation | `.github/workflows/pr-validation.yml` runs `Pull request validation` / `Validate` for PRs to main, with Prisma generation before typecheck. It has no database service, migration/seed/smoke test, deployment step or audit gate. Branch protection is a rollout plan, not proof that settings are enabled. |
@@ -115,33 +164,43 @@ Cursor configuration is checked in APP&B runtime/read paths; it is not a global
 startup readiness check. The panel may report a safe blocked state without
 loading report data. Health evidence must test the authorised APP&B route too.
 
-## Questions requiring Hera's answers
+## Verified Hera findings and remaining operational decisions
 
-Record answers, owner and evidence in the future handover, without secrets.
+Record future handover evidence without secrets. These verified findings are
+not execution approval and do not make deployment authorised.
 
-1. What OS and version is Argus running?
-2. What Node.js versions are installed/preferred, and which exact Node/npm combination will match repository validation?
-3. Should ROPES run directly under Node, systemd, PM2, Docker, Coolify or another deployment manager?
-4. Is PostgreSQL already available on Argus, and what version is supported there?
-5. Should the dedicated test database run on Argus or elsewhere?
-6. Where should application files/releases live, and what disk/storage limits apply?
-7. Which Linux service user should own and run the application?
-8. How should environment variables and secrets be stored and injected?
-9. How should secrets be rotated, including session and cursor invalidation?
-10. What reverse proxy is currently used?
-11. What DNS destination and proxy route should connect the test domain to the private application upstream?
-12. How should TLS certificates be issued/renewed and HTTP redirected to HTTPS?
-13. What firewall/network restrictions should apply to app, database and administration access?
-14. Which initial access restriction should Enarah choose: VPN, IP allowlist, proxy authentication, application authentication or a combination?
-15. Where should application logs be stored and who may read them?
-16. How are logs rotated/retained and sensitive content suppressed?
-17. Which database backup system and restore test should protect this environment?
-18. What application/configuration backup is required, and how are secret-bearing backups protected?
-19. What is the rollback method, who owns the decision, and how is first-deployment withdrawal handled?
-20. Which monitoring/uptime checks, alert owner and disk/backup checks should be enabled?
-21. Does Hera prefer SSH/git pull, release archive, container image, GitHub Actions deployment or another mechanism? This plan implements none of them.
-22. What artifacts/documentation does Hera require from Codex/GitHub before deployment?
-23. Which existing Enarah server standards must ROPES follow?
+Verified Hera findings:
+
+- Argus OS/platform: AlmaLinux 9.8 x86_64.
+- Canonical Argus admin hostname: `argus.enarah.com.au`.
+- Node 26.9.0 is available.
+- npm 11.19.1 is available.
+- systemd is the existing service manager for the superseded ROPES service.
+- dedicated runtime identity `ropes:ropes` exists.
+- working/release layout exists under `/opt/ropes`.
+- the old ROPES app listener model was loopback-only at `127.0.0.1:13060`.
+- PostgreSQL 16.15 is available on Argus and is loopback-only.
+- Plesk/nginx plus Apache currently serve the static-root path for
+  `ropes.enarah.net.au`.
+- a root-managed environment file mechanism exists.
+- journald/Plesk logging exists.
+- clean-slate replacement is approved in #171.
+- #172 and the new repository runbook govern the future cutover sequence.
+
+Remaining operational decisions and acceptance items:
+
+- exact execution window and explicit DC/Enarah authorisation;
+- final capacity/headroom acceptance;
+- final deny-by-default access mechanism and allowed principals;
+- final Google Workspace OAuth ownership/configuration;
+- final Daryl/Accounts role assignments;
+- final migration/runtime DB role names and credentials;
+- final release artifact, Git SHA and checksum;
+- final request-size and timeout policy;
+- final monitoring/alert implementation and tested delivery;
+- NEW backup retention and RPO;
+- isolated restore proof and RTO;
+- final rollback-baseline acceptance.
 
 ## Production runtime and start contract
 
@@ -262,12 +321,10 @@ separate authorised operation. Do not run `db:migrate`, reset, or create new
 migrations on the live test server. Back up before migration and confirm
 database/app compatibility on restoration.
 
-Seed only a confirmed disposable/empty target with approved fixtures after a
-backup. Rehearse the `npm run db:seed` configuration gap noted above; treat a
-no-op or missing-seed message as a failure. Do not work around it by blindly
-running a destructive script on Argus. Reseeding deletes tester changes and
-memberships; it is not a deployment or restart step. Agree the safe test-user
-provisioning procedure separately, after initial seed if used.
+Seed only a confirmed disposable local/demo target with approved fixtures after
+a backup. The destructive demo seed is not part of the controlled bootstrap
+path and must not be run against Argus or a controlled/live database. Use the
+explicit provisioning tool for controlled users instead.
 
 Initial data must be synthetic, approved demo data or explicitly safe fixtures.
 Do not load production, Traditional Owner, client, ranger personnel, cultural,
@@ -285,20 +342,30 @@ after seed; later edits can legitimately break its fixture assumptions.
 
 ## Domain, service and operations agreement
 
-For `ropes.enarah.net.au`, Hera must confirm DNS destination, reverse-proxy
-route, private upstream host/port, TLS issuance/renewal, HTTP-to-HTTPS redirect
-and firewall policy. Agree trusted forwarded host/protocol headers and test
-OAuth redirects and server-action origin handling through the proxy. Do not
-disable origin checks to bypass failures. Confirm streaming/timeouts, request
-and body limits, and any WebSocket requirement against the chosen runtime;
-no custom WebSocket feature is identified by this plan. Do not expose a dev
-server for hot reload. Hera chooses details from Argus's existing infrastructure.
+For `ropes.enarah.net.au`, the clean-slate cutover plan targets a future path:
+
+```text
+internet
+→ Plesk-managed nginx
+→ http://127.0.0.1:13060
+```
+
+That replaces the current static-root path only during separately authorised
+cutover. Hera must confirm DNS destination, reverse-proxy route, trusted
+forwarded headers, private upstream host/port, TLS issuance/renewal,
+HTTP-to-HTTPS redirect, request-size/timeout policy and firewall/access policy.
+Do not disable origin checks to bypass failures. Do not expose a dev server for
+hot reload.
 
 The chosen service manager must support explicit build/start working
 directories, private environment injection, controlled shutdown, restart,
 automatic startup after reboot, log capture, crash recovery and return to a
 previous release. Specify restart limits and how secret changes are loaded.
-Do not infer systemd/PM2/Docker availability or add configuration for them here.
+Hera's inspection confirmed an existing superseded systemd service. A future
+service should retain compatible concepts such as a dedicated `ropes:ropes`
+identity, loopback-only listener and useful hardening, but the current Node
+24/direct-Next service is not the future contract. Do not add configuration
+from this readiness document.
 
 Minimum monitoring covers process health, startup failure, HTTP availability,
 database connectivity failures, application errors, disk usage and backup
