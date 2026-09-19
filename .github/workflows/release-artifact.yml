@@ -36,13 +36,7 @@ jobs:
           - 5432:5432
 
     env:
-      DATABASE_URL: postgresql://ropes_release_artifact@localhost:5432/ropes_release_artifact
-      GOOGLE_CLIENT_ID: release-artifact-google-client-id
-      GOOGLE_CLIENT_SECRET: release-artifact-google-client-secret
-      NEXTAUTH_SECRET: release-artifact-nextauth-secret-for-ci-only
-      NEXTAUTH_URL: http://127.0.0.1:4387
       RELEASE_PORT: "4387"
-      ROPES_DEMO_MODE: ""
 
     steps:
       - name: Check dispatch ref and expected SHA
@@ -240,6 +234,28 @@ jobs:
             exit 1
           fi
 
+      - name: Check release artifact is environment neutral
+        run: |
+          set -euo pipefail
+
+          check_marker_absent() {
+            marker="$1"
+            category="$2"
+            matches="$(grep -R -l --binary-files=without-match -- "$marker" "$RELEASE_DIR" || true)"
+
+            if [ -n "$matches" ]; then
+              echo "ERROR release artifact contains CI-only $category marker in:"
+              printf '%s\n' "$matches"
+              exit 1
+            fi
+          }
+
+          check_marker_absent "release-artifact-google-client-id" "OAuth client ID"
+          check_marker_absent "release-artifact-google-client-secret" "OAuth client secret"
+          check_marker_absent "release-artifact-nextauth-secret-for-ci-only" "session secret"
+          check_marker_absent "postgresql://ropes_release_artifact@localhost:5432/ropes_release_artifact" "database URL"
+          check_marker_absent "http://127.0.0.1:4387" "runtime origin"
+
       - name: Package release artifact
         run: |
           set -euo pipefail
@@ -363,6 +379,8 @@ jobs:
           echo "EXTRACTED_RELEASE_DIR=$extract_dir/$RELEASE_ID" >> "$GITHUB_ENV"
 
       - name: Prove extracted migration tooling
+        env:
+          DATABASE_URL: postgresql://ropes_release_artifact@localhost:5432/ropes_release_artifact
         run: |
           set -euo pipefail
 
@@ -395,8 +413,14 @@ jobs:
 
       - name: Smoke test extracted artifact
         env:
+          DATABASE_URL: postgresql://ropes_release_artifact@localhost:5432/ropes_release_artifact
+          GOOGLE_CLIENT_ID: release-artifact-google-client-id
+          GOOGLE_CLIENT_SECRET: release-artifact-google-client-secret
+          NEXTAUTH_SECRET: release-artifact-nextauth-secret-for-ci-only
+          NEXTAUTH_URL: http://127.0.0.1:4387
           NODE_ENV: production
           NEXT_TELEMETRY_DISABLED: "1"
+          ROPES_DEMO_MODE: ""
         run: |
           set -euo pipefail
 

@@ -280,7 +280,7 @@ The workflow:
 3. uses Node 26 and requires npm major 11;
 4. installs with `npm ci`;
 5. runs Prisma generation, tests, typecheck, lint, build, Prisma validation and
-   `git diff --check`;
+   `git diff --check` without synthetic database/auth runtime values;
 6. packages a `.tar.gz` archive named like
    `ropes-<short-sha>-linux-x64.tar.gz`;
 7. creates a SHA-256 checksum and JSON/Markdown release manifests;
@@ -320,7 +320,9 @@ configuration. The internal `ROPES-RELEASE.json` contains safe source/build
 identity only and does not contain the final archive SHA; the external checksum
 and manifests record the final archive SHA after packaging. `NEXTAUTH_URL`,
 database credentials and other live environment settings remain Hera-managed
-environment injection, not artifact content.
+environment injection, not artifact content. The workflow scopes synthetic
+CI-only database/auth settings to extracted-artifact verification and checks the
+staged release for those exact marker values before accepting the archive.
 
 Hera later verifies the archive checksum and manifest, stages it under
 `/opt/ropes/releases/<release-id>`, applies administrator ownership, gives the

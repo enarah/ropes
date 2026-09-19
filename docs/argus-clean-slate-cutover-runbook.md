@@ -206,7 +206,9 @@ DNS/TLS/Plesk/nginx/systemd.
 
 The workflow builds on GitHub-hosted `ubuntu-24.04` Linux x86_64 with Node 26
 and npm major 11. It records the exact `node --version`, `npm --version` and
-`uname -m` values in the release manifest.
+`uname -m` values in the release manifest. Build and packaging steps do not
+receive synthetic database/auth runtime values; those CI-only values are scoped
+only to extracted-artifact migration and readiness verification steps.
 
 The first controlled-cutover artifact intentionally retains the complete
 `npm ci` dependency tree. This is larger than a pruned runtime artifact, but it
@@ -253,6 +255,8 @@ the provisioning command imports across that tree. The artifact deliberately
 excludes `prisma/seed.ts` and unrelated scripts so it does not encourage use of
 the destructive demo seed on Argus. It must not contain `.git`, environment
 files, secrets, logs, demo databases or host-specific live configuration.
+Before packaging, the workflow scans the staged release for the exact CI-only
+database/auth marker values and fails if any are embedded.
 
 After packaging, the workflow extracts the archive and proves the extracted
 release can run the migration tooling against a disposable CI PostgreSQL 16
