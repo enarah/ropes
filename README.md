@@ -359,11 +359,15 @@ reviewable Linux x86_64 `.tar.gz` artifact from `main` only. Dispatch it with
 the full `expected_sha` matching the selected commit; the workflow fails closed
 if the ref or SHA does not match. It uses Node 26, npm 11 and `npm ci`, runs the
 normal repository validation sequence, packages the complete dependency tree,
-creates SHA-256 and release-manifest artifacts, then smoke-tests the extracted
-archive with `npm start` and `/api/health` on loopback. It does not deploy,
-contact Argus, use production secrets, create databases, run persistent
-migrations or provision users. Artifact creation is evidence for later review,
-not deployment authorisation.
+creates internal `ROPES-RELEASE.json`, SHA-256 and release-manifest artifacts,
+then tests the extracted archive. Extracted-artifact proof covers migration
+tooling against disposable CI PostgreSQL, provisioning tooling with
+`npm run provision:user -- --help`, and `npm start` with `/api/health` plus
+`/api/ready` on loopback. The controlled artifact deliberately excludes the
+destructive demo seed. It does not deploy, contact Argus, use production
+secrets, create persistent databases, run migrations against persistent
+infrastructure or provision real users. Artifact creation is evidence for later
+review, not deployment authorisation.
 
 The production-style operational sequence stays separated:
 

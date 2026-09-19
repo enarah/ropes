@@ -198,10 +198,11 @@ The repository-side release artifact workflow is:
 ```
 
 It is a manual build workflow only. It uses `workflow_dispatch`, must be run
-from `main`, and requires an `expected_sha` input that exactly matches the
-dispatch commit SHA. It does not deploy, SSH, SCP, rsync, contact Argus, create
-databases, run persistent migrations, provision users, use production secrets or
-modify DNS/TLS/Plesk/nginx/systemd.
+from `main`, validates `expected_sha` as a full 40-character Git SHA, and
+requires it to exactly match the dispatch commit SHA. It does not deploy, SSH,
+SCP, rsync, contact Argus, create persistent databases, run migrations against
+persistent infrastructure, provision users, use production secrets or modify
+DNS/TLS/Plesk/nginx/systemd.
 
 The workflow builds on GitHub-hosted `ubuntu-24.04` Linux x86_64 with Node 26
 and npm major 11. It records the exact `node --version`, `npm --version` and
@@ -232,21 +233,36 @@ It also uploads:
 - `release-manifest.json`;
 - `release-manifest.md`.
 
+The archive itself includes `ROPES-RELEASE.json` with safe source/build identity
+such as repository, full and short Git SHA, workflow run ID/ref, Linux
+architecture, Node/npm versions, package version, Next/Prisma versions, lockfile
+SHA-256, migration-set SHA-256, workflow path and
+`deploymentAuthorized: false`. The final archive SHA is deliberately kept in
+the external manifests/checksum to avoid circular checksums.
+
 The manifest records the full commit SHA, workflow run ID/ref, build timestamp,
 Linux architecture, Node/npm versions, application/package version, Next and
 Prisma versions, lockfile SHA-256, migration-set SHA-256, artifact SHA-256 and
 workflow path. Artifact retention is 30 days.
 
 The artifact contains the built `.next/` output, full `node_modules/`,
-`package.json`, `package-lock.json`, Prisma schema/migrations/config, and the
-source/config needed for approved operator commands. It must not contain `.git`,
-environment files, secrets, logs, demo databases or host-specific live
-configuration.
+`package.json`, `package-lock.json`, Prisma schema/migrations/config,
+`scripts/provision-user.ts`, and `lib/**` needed for approved operator
+commands. Retaining all of `lib/**` is a safe first-release trade-off because
+the provisioning command imports across that tree. The artifact deliberately
+excludes `prisma/seed.ts` and unrelated scripts so it does not encourage use of
+the destructive demo seed on Argus. It must not contain `.git`, environment
+files, secrets, logs, demo databases or host-specific live configuration.
 
-After packaging, the workflow extracts the archive and proves `npm start` can
-serve `/api/health` on `127.0.0.1` with an ephemeral CI port. This smoke test is
-liveness proof only; it does not authorise deployment, migrations, provisioning,
-secrets, OAuth, proxy changes, monitoring or cutover.
+After packaging, the workflow extracts the archive and proves the extracted
+release can run the migration tooling against a disposable CI PostgreSQL 16
+service, including initial pending status, first `npm run db:deploy`, clean
+status, second idempotent deploy and final clean status. It also proves
+`npm run provision:user -- --help` loads from the extracted release, and that
+`npm start` can serve `/api/health` and `/api/ready` safely on `127.0.0.1` with
+synthetic CI-only auth configuration and an ephemeral CI port. This proof still
+does not authorise deployment, persistent migrations, provisioning, secrets,
+OAuth, proxy changes, monitoring or cutover.
 
 ## 7. New environment/secrets
 

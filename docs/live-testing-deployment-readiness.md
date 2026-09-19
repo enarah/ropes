@@ -284,9 +284,16 @@ The workflow:
 6. packages a `.tar.gz` archive named like
    `ropes-<short-sha>-linux-x64.tar.gz`;
 7. creates a SHA-256 checksum and JSON/Markdown release manifests;
-8. extracts the archive and proves `npm start` serves `/api/health` on
-   `127.0.0.1` with an ephemeral CI port;
-9. uploads the archive, checksum and manifests as GitHub Actions artifacts with
+8. writes safe source/build identity into `ROPES-RELEASE.json` inside the
+   archive;
+9. extracts the archive and proves migration tooling works against disposable
+   CI PostgreSQL 16: pending status, first deploy, clean status, second
+   idempotent deploy and final clean status;
+10. proves provisioning tooling loads with `npm run provision:user -- --help`;
+11. proves `npm start` serves `/api/health` and `/api/ready` safely on
+   `127.0.0.1` with an ephemeral CI port and synthetic CI-only auth
+   configuration;
+12. uploads the archive, checksum and manifests as GitHub Actions artifacts with
    30-day retention.
 
 This is not CD. It does not SSH, SCP, rsync, contact Argus, use GitHub
@@ -300,13 +307,20 @@ the reviewed cutover procedure still needs `npm run db:deploy` and
 `npm run provision:user` outside application startup, and those commands depend
 on dev-scoped tools such as Prisma CLI and `tsx`. Do not introduce
 `npm prune --omit=dev` until a later reviewed change proves migrations,
-provisioning and `npm start` still work from the extracted release.
+provisioning and `npm start` still work from the extracted release. The artifact
+deliberately excludes the destructive demo seed (`prisma/seed.ts`) and unrelated
+scripts; only `scripts/provision-user.ts` is packaged for approved provisioning
+operations. Retaining all of `lib/**` is a safe first-release trade-off because
+the provisioning command imports across that tree.
 
 The artifact is environment-neutral. It must not contain `.git`, `.env`,
 `.env.local`, secret-bearing files, database URLs, OAuth values, cursor secrets,
 Fulcrum credentials, AI credentials, logs, demo databases or host-specific live
-configuration. `NEXTAUTH_URL`, database credentials and other live environment
-settings remain Hera-managed environment injection, not artifact content.
+configuration. The internal `ROPES-RELEASE.json` contains safe source/build
+identity only and does not contain the final archive SHA; the external checksum
+and manifests record the final archive SHA after packaging. `NEXTAUTH_URL`,
+database credentials and other live environment settings remain Hera-managed
+environment injection, not artifact content.
 
 Hera later verifies the archive checksum and manifest, stages it under
 `/opt/ropes/releases/<release-id>`, applies administrator ownership, gives the
