@@ -1,0 +1,465 @@
+name: ROPES release artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Full Git commit SHA to package. Must match the main-branch dispatch commit."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-artifact-${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Linux x64 release artifact
+    runs-on: ubuntu-24.04
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ropes_release_artifact
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: ropes_release_artifact
+        options: >-
+          --health-cmd "pg_isready -U ropes_release_artifact -d ropes_release_artifact"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      RELEASE_PORT: "4387"
+
+    steps:
+      - name: Check dispatch ref and expected SHA
+        env:
+          DISPATCH_REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "$DISPATCH_REF" != "refs/heads/main" ]; then
+            echo "ERROR release artifacts must be dispatched from main"
+            exit 1
+          fi
+
+          if ! printf '%s' "$EXPECTED_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            echo "ERROR expected_sha must be a full 40-character Git SHA"
+            exit 1
+          fi
+
+          if [ "$EXPECTED_SHA" != "$DISPATCH_SHA" ]; then
+            echo "ERROR expected_sha does not match the dispatch commit"
+            echo "Dispatch commit: $DISPATCH_SHA"
+            exit 1
+          fi
+
+          echo "PASS release artifact dispatch is pinned to main at $DISPATCH_SHA"
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Record runner runtime
+        run: |
+          node --version | tee /tmp/ropes-node-version.txt
+          npm --version | tee /tmp/ropes-npm-version.txt
+          uname -m | tee /tmp/ropes-uname-m.txt
+
+          npm_major="$(npm --version | cut -d. -f1)"
+          if [ "$npm_major" != "11" ]; then
+            echo "ERROR expected npm major 11, got $(npm --version)"
+            exit 1
+          fi
+
+          if [ "$(uname -m)" != "x86_64" ]; then
+            echo "ERROR expected Linux x86_64 runner, got $(uname -m)"
+            exit 1
+          fi
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build application
+        run: npm run build
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Check diff whitespace
+        run: git diff --check
+
+      - name: Prepare release artifact directory
+        run: |
+          set -euo pipefail
+
+          short_sha="${GITHUB_SHA::12}"
+          release_id="ropes-${short_sha}-linux-x64"
+          staging_root="$RUNNER_TEMP/ropes-release"
+          release_dir="$staging_root/$release_id"
+
+          export BUILD_TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          export LINUX_ARCH="$(cat /tmp/ropes-uname-m.txt)"
+          export LOCKFILE_SHA="$(sha256sum package-lock.json | cut -d' ' -f1)"
+          export MIGRATION_SET_SHA="$(find prisma/migrations -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+          export NODE_VERSION_RECORDED="$(cat /tmp/ropes-node-version.txt)"
+          export NPM_VERSION_RECORDED="$(cat /tmp/ropes-npm-version.txt)"
+          export RELEASE_ID="$release_id"
+          export RELEASE_DIR="$release_dir"
+          export SHORT_SHA="$short_sha"
+
+          mkdir -p "$release_dir/prisma" "$release_dir/scripts"
+
+          cp -a .next "$release_dir/.next"
+          cp -a node_modules "$release_dir/node_modules"
+          cp -a package.json "$release_dir/package.json"
+          cp -a package-lock.json "$release_dir/package-lock.json"
+          cp -a next.config.ts "$release_dir/next.config.ts"
+          cp -a prisma.config.ts "$release_dir/prisma.config.ts"
+          cp -a tsconfig.json "$release_dir/tsconfig.json"
+          cp -a prisma/schema.prisma "$release_dir/prisma/schema.prisma"
+          cp -a prisma/migrations "$release_dir/prisma/migrations"
+          cp -a scripts/provision-user.ts "$release_dir/scripts/provision-user.ts"
+          cp -a lib "$release_dir/lib"
+
+          if [ -d public ]; then
+            cp -a public "$release_dir/public"
+          fi
+
+          cat > "$release_dir/README.release.md" <<'EOF'
+          # ROPES release artifact
+
+          This archive is a repository-built Linux x86_64 ROPES release artifact.
+          Creating this artifact does not authorise deployment, Argus changes, database
+          changes, migrations, provisioning or public exposure.
+
+          It intentionally retains the complete `npm ci` dependency tree for the first
+          controlled cutover because approved operator commands still require
+          development-scoped tooling:
+
+          - `npm run db:deploy` requires the Prisma CLI.
+          - `npm run provision:user` requires `tsx`.
+          - `scripts/provision-user.ts` imports TypeScript modules from `lib/`.
+          - `prisma.config.ts` is required by Prisma operator commands.
+
+          The destructive demo seed is deliberately excluded from this controlled
+          artifact. Do not run `npm prune --omit=dev` unless a later reviewed change
+          proves migrations, provisioning and `npm start` still work from the extracted
+          result.
+          EOF
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const pkg = require("./package.json");
+          const nextPkg = require("./node_modules/next/package.json");
+          const prismaPkg = require("./node_modules/prisma/package.json");
+
+          const release = {
+            repository: "enarah/ropes",
+            gitCommitSha: process.env.GITHUB_SHA,
+            shortSha: process.env.SHORT_SHA,
+            workflowRef: process.env.GITHUB_REF,
+            workflowRunId: process.env.GITHUB_RUN_ID,
+            linuxArchitecture: process.env.LINUX_ARCH,
+            nodeVersion: process.env.NODE_VERSION_RECORDED,
+            npmVersion: process.env.NPM_VERSION_RECORDED,
+            applicationPackageVersion: pkg.version,
+            nextVersion: nextPkg.version,
+            prismaVersion: prismaPkg.version,
+            lockfileSha256: process.env.LOCKFILE_SHA,
+            migrationSetSha256: process.env.MIGRATION_SET_SHA,
+            buildWorkflowPath: ".github/workflows/release-artifact.yml",
+            deploymentAuthorized: false,
+          };
+
+          fs.writeFileSync(
+            path.join(process.env.RELEASE_DIR, "ROPES-RELEASE.json"),
+            `${JSON.stringify(release, null, 2)}\n`,
+          );
+          NODE
+
+          echo "RELEASE_ID=$release_id" >> "$GITHUB_ENV"
+          echo "RELEASE_DIR=$release_dir" >> "$GITHUB_ENV"
+          echo "STAGING_ROOT=$staging_root" >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=$release_id.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Check release artifact exclusions
+        run: |
+          set -euo pipefail
+
+          if find "$RELEASE_DIR" -name ".git" -o -name ".env" -o -name ".env.local" -o -name ".env.*.local" | grep -q .; then
+            echo "ERROR release directory contains forbidden source-control or environment files"
+            find "$RELEASE_DIR" -name ".git" -o -name ".env" -o -name ".env.local" -o -name ".env.*.local"
+            exit 1
+          fi
+
+          if [ -e "$RELEASE_DIR/prisma/seed.ts" ]; then
+            echo "ERROR destructive demo seed must not be packaged in the controlled release artifact"
+            exit 1
+          fi
+
+          if find "$RELEASE_DIR/scripts" -type f ! -name "provision-user.ts" | grep -q .; then
+            echo "ERROR unexpected script packaged in controlled release artifact"
+            find "$RELEASE_DIR/scripts" -type f ! -name "provision-user.ts"
+            exit 1
+          fi
+
+      - name: Check release artifact is environment neutral
+        run: |
+          set -euo pipefail
+
+          check_marker_absent() {
+            marker="$1"
+            category="$2"
+            matches="$(grep -R -l --binary-files=without-match -- "$marker" "$RELEASE_DIR" || true)"
+
+            if [ -n "$matches" ]; then
+              echo "ERROR release artifact contains CI-only $category marker in:"
+              printf '%s\n' "$matches"
+              exit 1
+            fi
+          }
+
+          check_marker_absent "release-artifact-google-client-id" "OAuth client ID"
+          check_marker_absent "release-artifact-google-client-secret" "OAuth client secret"
+          check_marker_absent "release-artifact-nextauth-secret-for-ci-only" "session secret"
+          check_marker_absent "postgresql://ropes_release_artifact@localhost:5432/ropes_release_artifact" "database URL"
+          check_marker_absent "http://127.0.0.1:4387" "runtime origin"
+
+      - name: Package release artifact
+        run: |
+          set -euo pipefail
+
+          artifact_dir="$RUNNER_TEMP/ropes-artifact-output"
+          mkdir -p "$artifact_dir"
+
+          tar -C "$STAGING_ROOT" -czf "$artifact_dir/$ARCHIVE_NAME" "$RELEASE_ID"
+          sha256sum "$artifact_dir/$ARCHIVE_NAME" | tee "$artifact_dir/$ARCHIVE_NAME.sha256"
+
+          export ARCHIVE_SHA="$(cut -d' ' -f1 "$artifact_dir/$ARCHIVE_NAME.sha256")"
+          export ARTIFACT_DIR="$artifact_dir"
+          export BUILD_TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          export LINUX_ARCH="$(cat /tmp/ropes-uname-m.txt)"
+          export LOCKFILE_SHA="$(sha256sum package-lock.json | cut -d' ' -f1)"
+          export MIGRATION_SET_SHA="$(find prisma/migrations -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+          export NODE_VERSION_RECORDED="$(cat /tmp/ropes-node-version.txt)"
+          export NPM_VERSION_RECORDED="$(cat /tmp/ropes-npm-version.txt)"
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const pkg = require("./package.json");
+          const nextPkg = require("./node_modules/next/package.json");
+          const prismaPkg = require("./node_modules/prisma/package.json");
+
+          const migrationDirectories = fs
+            .readdirSync("prisma/migrations", { withFileTypes: true })
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+            .sort();
+
+          const manifest = {
+            repository: "enarah/ropes",
+            gitCommitSha: process.env.GITHUB_SHA,
+            workflowRef: process.env.GITHUB_REF,
+            workflowRunId: process.env.GITHUB_RUN_ID,
+            workflowRunNumber: process.env.GITHUB_RUN_NUMBER,
+            workflowSha: process.env.GITHUB_WORKFLOW_SHA || process.env.GITHUB_SHA,
+            buildTimestamp: process.env.BUILD_TIMESTAMP,
+            linuxArchitecture: process.env.LINUX_ARCH,
+            nodeVersion: process.env.NODE_VERSION_RECORDED,
+            npmVersion: process.env.NPM_VERSION_RECORDED,
+            applicationPackageVersion: pkg.version,
+            nextVersion: nextPkg.version,
+            prismaVersion: prismaPkg.version,
+            migrationDirectories,
+            migrationSetSha256: process.env.MIGRATION_SET_SHA,
+            lockfileSha256: process.env.LOCKFILE_SHA,
+            artifactFileName: process.env.ARCHIVE_NAME,
+            artifactSha256: process.env.ARCHIVE_SHA,
+            artifactRetentionDays: 30,
+            buildWorkflowPath: ".github/workflows/release-artifact.yml",
+            deploymentAuthorized: false,
+            containsSecrets: false,
+            notes: [
+              "Build workflow only; does not deploy or contact Argus.",
+              "Complete npm ci dependency tree retained for Prisma CLI and tsx operator commands.",
+              "Destructive demo seed is deliberately excluded.",
+              "Migrations are packaged but never auto-executed by npm start.",
+            ],
+          };
+
+          const outputDir = process.env.ARTIFACT_DIR;
+          fs.writeFileSync(
+            path.join(outputDir, "release-manifest.json"),
+            `${JSON.stringify(manifest, null, 2)}\n`,
+          );
+
+          fs.writeFileSync(
+            path.join(outputDir, "release-manifest.md"),
+            [
+              "# ROPES release artifact manifest",
+              "",
+              `- Repository: ${manifest.repository}`,
+              `- Git commit SHA: ${manifest.gitCommitSha}`,
+              `- Build timestamp: ${manifest.buildTimestamp}`,
+              `- GitHub Actions run ID: ${manifest.workflowRunId}`,
+              `- Workflow ref: ${manifest.workflowRef}`,
+              `- Linux architecture: ${manifest.linuxArchitecture}`,
+              `- Node version: ${manifest.nodeVersion}`,
+              `- npm version: ${manifest.npmVersion}`,
+              `- Application/package version: ${manifest.applicationPackageVersion}`,
+              `- Next version: ${manifest.nextVersion}`,
+              `- Prisma version: ${manifest.prismaVersion}`,
+              `- Lockfile SHA-256: ${manifest.lockfileSha256}`,
+              `- Migration set SHA-256: ${manifest.migrationSetSha256}`,
+              `- Artifact filename: ${manifest.artifactFileName}`,
+              `- Artifact SHA-256: ${manifest.artifactSha256}`,
+              `- Workflow path: ${manifest.buildWorkflowPath}`,
+              `- Artifact retention: ${manifest.artifactRetentionDays} days`,
+              "",
+              "Artifact creation is not deployment authorisation.",
+            ].join("\n") + "\n",
+          );
+          NODE
+
+          {
+            echo "## ROPES release artifact"
+            echo
+            echo "- Artifact: \`$ARCHIVE_NAME\`"
+            echo "- Artifact SHA-256: \`$ARCHIVE_SHA\`"
+            echo "- Git SHA: \`$GITHUB_SHA\`"
+            echo "- Node: \`$NODE_VERSION_RECORDED\`"
+            echo "- npm: \`$NPM_VERSION_RECORDED\`"
+            echo "- Architecture: \`$LINUX_ARCH\`"
+            echo "- Retention: 30 days"
+            echo
+            echo "Artifact creation is not deployment authorisation."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Extract release artifact
+        run: |
+          set -euo pipefail
+
+          extract_dir="$RUNNER_TEMP/ropes-extracted-release"
+          mkdir -p "$extract_dir"
+          tar -C "$extract_dir" -xzf "$RUNNER_TEMP/ropes-artifact-output/$ARCHIVE_NAME"
+
+          echo "EXTRACTED_RELEASE_DIR=$extract_dir/$RELEASE_ID" >> "$GITHUB_ENV"
+
+      - name: Prove extracted migration tooling
+        env:
+          DATABASE_URL: postgresql://ropes_release_artifact@localhost:5432/ropes_release_artifact
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          npm run db:generate
+          npx prisma validate
+
+          set +e
+          npx prisma migrate status
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "ERROR expected pending migrations before first deploy on a fresh database"
+            exit 1
+          fi
+          echo "PASS fresh database reports pending migrations before first deploy"
+
+          npm run db:deploy
+          npx prisma migrate status
+          npm run db:deploy
+          npx prisma migrate status
+
+      - name: Prove extracted provisioning tooling
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+          npm run provision:user -- --help
+
+      - name: Smoke test extracted artifact
+        env:
+          DATABASE_URL: postgresql://ropes_release_artifact@localhost:5432/ropes_release_artifact
+          GOOGLE_CLIENT_ID: release-artifact-google-client-id
+          GOOGLE_CLIENT_SECRET: release-artifact-google-client-secret
+          NEXTAUTH_SECRET: release-artifact-nextauth-secret-for-ci-only
+          NEXTAUTH_URL: http://127.0.0.1:4387
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: "1"
+          ROPES_DEMO_MODE: ""
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          npm start -- --hostname 127.0.0.1 --port "$RELEASE_PORT" > "$RUNNER_TEMP/ropes-artifact-start.log" 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            if kill -0 "$app_pid" 2>/dev/null; then
+              kill "$app_pid"
+              wait "$app_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$RELEASE_PORT/api/health" > "$RUNNER_TEMP/ropes-artifact-health.json"; then
+              break
+            fi
+            sleep 1
+          done
+
+          node -e 'const fs = require("node:fs"); const payload = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/ropes-artifact-health.json", "utf8")); if (payload.status !== "ok") throw new Error("health payload was not ok"); console.log("PASS extracted artifact /api/health returned ok");'
+
+          curl -fsS "http://127.0.0.1:$RELEASE_PORT/api/ready" > "$RUNNER_TEMP/ropes-artifact-ready.json"
+
+          node -e 'const fs = require("node:fs"); const payload = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/ropes-artifact-ready.json", "utf8")); if (payload.status !== "ok") throw new Error("readiness status was not ok"); for (const key of ["database", "authentication", "demoMode"]) { if (payload.checks?.[key] !== "ok") throw new Error(`${key} readiness was not ok`); } const text = JSON.stringify(payload); for (const forbidden of [process.env.NEXTAUTH_SECRET, process.env.GOOGLE_CLIENT_SECRET, "DATABASE_URL", "ropes_release_artifact@localhost"]) { if (forbidden && text.includes(forbidden)) throw new Error("readiness payload exposed forbidden configuration material"); } console.log("PASS extracted artifact /api/ready returned safe ok checks");'
+
+          cleanup
+          trap - EXIT
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RELEASE_ID }}
+          path: |
+            ${{ runner.temp }}/ropes-artifact-output/${{ env.ARCHIVE_NAME }}
+            ${{ runner.temp }}/ropes-artifact-output/${{ env.ARCHIVE_NAME }}.sha256
+            ${{ runner.temp }}/ropes-artifact-output/release-manifest.json
+            ${{ runner.temp }}/ropes-artifact-output/release-manifest.md
+          retention-days: 30
