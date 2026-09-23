@@ -268,6 +268,39 @@ synthetic CI-only auth configuration and an ephemeral CI port. This proof still
 does not authorise deployment, persistent migrations, provisioning, secrets,
 OAuth, proxy changes, monitoring or cutover.
 
+### AlmaLinux artifact compatibility proof
+
+Argus is AlmaLinux 9.8 x86_64 with glibc 2.34. The release artifact workflow
+builds and first-tests the archive on GitHub-hosted Ubuntu 24.04 x86_64, so the
+archive also needs a repository-side AlmaLinux compatibility proof before it is
+staged on Argus.
+
+The manual compatibility workflow is:
+
+```text
+.github/workflows/almalinux-artifact-compatibility.yml
+```
+
+It is `workflow_dispatch` only and accepts the reviewed release artifact run ID,
+artifact name, source SHA and inner archive SHA-256 as inputs. It validates
+those inputs before using them, downloads the existing GitHub Actions artifact,
+verifies the inner `.tar.gz` checksum, extracts that exact archive inside an
+AlmaLinux 9 container, installs Node 26/npm 11 for the test environment, and
+runs the packaged artifact directly. It must not rebuild ROPES, run `npm ci`,
+copy fresh `node_modules`, contact Argus, use production secrets, stage files,
+run persistent migrations or provision real users.
+
+The compatibility proof runs against disposable PostgreSQL 16 only. It proves
+Prisma generation/validation, first and second `db:deploy`, provisioning help,
+`npm start`, `/api/health`, and `/api/ready` with synthetic CI-only
+configuration. It also performs bounded native ELF inspection for packaged
+native modules and Prisma/Next-related binaries so obvious GLIBC/GLIBCXX
+incompatibilities with AlmaLinux 9 are caught before staging.
+
+Passing this workflow is compatibility evidence only. It does not authorise
+deployment, Argus changes, DB creation, real migrations, OAuth setup,
+provisioning, proxy changes or public cutover.
+
 ## 7. New environment/secrets
 
 Document names only:
