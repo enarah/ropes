@@ -260,7 +260,7 @@ jobs:
               if name not in (artifact_name, root) and not name.startswith(root):
                   fail(f"release archive entry escapes release root: {name}")
 
-          def assert_safe_link_target(member):
+          def assert_safe_symlink_target(member):
               target = member.linkname or ""
               if not target:
                   fail(f"release archive link has empty target: {member.name}")
@@ -277,6 +277,13 @@ jobs:
               ):
                   fail(f"release archive link target escapes release root: {member.name}")
 
+          def assert_safe_hardlink_target(member):
+              target = member.linkname or ""
+              if not target:
+                  fail(f"release archive hardlink has empty target: {member.name}")
+
+              assert_safe_entry_name(target)
+
           with tarfile.open(archive_path, "r:gz") as archive:
               members = archive.getmembers()
 
@@ -285,8 +292,10 @@ jobs:
 
           for member in members:
               assert_safe_entry_name(member.name)
-              if member.issym() or member.islnk():
-                  assert_safe_link_target(member)
+              if member.issym():
+                  assert_safe_symlink_target(member)
+              if member.islnk():
+                  assert_safe_hardlink_target(member)
           PY
 
           echo "PASS release tarball path and link safety verified before extraction"

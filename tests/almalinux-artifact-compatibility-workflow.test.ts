@@ -165,11 +165,17 @@ test("AlmaLinux compatibility workflow inspects tarball before extraction", () =
   assert.match(tarInspectStep, /name\.startswith\("\/"\)/);
   assert.match(tarInspectStep, /any\(part == "\.\." for part in name\.split\("\/"\)\)/);
   assert.match(tarInspectStep, /not name\.startswith\(root\)/);
-  assert.match(tarInspectStep, /member\.issym\(\) or member\.islnk\(\)/);
+  assert.match(tarInspectStep, /def assert_safe_symlink_target\(member\):/);
+  assert.match(tarInspectStep, /def assert_safe_hardlink_target\(member\):/);
+  assert.match(tarInspectStep, /if member\.issym\(\):\s+assert_safe_symlink_target\(member\)/);
+  assert.match(tarInspectStep, /if member\.islnk\(\):\s+assert_safe_hardlink_target\(member\)/);
   assert.match(tarInspectStep, /member\.linkname/);
   assert.match(tarInspectStep, /target\.startswith\("\/"\)/);
   assert.match(tarInspectStep, /posixpath\.normpath/);
   assert.match(tarInspectStep, /release archive link target escapes release root/);
+  assert.match(tarInspectStep, /release archive hardlink has empty target/);
+  assert.match(tarInspectStep, /assert_safe_entry_name\(target\)/);
+  assert.doesNotMatch(tarInspectStep, /member\.issym\(\) or member\.islnk\(\)/);
   assert.doesNotMatch(tarInspectStep, /tar -tvzf "\$archive_path"/);
   assert.doesNotMatch(tarInspectStep, /ropes-almalinux-tar-verbose/);
   assert.match(workflow, /rm -rf "\$extract_dir"/);
