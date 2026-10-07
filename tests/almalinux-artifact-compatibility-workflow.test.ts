@@ -158,13 +158,20 @@ test("AlmaLinux compatibility workflow inspects tarball before extraction", () =
   );
 
   const tarInspectStep = workflow.slice(tarInspectIndex, extractIndex);
-  assert.match(tarInspectStep, /tar -tzf "\$archive_path"/);
-  assert.match(tarInspectStep, /tar -tvzf "\$archive_path"/);
-  assert.match(tarInspectStep, /entry\.startsWith\("\/"\)/);
-  assert.match(tarInspectStep, /entry\.split\("\/"\)\.includes\("\.\."\)/);
-  assert.match(tarInspectStep, /!entry\.startsWith\(root\)/);
-  assert.match(tarInspectStep, /target\.startsWith\("\/"\)/);
+  assert.match(workflow, /\bpython3\b/);
+  assert.match(tarInspectStep, /python3 <<'PY'/);
+  assert.match(tarInspectStep, /tarfile\.open\(archive_path, "r:gz"\)/);
+  assert.match(tarInspectStep, /archive\.getmembers\(\)/);
+  assert.match(tarInspectStep, /name\.startswith\("\/"\)/);
+  assert.match(tarInspectStep, /any\(part == "\.\." for part in name\.split\("\/"\)\)/);
+  assert.match(tarInspectStep, /not name\.startswith\(root\)/);
+  assert.match(tarInspectStep, /member\.issym\(\) or member\.islnk\(\)/);
+  assert.match(tarInspectStep, /member\.linkname/);
+  assert.match(tarInspectStep, /target\.startswith\("\/"\)/);
+  assert.match(tarInspectStep, /posixpath\.normpath/);
   assert.match(tarInspectStep, /release archive link target escapes release root/);
+  assert.doesNotMatch(tarInspectStep, /tar -tvzf "\$archive_path"/);
+  assert.doesNotMatch(tarInspectStep, /ropes-almalinux-tar-verbose/);
   assert.match(workflow, /rm -rf "\$extract_dir"/);
 });
 

@@ -103,6 +103,7 @@ jobs:
             file \
             findutils \
             gzip \
+            python3 \
             tar \
             unzip \
             xz
@@ -235,76 +236,58 @@ jobs:
           set -euo pipefail
 
           archive_path="$RUNNER_TEMP/ropes-almalinux-artifact/$ARCHIVE_NAME"
-          tar -tzf "$archive_path" > "$RUNNER_TEMP/ropes-almalinux-tar-entries.txt"
-          tar -tvzf "$archive_path" > "$RUNNER_TEMP/ropes-almalinux-tar-verbose.txt"
+          export archive_path
 
-          node <<'NODE'
-          const fs = require("node:fs");
-          const path = require("node:path");
-          const root = `${process.env.ARTIFACT_NAME}/`;
-          const entriesPath = `${process.env.RUNNER_TEMP}/ropes-almalinux-tar-entries.txt`;
-          const verbosePath = `${process.env.RUNNER_TEMP}/ropes-almalinux-tar-verbose.txt`;
-          const entries = fs.readFileSync(entriesPath, "utf8").split("\n").filter(Boolean);
+          python3 <<'PY'
+          import os
+          import posixpath
+          import tarfile
 
-          if (entries.length === 0) {
-            throw new Error("release archive is empty");
-          }
+          archive_path = os.environ["archive_path"]
+          artifact_name = os.environ["ARTIFACT_NAME"]
+          root = f"{artifact_name}/"
 
-          function assertSafeEntryName(entry) {
-            if (entry.startsWith("/")) {
-              throw new Error(`release archive contains absolute path: ${entry}`);
-            }
+          def fail(message):
+              raise SystemExit(f"ERROR {message}")
 
-            if (entry.split("/").includes("..")) {
-              throw new Error(`release archive contains traversal path: ${entry}`);
-            }
+          def assert_safe_entry_name(name):
+              if name.startswith("/"):
+                  fail(f"release archive contains absolute path: {name}")
 
-            if (entry !== process.env.ARTIFACT_NAME && !entry.startsWith(root)) {
-              throw new Error(`release archive entry escapes release root: ${entry}`);
-            }
-          }
+              if any(part == ".." for part in name.split("/")):
+                  fail(f"release archive contains traversal path: {name}")
 
-          for (const entry of entries) {
-            assertSafeEntryName(entry);
-          }
+              if name not in (artifact_name, root) and not name.startswith(root):
+                  fail(f"release archive entry escapes release root: {name}")
 
-          function resolveLinkTarget(linkPath, target) {
-            if (target.startsWith("/")) {
-              throw new Error(`release archive link target is absolute: ${linkPath}`);
-            }
+          def assert_safe_link_target(member):
+              target = member.linkname or ""
+              if not target:
+                  fail(f"release archive link has empty target: {member.name}")
 
-            const base = path.posix.dirname(linkPath);
-            const resolved = path.posix.normalize(path.posix.join(base, target));
-            if (resolved === ".." || resolved.startsWith("../") || !resolved.startsWith(root)) {
-              throw new Error(`release archive link target escapes release root: ${linkPath}`);
-            }
-          }
+              if target.startswith("/"):
+                  fail(f"release archive link target is absolute: {member.name}")
 
-          const verboseLines = fs.readFileSync(verbosePath, "utf8").split("\n").filter(Boolean);
-          for (const line of verboseLines) {
-            const type = line[0];
+              base = posixpath.dirname(member.name)
+              resolved = posixpath.normpath(posixpath.join(base, target))
+              if (
+                  resolved == ".."
+                  or resolved.startswith("../")
+                  or (resolved != artifact_name and not resolved.startswith(root))
+              ):
+                  fail(f"release archive link target escapes release root: {member.name}")
 
-            if (type === "l") {
-              const match = /\s(.+?) -> (.+)$/.exec(line);
-              if (!match) {
-                throw new Error(`could not parse symlink entry: ${line}`);
-              }
+          with tarfile.open(archive_path, "r:gz") as archive:
+              members = archive.getmembers()
 
-              assertSafeEntryName(match[1]);
-              resolveLinkTarget(match[1], match[2]);
-            }
+          if not members:
+              fail("release archive is empty")
 
-            if (type === "h") {
-              const match = /\s(.+?) link to (.+)$/.exec(line);
-              if (!match) {
-                throw new Error(`could not parse hardlink entry: ${line}`);
-              }
-
-              assertSafeEntryName(match[1]);
-              resolveLinkTarget(match[1], match[2]);
-            }
-          }
-          NODE
+          for member in members:
+              assert_safe_entry_name(member.name)
+              if member.issym() or member.islnk():
+                  assert_safe_link_target(member)
+          PY
 
           echo "PASS release tarball path and link safety verified before extraction"
 
