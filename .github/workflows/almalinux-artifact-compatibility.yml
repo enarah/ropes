@@ -111,9 +111,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          curl -fsSLo /tmp/node-linux-x64.tar.xz "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz"
+          node_archive="node-v$NODE_VERSION-linux-x64.tar.xz"
+          curl -fsSLo "/tmp/$node_archive" "https://nodejs.org/dist/v$NODE_VERSION/$node_archive"
+          curl -fsSLo /tmp/SHASUMS256.txt "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt"
+          grep "  $node_archive\$" /tmp/SHASUMS256.txt > /tmp/node-linux-x64.sha256
+          (cd /tmp && sha256sum -c node-linux-x64.sha256)
+
           mkdir -p "$NODE_INSTALL_DIR"
-          tar -C "$NODE_INSTALL_DIR" --strip-components=1 -xJf /tmp/node-linux-x64.tar.xz
+          tar -C "$NODE_INSTALL_DIR" --strip-components=1 -xJf "/tmp/$node_archive"
 
           echo "$NODE_INSTALL_DIR/bin" >> "$GITHUB_PATH"
           "$NODE_INSTALL_DIR/bin/node" --version | tee /tmp/ropes-almalinux-node-version.txt
@@ -193,9 +198,13 @@ jobs:
           node <<'NODE'
           const fs = require("node:fs");
           const manifest = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/ropes-almalinux-artifact/release-manifest.json", "utf8"));
+          const expectedShortSha = process.env.EXPECTED_SOURCE_SHA.slice(0, 12);
+          const expectedArtifactName = `ropes-${expectedShortSha}-linux-x64`;
 
           const checks = [
+            ["repository", "enarah/ropes"],
             ["gitCommitSha", process.env.EXPECTED_SOURCE_SHA],
+            ["buildWorkflowPath", ".github/workflows/release-artifact.yml"],
             ["artifactFileName", process.env.ARCHIVE_NAME],
             ["artifactSha256", process.env.EXPECTED_ARCHIVE_SHA256],
           ];
@@ -209,15 +218,102 @@ jobs:
           if (manifest.deploymentAuthorized !== false) {
             throw new Error("manifest must not authorise deployment");
           }
+
+          if (process.env.ARTIFACT_NAME !== expectedArtifactName) {
+            throw new Error("artifact name short SHA does not match expected source SHA");
+          }
+
+          if (manifest.artifactFileName !== `${expectedArtifactName}.tar.gz`) {
+            throw new Error("manifest artifact filename short SHA does not match expected source SHA");
+          }
           NODE
 
           echo "PASS release archive identity and checksum verified"
+
+      - name: Inspect release tarball before extraction
+        run: |
+          set -euo pipefail
+
+          archive_path="$RUNNER_TEMP/ropes-almalinux-artifact/$ARCHIVE_NAME"
+          tar -tzf "$archive_path" > "$RUNNER_TEMP/ropes-almalinux-tar-entries.txt"
+          tar -tvzf "$archive_path" > "$RUNNER_TEMP/ropes-almalinux-tar-verbose.txt"
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const root = `${process.env.ARTIFACT_NAME}/`;
+          const entriesPath = `${process.env.RUNNER_TEMP}/ropes-almalinux-tar-entries.txt`;
+          const verbosePath = `${process.env.RUNNER_TEMP}/ropes-almalinux-tar-verbose.txt`;
+          const entries = fs.readFileSync(entriesPath, "utf8").split("\n").filter(Boolean);
+
+          if (entries.length === 0) {
+            throw new Error("release archive is empty");
+          }
+
+          function assertSafeEntryName(entry) {
+            if (entry.startsWith("/")) {
+              throw new Error(`release archive contains absolute path: ${entry}`);
+            }
+
+            if (entry.split("/").includes("..")) {
+              throw new Error(`release archive contains traversal path: ${entry}`);
+            }
+
+            if (entry !== process.env.ARTIFACT_NAME && !entry.startsWith(root)) {
+              throw new Error(`release archive entry escapes release root: ${entry}`);
+            }
+          }
+
+          for (const entry of entries) {
+            assertSafeEntryName(entry);
+          }
+
+          function resolveLinkTarget(linkPath, target) {
+            if (target.startsWith("/")) {
+              throw new Error(`release archive link target is absolute: ${linkPath}`);
+            }
+
+            const base = path.posix.dirname(linkPath);
+            const resolved = path.posix.normalize(path.posix.join(base, target));
+            if (resolved === ".." || resolved.startsWith("../") || !resolved.startsWith(root)) {
+              throw new Error(`release archive link target escapes release root: ${linkPath}`);
+            }
+          }
+
+          const verboseLines = fs.readFileSync(verbosePath, "utf8").split("\n").filter(Boolean);
+          for (const line of verboseLines) {
+            const type = line[0];
+
+            if (type === "l") {
+              const match = /\s(.+?) -> (.+)$/.exec(line);
+              if (!match) {
+                throw new Error(`could not parse symlink entry: ${line}`);
+              }
+
+              assertSafeEntryName(match[1]);
+              resolveLinkTarget(match[1], match[2]);
+            }
+
+            if (type === "h") {
+              const match = /\s(.+?) link to (.+)$/.exec(line);
+              if (!match) {
+                throw new Error(`could not parse hardlink entry: ${line}`);
+              }
+
+              assertSafeEntryName(match[1]);
+              resolveLinkTarget(match[1], match[2]);
+            }
+          }
+          NODE
+
+          echo "PASS release tarball path and link safety verified before extraction"
 
       - name: Extract release archive
         run: |
           set -euo pipefail
 
           extract_dir="$RUNNER_TEMP/ropes-almalinux-extracted"
+          rm -rf "$extract_dir"
           mkdir -p "$extract_dir"
           tar -C "$extract_dir" -xzf "$RUNNER_TEMP/ropes-almalinux-artifact/$ARCHIVE_NAME"
 
@@ -233,6 +329,50 @@ jobs:
           fi
 
           echo "EXTRACTED_RELEASE_DIR=$release_dir" >> "$GITHUB_ENV"
+
+      - name: Verify extracted release manifest
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          const release = JSON.parse(fs.readFileSync("ROPES-RELEASE.json", "utf8"));
+          const external = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/ropes-almalinux-artifact/release-manifest.json`, "utf8"));
+          const expectedShortSha = process.env.EXPECTED_SOURCE_SHA.slice(0, 12);
+
+          const checks = [
+            ["repository", "enarah/ropes"],
+            ["gitCommitSha", process.env.EXPECTED_SOURCE_SHA],
+            ["shortSha", expectedShortSha],
+            ["buildWorkflowPath", ".github/workflows/release-artifact.yml"],
+          ];
+
+          for (const [key, expected] of checks) {
+            if (release[key] !== expected) {
+              throw new Error(`ROPES-RELEASE ${key} did not match expected value`);
+            }
+          }
+
+          if (release.deploymentAuthorized !== false) {
+            throw new Error("ROPES-RELEASE must not authorise deployment");
+          }
+
+          for (const key of [
+            "applicationPackageVersion",
+            "nextVersion",
+            "prismaVersion",
+            "lockfileSha256",
+            "migrationSetSha256",
+          ]) {
+            if (external[key] !== undefined && release[key] !== external[key]) {
+              throw new Error(`ROPES-RELEASE ${key} did not match external manifest`);
+            }
+          }
+          NODE
+
+          echo "PASS extracted ROPES-RELEASE.json verified"
 
       - name: Inspect native binary compatibility
         run: |
@@ -271,6 +411,24 @@ jobs:
           while IFS= read -r elf; do
             readelf -V "$elf" 2>/dev/null || true
           done < /tmp/ropes-elf-candidates.txt > /tmp/ropes-elf-symbols.txt
+
+          while IFS= read -r elf; do
+            ldd "$elf" > /tmp/ropes-ldd-output.txt 2>&1 || {
+              if grep -q 'not a dynamic executable' /tmp/ropes-ldd-output.txt; then
+                continue
+              fi
+
+              echo "ERROR ldd failed for native ELF candidate: $elf"
+              exit 1
+            }
+
+            if grep -q 'not found' /tmp/ropes-ldd-output.txt; then
+              echo "ERROR missing dynamic dependency for native ELF candidate: $elf"
+              exit 1
+            fi
+          done < /tmp/ropes-elf-candidates.txt
+
+          echo "ldd checked $elf_count ELF compatibility candidates"
 
           grep -Eo 'GLIBC_[0-9]+\\.[0-9]+' /tmp/ropes-elf-symbols.txt | sort -Vu > /tmp/ropes-required-glibc.txt || true
           grep -Eo 'GLIBCXX_[0-9]+\\.[0-9]+(\\.[0-9]+)?' /tmp/ropes-elf-symbols.txt | sort -Vu > /tmp/ropes-required-glibcxx.txt || true
@@ -311,14 +469,21 @@ jobs:
           cd "$EXTRACTED_RELEASE_DIR"
 
           node <<'NODE'
+          const fs = require("node:fs");
           require("./node_modules/next/package.json");
           require("./node_modules/@prisma/client/package.json");
           require("./node_modules/prisma/package.json");
 
-          try {
-            require("./node_modules/sharp");
-          } catch (error) {
-            throw new Error(`sharp failed to load from packaged artifact: ${error.message}`);
+          if (fs.existsSync("./node_modules/sharp")) {
+            try {
+              require("./node_modules/sharp");
+            } catch (error) {
+              throw new Error(`sharp failed to load from packaged artifact: ${error.message}`);
+            }
+
+            console.log("PASS packaged sharp module loaded in AlmaLinux 9");
+          } else {
+            console.log("PASS packaged sharp module is not present; skipping optional sharp load check");
           }
 
           console.log("PASS packaged native modules loaded in AlmaLinux 9");

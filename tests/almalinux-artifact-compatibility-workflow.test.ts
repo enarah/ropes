@@ -56,6 +56,8 @@ test("AlmaLinux compatibility workflow keeps CI-only safety boundaries", () => {
   assert.match(workflow, /image:\s*almalinux:9\.8/);
   assert.match(workflow, /POSTGRES_HOST_AUTH_METHOD:\s*trust/);
   assert.match(workflow, /NODE_VERSION:\s*"26\.9\.0"/);
+  assert.match(workflow, /SHASUMS256\.txt/);
+  assert.match(workflow, /sha256sum -c node-linux-x64\.sha256/);
   assert.match(workflow, /getconf GNU_LIBC_VERSION/);
   assert.match(workflow, /\[ "\$glibc_version" != "glibc 2\.34" \]/);
   assert.match(workflow, /npm_major=.*npm.*--version/);
@@ -71,6 +73,8 @@ test("AlmaLinux compatibility workflow keeps CI-only safety boundaries", () => {
   assert.match(workflow, /\/api\/health/);
   assert.match(workflow, /\/api\/ready/);
   assert.match(workflow, /readelf -V/);
+  assert.match(workflow, /\bldd "\$elf"/);
+  assert.match(workflow, /not found/);
   assert.match(workflow, /GLIBC_2\.34/);
   assert.match(workflow, /uses:\s*actions\/download-artifact@v4/);
   assert.match(workflow, /repository:\s*enarah\/ropes/);
@@ -128,11 +132,66 @@ test("AlmaLinux compatibility workflow verifies the existing archive identity", 
   assert.match(workflow, /sha256sum "\$archive_path"/);
   assert.match(workflow, /recorded_archive_sha/);
   assert.match(workflow, /EXPECTED_ARCHIVE_SHA256/);
+  assert.match(workflow, /\["repository", "enarah\/ropes"\]/);
   assert.match(workflow, /gitCommitSha/);
+  assert.match(workflow, /buildWorkflowPath/);
+  assert.match(workflow, /\.github\/workflows\/release-artifact\.yml/);
   assert.match(workflow, /artifactFileName/);
   assert.match(workflow, /artifactSha256/);
+  assert.match(workflow, /expectedShortSha/);
+  assert.match(workflow, /expectedArtifactName/);
   assert.match(workflow, /deploymentAuthorized !== false/);
   assert.match(workflow, /prisma\/seed\.ts/);
+});
+
+test("AlmaLinux compatibility workflow inspects tarball before extraction", () => {
+  const workflow = compatibilityWorkflow();
+
+  const tarInspectIndex = workflow.indexOf("Inspect release tarball before extraction");
+  const extractIndex = workflow.indexOf("Extract release archive");
+
+  assert.notEqual(tarInspectIndex, -1);
+  assert.notEqual(extractIndex, -1);
+  assert.ok(
+    tarInspectIndex < extractIndex,
+    "tarball path/link safety inspection must run before extraction",
+  );
+
+  const tarInspectStep = workflow.slice(tarInspectIndex, extractIndex);
+  assert.match(tarInspectStep, /tar -tzf "\$archive_path"/);
+  assert.match(tarInspectStep, /tar -tvzf "\$archive_path"/);
+  assert.match(tarInspectStep, /entry\.startsWith\("\/"\)/);
+  assert.match(tarInspectStep, /entry\.split\("\/"\)\.includes\("\.\."\)/);
+  assert.match(tarInspectStep, /!entry\.startsWith\(root\)/);
+  assert.match(tarInspectStep, /target\.startsWith\("\/"\)/);
+  assert.match(tarInspectStep, /release archive link target escapes release root/);
+  assert.match(workflow, /rm -rf "\$extract_dir"/);
+});
+
+test("AlmaLinux compatibility workflow verifies extracted ROPES release manifest", () => {
+  const workflow = compatibilityWorkflow();
+
+  assert.match(workflow, /Verify extracted release manifest/);
+  assert.match(workflow, /ROPES-RELEASE\.json/);
+  assert.match(workflow, /\["repository", "enarah\/ropes"\]/);
+  assert.match(workflow, /\["gitCommitSha", process\.env\.EXPECTED_SOURCE_SHA\]/);
+  assert.match(workflow, /\["shortSha", expectedShortSha\]/);
+  assert.match(workflow, /\["buildWorkflowPath", "\.github\/workflows\/release-artifact\.yml"\]/);
+  assert.match(workflow, /release\.deploymentAuthorized !== false/);
+  assert.match(workflow, /applicationPackageVersion/);
+  assert.match(workflow, /nextVersion/);
+  assert.match(workflow, /prismaVersion/);
+  assert.match(workflow, /lockfileSha256/);
+  assert.match(workflow, /migrationSetSha256/);
+});
+
+test("AlmaLinux compatibility workflow conditionally loads packaged sharp", () => {
+  const workflow = compatibilityWorkflow();
+
+  assert.match(workflow, /fs\.existsSync\("\.\/node_modules\/sharp"\)/);
+  assert.match(workflow, /require\("\.\/node_modules\/sharp"\)/);
+  assert.match(workflow, /sharp failed to load from packaged artifact/);
+  assert.match(workflow, /packaged sharp module is not present; skipping optional sharp load check/);
 });
 
 test("AlmaLinux compatibility workflow proves as-shipped liveness before Prisma mutation", () => {
