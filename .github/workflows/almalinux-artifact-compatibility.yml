@@ -1,0 +1,605 @@
+name: AlmaLinux release artifact compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: "GitHub Actions run ID that uploaded the reviewed release artifact."
+        required: true
+        type: string
+      artifact_name:
+        description: "Uploaded release artifact name, e.g. ropes-<12-hex-sha>-linux-x64."
+        required: true
+        type: string
+      expected_source_sha:
+        description: "Full source Git SHA recorded for the release artifact."
+        required: true
+        type: string
+      expected_archive_sha256:
+        description: "Expected SHA-256 of the inner .tar.gz release archive."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: almalinux-artifact-compatibility-${{ github.workflow }}-${{ inputs.artifact_run_id }}-${{ inputs.artifact_name }}
+  cancel-in-progress: false
+
+jobs:
+  compatibility:
+    name: Test artifact on AlmaLinux 9
+    runs-on: ubuntu-24.04
+    container:
+      image: almalinux:9.8
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ropes_almalinux_compat
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: ropes_almalinux_compat
+        options: >-
+          --health-cmd "pg_isready -U ropes_almalinux_compat -d ropes_almalinux_compat"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      ARTIFACT_RUN_ID_INPUT: ${{ inputs.artifact_run_id }}
+      ARTIFACT_NAME_INPUT: ${{ inputs.artifact_name }}
+      EXPECTED_SOURCE_SHA_INPUT: ${{ inputs.expected_source_sha }}
+      EXPECTED_ARCHIVE_SHA256_INPUT: ${{ inputs.expected_archive_sha256 }}
+      AS_SHIPPED_PORT: "4387"
+      COMPAT_PORT: "4388"
+      NODE_VERSION: "26.9.0"
+      NODE_INSTALL_DIR: /opt/node
+
+    steps:
+      - name: Validate manual inputs
+        run: |
+          set -euo pipefail
+
+          if ! printf '%s' "$ARTIFACT_RUN_ID_INPUT" | grep -Eq '^[0-9]+$'; then
+            echo "ERROR artifact_run_id must contain digits only"
+            exit 1
+          fi
+
+          if ! printf '%s' "$ARTIFACT_NAME_INPUT" | grep -Eq '^ropes-[0-9a-f]{12}-linux-x64$'; then
+            echo "ERROR artifact_name does not match the controlled ROPES artifact naming pattern"
+            exit 1
+          fi
+
+          if ! printf '%s' "$EXPECTED_SOURCE_SHA_INPUT" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            echo "ERROR expected_source_sha must be a full 40-character Git SHA"
+            exit 1
+          fi
+
+          if ! printf '%s' "$EXPECTED_ARCHIVE_SHA256_INPUT" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+            echo "ERROR expected_archive_sha256 must be a 64-character SHA-256 value"
+            exit 1
+          fi
+
+          {
+            echo "ARTIFACT_RUN_ID=$ARTIFACT_RUN_ID_INPUT"
+            echo "ARTIFACT_NAME=$ARTIFACT_NAME_INPUT"
+            echo "EXPECTED_SOURCE_SHA=$(printf '%s' "$EXPECTED_SOURCE_SHA_INPUT" | tr '[:upper:]' '[:lower:]')"
+            echo "EXPECTED_ARCHIVE_SHA256=$(printf '%s' "$EXPECTED_ARCHIVE_SHA256_INPUT" | tr '[:upper:]' '[:lower:]')"
+            echo "ARCHIVE_NAME=$ARTIFACT_NAME_INPUT.tar.gz"
+          } >> "$GITHUB_ENV"
+
+          echo "PASS compatibility workflow inputs are valid"
+
+      - name: Install AlmaLinux compatibility tools
+        run: |
+          set -euo pipefail
+
+          dnf -y install \
+            binutils \
+            curl \
+            file \
+            findutils \
+            gzip \
+            python3 \
+            tar \
+            unzip \
+            xz
+
+      - name: Install Node 26 and verify runtime
+        run: |
+          set -euo pipefail
+
+          node_archive="node-v$NODE_VERSION-linux-x64.tar.xz"
+          curl -fsSLo "/tmp/$node_archive" "https://nodejs.org/dist/v$NODE_VERSION/$node_archive"
+          curl -fsSLo /tmp/SHASUMS256.txt "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt"
+          grep "  $node_archive\$" /tmp/SHASUMS256.txt > /tmp/node-linux-x64.sha256
+          (cd /tmp && sha256sum -c node-linux-x64.sha256)
+
+          mkdir -p "$NODE_INSTALL_DIR"
+          tar -C "$NODE_INSTALL_DIR" --strip-components=1 -xJf "/tmp/$node_archive"
+
+          echo "$NODE_INSTALL_DIR/bin" >> "$GITHUB_PATH"
+          "$NODE_INSTALL_DIR/bin/node" --version | tee /tmp/ropes-almalinux-node-version.txt
+          "$NODE_INSTALL_DIR/bin/npm" --version | tee /tmp/ropes-almalinux-npm-version.txt
+          uname -m | tee /tmp/ropes-almalinux-uname-m.txt
+          getconf GNU_LIBC_VERSION | tee /tmp/ropes-almalinux-glibc-version.txt
+          glibc_version="$(cat /tmp/ropes-almalinux-glibc-version.txt)"
+          if [ "$glibc_version" != "glibc 2.34" ]; then
+            echo "ERROR expected AlmaLinux 9.8 glibc 2.34 baseline"
+            exit 1
+          fi
+
+          node_major="$("$NODE_INSTALL_DIR/bin/node" --version | sed 's/^v//' | cut -d. -f1)"
+          npm_major="$("$NODE_INSTALL_DIR/bin/npm" --version | cut -d. -f1)"
+
+          if [ "$node_major" != "26" ]; then
+            echo "ERROR expected Node major 26"
+            exit 1
+          fi
+
+          if [ "$npm_major" != "11" ]; then
+            echo "ERROR expected npm major 11"
+            exit 1
+          fi
+
+          if [ "$(uname -m)" != "x86_64" ]; then
+            echo "ERROR expected Linux x86_64"
+            exit 1
+          fi
+
+      - name: Download reviewed release artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: enarah/ropes
+          run-id: ${{ env.ARTIFACT_RUN_ID }}
+          name: ${{ env.ARTIFACT_NAME }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ropes-almalinux-artifact
+
+      - name: Verify release archive identity
+        run: |
+          set -euo pipefail
+
+          artifact_dir="$RUNNER_TEMP/ropes-almalinux-artifact"
+          archive_path="$artifact_dir/$ARCHIVE_NAME"
+          manifest_path="$artifact_dir/release-manifest.json"
+          checksum_path="$artifact_dir/$ARCHIVE_NAME.sha256"
+
+          if [ ! -f "$archive_path" ]; then
+            echo "ERROR expected release archive not found"
+            exit 1
+          fi
+
+          if [ ! -f "$manifest_path" ]; then
+            echo "ERROR release manifest not found"
+            exit 1
+          fi
+
+          if [ ! -f "$checksum_path" ]; then
+            echo "ERROR release archive checksum not found"
+            exit 1
+          fi
+
+          recorded_archive_sha="$(cut -d' ' -f1 "$checksum_path" | tr '[:upper:]' '[:lower:]')"
+          actual_archive_sha="$(sha256sum "$archive_path" | cut -d' ' -f1)"
+
+          if [ "$recorded_archive_sha" != "$EXPECTED_ARCHIVE_SHA256" ]; then
+            echo "ERROR archive checksum file does not match expected SHA-256"
+            exit 1
+          fi
+
+          if [ "$actual_archive_sha" != "$EXPECTED_ARCHIVE_SHA256" ]; then
+            echo "ERROR downloaded archive does not match expected SHA-256"
+            exit 1
+          fi
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          const manifest = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/ropes-almalinux-artifact/release-manifest.json", "utf8"));
+          const expectedShortSha = process.env.EXPECTED_SOURCE_SHA.slice(0, 12);
+          const expectedArtifactName = `ropes-${expectedShortSha}-linux-x64`;
+
+          const checks = [
+            ["repository", "enarah/ropes"],
+            ["gitCommitSha", process.env.EXPECTED_SOURCE_SHA],
+            ["buildWorkflowPath", ".github/workflows/release-artifact.yml"],
+            ["artifactFileName", process.env.ARCHIVE_NAME],
+            ["artifactSha256", process.env.EXPECTED_ARCHIVE_SHA256],
+          ];
+
+          for (const [key, expected] of checks) {
+            if (manifest[key] !== expected) {
+              throw new Error(`manifest ${key} did not match expected value`);
+            }
+          }
+
+          if (manifest.deploymentAuthorized !== false) {
+            throw new Error("manifest must not authorise deployment");
+          }
+
+          if (process.env.ARTIFACT_NAME !== expectedArtifactName) {
+            throw new Error("artifact name short SHA does not match expected source SHA");
+          }
+
+          if (manifest.artifactFileName !== `${expectedArtifactName}.tar.gz`) {
+            throw new Error("manifest artifact filename short SHA does not match expected source SHA");
+          }
+          NODE
+
+          echo "PASS release archive identity and checksum verified"
+
+      - name: Inspect release tarball before extraction
+        run: |
+          set -euo pipefail
+
+          archive_path="$RUNNER_TEMP/ropes-almalinux-artifact/$ARCHIVE_NAME"
+          export archive_path
+
+          python3 <<'PY'
+          import os
+          import posixpath
+          import tarfile
+
+          archive_path = os.environ["archive_path"]
+          artifact_name = os.environ["ARTIFACT_NAME"]
+          root = f"{artifact_name}/"
+
+          def fail(message):
+              raise SystemExit(f"ERROR {message}")
+
+          def assert_safe_entry_name(name):
+              if name.startswith("/"):
+                  fail(f"release archive contains absolute path: {name}")
+
+              if any(part == ".." for part in name.split("/")):
+                  fail(f"release archive contains traversal path: {name}")
+
+              if name not in (artifact_name, root) and not name.startswith(root):
+                  fail(f"release archive entry escapes release root: {name}")
+
+          def assert_safe_symlink_target(member):
+              target = member.linkname or ""
+              if not target:
+                  fail(f"release archive link has empty target: {member.name}")
+
+              if target.startswith("/"):
+                  fail(f"release archive link target is absolute: {member.name}")
+
+              base = posixpath.dirname(member.name)
+              resolved = posixpath.normpath(posixpath.join(base, target))
+              if (
+                  resolved == ".."
+                  or resolved.startswith("../")
+                  or (resolved != artifact_name and not resolved.startswith(root))
+              ):
+                  fail(f"release archive link target escapes release root: {member.name}")
+
+          def assert_safe_hardlink_target(member):
+              target = member.linkname or ""
+              if not target:
+                  fail(f"release archive hardlink has empty target: {member.name}")
+
+              assert_safe_entry_name(target)
+
+          with tarfile.open(archive_path, "r:gz") as archive:
+              members = archive.getmembers()
+
+          if not members:
+              fail("release archive is empty")
+
+          for member in members:
+              assert_safe_entry_name(member.name)
+              if member.issym():
+                  assert_safe_symlink_target(member)
+              if member.islnk():
+                  assert_safe_hardlink_target(member)
+          PY
+
+          echo "PASS release tarball path and link safety verified before extraction"
+
+      - name: Extract release archive
+        run: |
+          set -euo pipefail
+
+          extract_dir="$RUNNER_TEMP/ropes-almalinux-extracted"
+          rm -rf "$extract_dir"
+          mkdir -p "$extract_dir"
+          tar -C "$extract_dir" -xzf "$RUNNER_TEMP/ropes-almalinux-artifact/$ARCHIVE_NAME"
+
+          release_dir="$extract_dir/$ARTIFACT_NAME"
+          if [ ! -d "$release_dir" ]; then
+            echo "ERROR extracted release directory not found"
+            exit 1
+          fi
+
+          if [ -e "$release_dir/prisma/seed.ts" ]; then
+            echo "ERROR destructive demo seed must not be present in release artifact"
+            exit 1
+          fi
+
+          echo "EXTRACTED_RELEASE_DIR=$release_dir" >> "$GITHUB_ENV"
+
+      - name: Verify extracted release manifest
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          const release = JSON.parse(fs.readFileSync("ROPES-RELEASE.json", "utf8"));
+          const external = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/ropes-almalinux-artifact/release-manifest.json`, "utf8"));
+          const expectedShortSha = process.env.EXPECTED_SOURCE_SHA.slice(0, 12);
+
+          const checks = [
+            ["repository", "enarah/ropes"],
+            ["gitCommitSha", process.env.EXPECTED_SOURCE_SHA],
+            ["shortSha", expectedShortSha],
+            ["buildWorkflowPath", ".github/workflows/release-artifact.yml"],
+          ];
+
+          for (const [key, expected] of checks) {
+            if (release[key] !== expected) {
+              throw new Error(`ROPES-RELEASE ${key} did not match expected value`);
+            }
+          }
+
+          if (release.deploymentAuthorized !== false) {
+            throw new Error("ROPES-RELEASE must not authorise deployment");
+          }
+
+          for (const key of [
+            "applicationPackageVersion",
+            "nextVersion",
+            "prismaVersion",
+            "lockfileSha256",
+            "migrationSetSha256",
+          ]) {
+            if (external[key] !== undefined && release[key] !== external[key]) {
+              throw new Error(`ROPES-RELEASE ${key} did not match external manifest`);
+            }
+          }
+          NODE
+
+          echo "PASS extracted ROPES-RELEASE.json verified"
+
+      - name: Inspect native binary compatibility
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          : > /tmp/ropes-elf-candidates.txt
+
+          find node_modules \
+            -type f \( -name '*.node' -o -name 'query-engine-*' -o -name 'schema-engine-*' -o -name 'libquery_engine-*' \) \
+            -print | sort > /tmp/ropes-native-candidates.txt
+
+          candidate_count="$(wc -l < /tmp/ropes-native-candidates.txt | tr -d ' ')"
+          echo "Native compatibility candidates: $candidate_count"
+
+          if [ "$candidate_count" -eq 0 ]; then
+            echo "ERROR no native compatibility candidates found"
+            exit 1
+          fi
+
+          while IFS= read -r candidate; do
+            if file "$candidate" | grep -Eq 'ELF|shared object|executable'; then
+              printf '%s\n' "$candidate" >> /tmp/ropes-elf-candidates.txt
+            fi
+          done < /tmp/ropes-native-candidates.txt
+
+          elf_count="$(wc -l < /tmp/ropes-elf-candidates.txt | tr -d ' ')"
+          echo "ELF compatibility candidates: $elf_count"
+
+          if [ "$elf_count" -eq 0 ]; then
+            echo "ERROR no ELF compatibility candidates found"
+            exit 1
+          fi
+
+          while IFS= read -r elf; do
+            readelf -V "$elf" 2>/dev/null || true
+          done < /tmp/ropes-elf-candidates.txt > /tmp/ropes-elf-symbols.txt
+
+          while IFS= read -r elf; do
+            ldd "$elf" > /tmp/ropes-ldd-output.txt 2>&1 || {
+              if grep -q 'not a dynamic executable' /tmp/ropes-ldd-output.txt; then
+                continue
+              fi
+
+              echo "ERROR ldd failed for native ELF candidate: $elf"
+              exit 1
+            }
+
+            if grep -q 'not found' /tmp/ropes-ldd-output.txt; then
+              echo "ERROR missing dynamic dependency for native ELF candidate: $elf"
+              exit 1
+            fi
+          done < /tmp/ropes-elf-candidates.txt
+
+          echo "ldd checked $elf_count ELF compatibility candidates"
+
+          grep -Eo 'GLIBC_[0-9]+\\.[0-9]+' /tmp/ropes-elf-symbols.txt | sort -Vu > /tmp/ropes-required-glibc.txt || true
+          grep -Eo 'GLIBCXX_[0-9]+\\.[0-9]+(\\.[0-9]+)?' /tmp/ropes-elf-symbols.txt | sort -Vu > /tmp/ropes-required-glibcxx.txt || true
+
+          max_required_glibc="$(tail -n 1 /tmp/ropes-required-glibc.txt || true)"
+          echo "Max required GLIBC symbol: ${max_required_glibc:-none}"
+
+          if [ -n "$max_required_glibc" ]; then
+            max_allowed_glibc="GLIBC_2.34"
+            highest="$(printf '%s\n%s\n' "$max_allowed_glibc" "$max_required_glibc" | sort -Vu | tail -n 1)"
+            if [ "$highest" != "$max_allowed_glibc" ]; then
+              echo "ERROR artifact requires GLIBC newer than AlmaLinux 9 / glibc 2.34"
+              exit 1
+            fi
+          fi
+
+          if [ -f /usr/lib64/libstdc++.so.6 ]; then
+            max_system_glibcxx="$(strings /usr/lib64/libstdc++.so.6 | grep -E '^GLIBCXX_[0-9]+\\.[0-9]+(\\.[0-9]+)?$' | sort -Vu | tail -n 1 || true)"
+            max_required_glibcxx="$(tail -n 1 /tmp/ropes-required-glibcxx.txt || true)"
+            echo "Max required GLIBCXX symbol: ${max_required_glibcxx:-none}"
+            echo "Max available GLIBCXX symbol: ${max_system_glibcxx:-unknown}"
+
+            if [ -n "$max_required_glibcxx" ] && [ -n "$max_system_glibcxx" ]; then
+              highest="$(printf '%s\n%s\n' "$max_system_glibcxx" "$max_required_glibcxx" | sort -Vu | tail -n 1)"
+              if [ "$highest" != "$max_system_glibcxx" ]; then
+                echo "ERROR artifact requires GLIBCXX newer than this AlmaLinux 9 environment provides"
+                exit 1
+              fi
+            fi
+          fi
+
+          echo "PASS native ELF compatibility inspection completed"
+
+      - name: Prove packaged native modules load
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          require("./node_modules/next/package.json");
+          require("./node_modules/@prisma/client/package.json");
+          require("./node_modules/prisma/package.json");
+
+          if (fs.existsSync("./node_modules/sharp")) {
+            try {
+              require("./node_modules/sharp");
+            } catch (error) {
+              throw new Error(`sharp failed to load from packaged artifact: ${error.message}`);
+            }
+
+            console.log("PASS packaged sharp module loaded in AlmaLinux 9");
+          } else {
+            console.log("PASS packaged sharp module is not present; skipping optional sharp load check");
+          }
+
+          console.log("PASS packaged native modules loaded in AlmaLinux 9");
+          NODE
+
+      - name: Prove as-shipped liveness before Prisma generation
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          npm start -- --hostname 127.0.0.1 --port "$AS_SHIPPED_PORT" > "$RUNNER_TEMP/ropes-almalinux-as-shipped-start.log" 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            if kill -0 "$app_pid" 2>/dev/null; then
+              kill "$app_pid"
+              wait "$app_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$AS_SHIPPED_PORT/api/health" > "$RUNNER_TEMP/ropes-almalinux-as-shipped-health.json"; then
+              break
+            fi
+            sleep 1
+          done
+
+          node -e 'const fs = require("node:fs"); const payload = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/ropes-almalinux-as-shipped-health.json", "utf8")); if (payload.status !== "ok") throw new Error("as-shipped health payload was not ok"); console.log("PASS AlmaLinux as-shipped artifact /api/health returned ok before Prisma generation");'
+
+          cleanup
+          trap - EXIT
+
+      - name: Prove Prisma tooling and migrations
+        env:
+          DATABASE_URL: postgresql://ropes_almalinux_compat@postgres:5432/ropes_almalinux_compat
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          npm run db:generate
+          npx prisma validate
+
+          set +e
+          npx prisma migrate status
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "ERROR expected pending migrations before first deploy on a fresh database"
+            exit 1
+          fi
+          echo "PASS fresh AlmaLinux compatibility database reports pending migrations before first deploy"
+
+          npm run db:deploy
+          npx prisma migrate status
+          npm run db:deploy
+          npx prisma migrate status
+
+      - name: Prove provisioning tooling
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+          npm run provision:user -- --help
+
+      - name: Smoke test extracted artifact
+        env:
+          DATABASE_URL: postgresql://ropes_almalinux_compat@postgres:5432/ropes_almalinux_compat
+          GOOGLE_CLIENT_ID: almalinux-compat-google-client-id
+          GOOGLE_CLIENT_SECRET: almalinux-compat-google-client-secret
+          NEXTAUTH_SECRET: almalinux-compat-nextauth-secret-for-ci-only
+          NEXTAUTH_URL: http://127.0.0.1:4388
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: "1"
+          ROPES_DEMO_MODE: ""
+        run: |
+          set -euo pipefail
+
+          cd "$EXTRACTED_RELEASE_DIR"
+
+          npm start -- --hostname 127.0.0.1 --port "$COMPAT_PORT" > "$RUNNER_TEMP/ropes-almalinux-start.log" 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            if kill -0 "$app_pid" 2>/dev/null; then
+              kill "$app_pid"
+              wait "$app_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$COMPAT_PORT/api/health" > "$RUNNER_TEMP/ropes-almalinux-health.json"; then
+              break
+            fi
+            sleep 1
+          done
+
+          node -e 'const fs = require("node:fs"); const payload = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/ropes-almalinux-health.json", "utf8")); if (payload.status !== "ok") throw new Error("health payload was not ok"); console.log("PASS AlmaLinux artifact /api/health returned ok");'
+
+          curl -fsS "http://127.0.0.1:$COMPAT_PORT/api/ready" > "$RUNNER_TEMP/ropes-almalinux-ready.json"
+
+          node -e 'const fs = require("node:fs"); const payload = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/ropes-almalinux-ready.json", "utf8")); if (payload.status !== "ok") throw new Error("readiness status was not ok"); for (const key of ["database", "authentication", "demoMode"]) { if (payload.checks?.[key] !== "ok") throw new Error(`${key} readiness was not ok`); } const text = JSON.stringify(payload); for (const forbidden of [process.env.NEXTAUTH_SECRET, process.env.GOOGLE_CLIENT_SECRET, "DATABASE_URL", "ropes_almalinux_compat@postgres"]) { if (forbidden && text.includes(forbidden)) throw new Error("readiness payload exposed forbidden configuration material"); } console.log("PASS AlmaLinux artifact /api/ready returned safe ok checks");'
+
+          cleanup
+          trap - EXIT
+
+      - name: Record compatibility proof summary
+        run: |
+          {
+            echo "## AlmaLinux release artifact compatibility"
+            echo
+            echo "- Artifact: \`$ARTIFACT_NAME\`"
+            echo "- Source SHA: \`$EXPECTED_SOURCE_SHA\`"
+            echo "- Archive SHA-256: \`$EXPECTED_ARCHIVE_SHA256\`"
+            echo "- AlmaLinux glibc: \`$(cat /tmp/ropes-almalinux-glibc-version.txt)\`"
+            echo "- Node: \`$(cat /tmp/ropes-almalinux-node-version.txt)\`"
+            echo "- npm: \`$(cat /tmp/ropes-almalinux-npm-version.txt)\`"
+            echo "- Architecture: \`$(cat /tmp/ropes-almalinux-uname-m.txt)\`"
+            echo
+            echo "Compatibility proof only. This does not authorise deployment or Argus changes."
+          } >> "$GITHUB_STEP_SUMMARY"

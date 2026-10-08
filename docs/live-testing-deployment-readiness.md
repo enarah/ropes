@@ -332,6 +332,46 @@ alone does not satisfy cutover approval, capacity acceptance, access
 restriction, DB creation, migrations, secrets, OAuth, provisioning, proxy
 changes, monitoring, backup/restore proof or rollback-baseline acceptance.
 
+## AlmaLinux artifact compatibility workflow
+
+Argus is AlmaLinux 9.8 x86_64 with glibc 2.34. A release artifact that passes
+the Ubuntu 24.04 build/proof workflow still needs a repository-side
+compatibility proof before it is staged on Argus.
+
+The repository includes a separate manual workflow:
+
+```text
+.github/workflows/almalinux-artifact-compatibility.yml
+```
+
+It is triggered with `workflow_dispatch` only and requires:
+
+- `artifact_run_id`
+- `artifact_name`
+- `expected_source_sha`
+- `expected_archive_sha256`
+
+The workflow validates these inputs before use. It downloads the existing
+reviewed GitHub Actions artifact, verifies the inner `.tar.gz` release archive
+against the expected SHA-256, extracts that exact archive in an AlmaLinux 9
+container, installs Node 26/npm 11 for the test environment, and runs the
+packaged artifact directly. It must not rebuild ROPES, run `npm ci` in the
+extracted release, copy fresh `node_modules`, use production secrets, contact
+Argus, stage files, run persistent migrations, create OAuth credentials or
+provision real users.
+
+The compatibility proof uses disposable PostgreSQL 16 only. It checks packaged
+native modules, performs bounded ELF compatibility inspection, runs Prisma
+generation/validation and migration deployment/idempotence, verifies
+`npm run provision:user -- --help`, starts the extracted production app, and
+checks `/api/health` and `/api/ready` with synthetic CI-only configuration.
+Readiness output must not expose synthetic secret/config material.
+
+Passing this workflow is compatibility evidence only. It does not change the
+deployment authorisation boundary and does not replace Hera's operational
+capacity, access-control, backup/restore, monitoring, OAuth, role-assignment or
+cutover approvals.
+
 Standard Next startup writes normal process logs to stdout/stderr and handles
 SIGINT/SIGTERM cleanup itself before exiting with signal-based exit codes.
 Prefer that standard behaviour. Do not add PM2, custom wrappers, file-based app
