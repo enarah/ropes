@@ -99,7 +99,6 @@ jobs:
 
           dnf -y install \
             binutils \
-            curl \
             file \
             findutils \
             gzip \
@@ -107,6 +106,13 @@ jobs:
             tar \
             unzip \
             xz
+
+          command -v curl >/dev/null 2>&1 || {
+            echo "ERROR curl command is unavailable in AlmaLinux compatibility environment"
+            exit 1
+          }
+
+          curl --version
 
       - name: Install Node 26 and verify runtime
         run: |
