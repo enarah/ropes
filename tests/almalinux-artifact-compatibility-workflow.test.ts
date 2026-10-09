@@ -42,6 +42,31 @@ function runBlocks(workflow: string) {
   return blocks;
 }
 
+function workflowSection(workflow: string, start: string, end: string) {
+  const startIndex = workflow.indexOf(start);
+  const endIndex = workflow.indexOf(end);
+
+  assert.notEqual(startIndex, -1, `missing workflow section start: ${start}`);
+  assert.notEqual(endIndex, -1, `missing workflow section end: ${end}`);
+  assert.ok(startIndex < endIndex, `${start} must appear before ${end}`);
+
+  return workflow.slice(startIndex, endIndex);
+}
+
+function assertInOrder(section: string, orderedNeedles: string[]) {
+  let previousIndex = -1;
+
+  for (const needle of orderedNeedles) {
+    const index = section.indexOf(needle);
+    assert.notEqual(index, -1, `missing ordered workflow snippet: ${needle}`);
+    assert.ok(
+      index > previousIndex,
+      `${needle} must appear after the previous ordered workflow snippet`,
+    );
+    previousIndex = index;
+  }
+}
+
 test("AlmaLinux compatibility workflow keeps CI-only safety boundaries", () => {
   assert.equal(existsSync(workflowPath), true);
 
@@ -107,6 +132,30 @@ test("AlmaLinux compatibility workflow keeps CI-only safety boundaries", () => {
   assert.doesNotMatch(workflow, /\$\{\{\s*secrets\./);
   assert.doesNotMatch(workflow, /actions\/runs\/\$ARTIFACT_RUN_ID\/artifacts/);
   assert.doesNotMatch(workflow, /artifact\.archive_download_url/);
+});
+
+test("AlmaLinux compatibility workflow bootstraps Node before npm in order", () => {
+  const workflow = compatibilityWorkflow();
+  const nodeInstallStep = workflowSection(
+    workflow,
+    "Install Node 26 and verify runtime",
+    "Download reviewed release artifact",
+  );
+
+  assertInOrder(nodeInstallStep, [
+    "(cd /tmp && sha256sum -c node-linux-x64.sha256)",
+    "tar -C \"$NODE_INSTALL_DIR\" --strip-components=1 -xJf \"/tmp/$node_archive\"",
+    "ldd \"$NODE_INSTALL_DIR/bin/node\" | tee /tmp/ropes-node-ldd.txt",
+    "export PATH=\"$NODE_INSTALL_DIR/bin:$PATH\"",
+    "echo \"$NODE_INSTALL_DIR/bin\" >> \"$GITHUB_PATH\"",
+    "\"$NODE_INSTALL_DIR/bin/npm\" --version | tee /tmp/ropes-almalinux-npm-version.txt",
+  ]);
+
+  assert.ok(
+    nodeInstallStep.indexOf("export PATH=\"$NODE_INSTALL_DIR/bin:$PATH\"") <
+      nodeInstallStep.indexOf("\"$NODE_INSTALL_DIR/bin/npm\" --version"),
+    "npm must execute only after Node is exported into the current shell PATH",
+  );
 });
 
 test("AlmaLinux compatibility workflow validates manual inputs before shell use", () => {
