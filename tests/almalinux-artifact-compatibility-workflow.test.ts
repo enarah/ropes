@@ -81,6 +81,13 @@ test("AlmaLinux compatibility workflow keeps CI-only safety boundaries", () => {
   assert.match(workflow, /run-id:\s*\$\{\{\s*env\.ARTIFACT_RUN_ID\s*\}\}/);
   assert.match(workflow, /name:\s*\$\{\{\s*env\.ARTIFACT_NAME\s*\}\}/);
   assert.match(workflow, /github-token:\s*\$\{\{\s*github\.token\s*\}\}/);
+  assert.match(workflow, /command -v curl >\/dev\/null 2>&1/);
+  assert.match(workflow, /ERROR curl command is unavailable in AlmaLinux compatibility environment/);
+  assert.match(workflow, /curl --version/);
+  assert.doesNotMatch(workflow, /^\s*curl \\/m);
+  assert.doesNotMatch(workflow, /--allowerasing/);
+  assert.doesNotMatch(workflow, /--skip-broken/);
+  assert.doesNotMatch(workflow, /--nobest/);
   assert.doesNotMatch(workflow, /\bnpm ci\b/);
   assert.doesNotMatch(workflow, /\bnpm install\b/);
   assert.doesNotMatch(workflow, /\bnpm run build\b/);
