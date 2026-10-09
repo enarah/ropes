@@ -135,7 +135,9 @@ jobs:
             exit 1
           fi
 
+          export PATH="$NODE_INSTALL_DIR/bin:$PATH"
           echo "$NODE_INSTALL_DIR/bin" >> "$GITHUB_PATH"
+
           "$NODE_INSTALL_DIR/bin/node" --version | tee /tmp/ropes-almalinux-node-version.txt
           "$NODE_INSTALL_DIR/bin/npm" --version | tee /tmp/ropes-almalinux-npm-version.txt
           uname -m | tee /tmp/ropes-almalinux-uname-m.txt
