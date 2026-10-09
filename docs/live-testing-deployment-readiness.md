@@ -372,6 +372,57 @@ deployment authorisation boundary and does not replace Hera's operational
 capacity, access-control, backup/restore, monitoring, OAuth, role-assignment or
 cutover approvals.
 
+### Successful AlmaLinux compatibility proof
+
+Repository-side AlmaLinux compatibility is now **proven** for the reviewed
+release artifact below:
+
+| Field | Evidence |
+| --- | --- |
+| Compatibility run | https://github.com/enarah/ropes/actions/runs/37874178059 |
+| Run ID | `37874178059` |
+| Job | `Test artifact on AlmaLinux 9` |
+| Job ID | `113638815187` |
+| Workflow source/main SHA | `fbf3509ca61ea9f2a625e93f42014cd73b21aada` |
+| Reviewed artifact source SHA | `764f2b496cddf7e0921a8c339bfde78d3eca86df` |
+| Artifact | `ropes-764f2b496cdd-linux-x64` |
+| Archive | `ropes-764f2b496cdd-linux-x64.tar.gz` |
+| Archive SHA-256 | `58a60a457ef169ed2923aee6c17e49bcaf0e5d1f330c33f55a3723b5e85fc0e8` |
+| Compatibility OS | AlmaLinux 9.8 |
+| Architecture | Linux x86_64 |
+| glibc | 2.34 |
+| Node | `v26.9.0` |
+| npm | `11.19.1` |
+| Database proof | Disposable PostgreSQL 16 CI service only |
+| Release authorisation marker | `deploymentAuthorized: false` |
+
+The successful run proved the reviewed artifact download and identity
+verification, archive checksum, pre-extraction tar path/link safety, archive
+extraction, `ROPES-RELEASE.json` verification, native ELF/dynamic dependency
+compatibility, packaged native-module loading including `sharp`, as-shipped
+`npm start` before Prisma generation, `/api/health` before Prisma generation,
+Prisma generation/validation, pending migrations on a fresh disposable
+database, first `db:deploy`, idempotent second `db:deploy`, final clean
+migration status, provisioning tooling load, final `npm start`, safe
+`/api/health`, and safe `/api/ready` checks for database, authentication and
+demoMode.
+
+The proof did not contact Argus, did not deploy, did not change persistent
+infrastructure, did not use production secrets, did not create OAuth
+credentials and did not provision real users. It is repository evidence only.
+It does **not** authorise Argus deployment or destructive execution, and it does
+**not** satisfy operational/server-side cutover readiness gates such as
+capacity/headroom, maintenance/deny-by-default access, approved principals,
+destructive inventory recheck, clean database/role/credential creation, OAuth
+configuration, role decisions, systemd/Plesk/nginx policy, monitoring and
+tested alerts, off-server backup/retention/RPO, isolated restore/RTO, rollback
+baseline acceptance or explicit DC/Enarah destructive execution authorisation.
+
+The run recorded one GitHub Actions runtime maintenance annotation:
+`actions/download-artifact@v4` targets Node 20 and GitHub forced that action
+runtime to Node 24. This is not a ROPES artifact compatibility failure and is
+not a deployment blocker.
+
 Standard Next startup writes normal process logs to stdout/stderr and handles
 SIGINT/SIGTERM cleanup itself before exiting with signal-based exit codes.
 Prefer that standard behaviour. Do not add PM2, custom wrappers, file-based app
