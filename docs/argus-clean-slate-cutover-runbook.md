@@ -301,6 +301,47 @@ Passing this workflow is compatibility evidence only. It does not authorise
 deployment, Argus changes, DB creation, real migrations, OAuth setup,
 provisioning, proxy changes or public cutover.
 
+Successful compatibility evidence now exists for the reviewed artifact:
+
+| Field | Evidence |
+| --- | --- |
+| Compatibility run | https://github.com/enarah/ropes/actions/runs/37874178059 |
+| Run ID | `37874178059` |
+| Job | `Test artifact on AlmaLinux 9` |
+| Job ID | `113638815187` |
+| Workflow source/main SHA | `fbf3509ca61ea9f2a625e93f42014cd73b21aada` |
+| Reviewed artifact source SHA | `764f2b496cddf7e0921a8c339bfde78d3eca86df` |
+| Artifact | `ropes-764f2b496cdd-linux-x64` |
+| Archive | `ropes-764f2b496cdd-linux-x64.tar.gz` |
+| Archive SHA-256 | `58a60a457ef169ed2923aee6c17e49bcaf0e5d1f330c33f55a3723b5e85fc0e8` |
+| Compatibility OS | AlmaLinux 9.8 |
+| Architecture | Linux x86_64 |
+| glibc | 2.34 |
+| Node | `v26.9.0` |
+| npm | `11.19.1` |
+| Database proof | Disposable PostgreSQL 16 CI service only |
+| Release authorisation marker | `deploymentAuthorized: false` |
+
+The run completed reviewed artifact download and identity verification,
+pre-extraction tar safety, extracted manifest verification, native ELF and
+dynamic dependency checks, packaged native-module loading including `sharp`,
+as-shipped `npm start` and `/api/health` before Prisma generation, Prisma
+generation/validation/deploy/idempotence, provisioning help, final `/api/health`
+and final `/api/ready` with safe database, authentication and demoMode checks.
+
+This proof removes repository-side AlmaLinux artifact compatibility as a
+remaining blocker for this reviewed artifact only. It does not authorise
+staging on Argus, deployment, DB creation, persistent migrations, destructive
+cleanup, OAuth configuration, systemd/Plesk/nginx changes, real-user
+provisioning, public access or cutover. The run did not contact Argus, did not
+deploy, did not mutate persistent infrastructure and did not use production
+secrets.
+
+One GitHub Actions runtime maintenance annotation stated that
+`actions/download-artifact@v4` targets Node 20 and GitHub forced that action
+runtime to Node 24. Treat that as workflow maintenance evidence only, not as an
+artifact compatibility failure or deployment blocker.
+
 ## 7. New environment/secrets
 
 Document names only:
