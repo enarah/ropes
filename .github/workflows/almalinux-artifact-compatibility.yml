@@ -102,6 +102,7 @@ jobs:
             file \
             findutils \
             gzip \
+            libatomic \
             python3 \
             tar \
             unzip \
@@ -126,6 +127,13 @@ jobs:
 
           mkdir -p "$NODE_INSTALL_DIR"
           tar -C "$NODE_INSTALL_DIR" --strip-components=1 -xJf "/tmp/$node_archive"
+
+          ldd "$NODE_INSTALL_DIR/bin/node" | tee /tmp/ropes-node-ldd.txt
+          if grep -q 'not found' /tmp/ropes-node-ldd.txt; then
+            echo "ERROR Node runtime has unresolved shared-library dependencies"
+            cat /tmp/ropes-node-ldd.txt
+            exit 1
+          fi
 
           echo "$NODE_INSTALL_DIR/bin" >> "$GITHUB_PATH"
           "$NODE_INSTALL_DIR/bin/node" --version | tee /tmp/ropes-almalinux-node-version.txt
