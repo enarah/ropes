@@ -62,6 +62,8 @@ test("AlmaLinux compatibility workflow keeps CI-only safety boundaries", () => {
   assert.match(workflow, /ldd "\$NODE_INSTALL_DIR\/bin\/node" \| tee \/tmp\/ropes-node-ldd\.txt/);
   assert.match(workflow, /grep -q 'not found' \/tmp\/ropes-node-ldd\.txt/);
   assert.match(workflow, /ERROR Node runtime has unresolved shared-library dependencies/);
+  assert.match(workflow, /export PATH="\$NODE_INSTALL_DIR\/bin:\$PATH"/);
+  assert.match(workflow, /echo "\$NODE_INSTALL_DIR\/bin" >> "\$GITHUB_PATH"/);
   assert.match(workflow, /getconf GNU_LIBC_VERSION/);
   assert.match(workflow, /\[ "\$glibc_version" != "glibc 2\.34" \]/);
   assert.match(workflow, /npm_major=.*npm.*--version/);
