@@ -18,6 +18,11 @@ test("demo container keeps startup and destructive database operations separate"
   assert.match(compose, /profiles: \["tools"\]/);
   assert.match(compose, /command: \["npm", "run", "db:deploy"\]/);
   assert.match(compose, /command: \["npm", "run", "db:seed"\]/);
+  assert.match(compose, /ALLOW_DESTRUCTIVE_DEMO_SEED: "true"/);
   assert.match(compose, /DESTRUCTIVE — DISPOSABLE DEMO DATABASE ONLY/);
+  const seedSource = readFileSync("prisma/seed.ts", "utf8");
+  assert.match(seedSource, /ALLOW_DESTRUCTIVE_DEMO_SEED/);
+  assert.match(seedSource, /databaseName !== "ropes_demo"/);
+  assert.match(seedSource, /NODE_ENV"\] === "production"/);
   assert.doesNotMatch(compose + dockerfile, /argus\.enarah|GOOGLE_CLIENT_SECRET|NEXTAUTH_SECRET/i);
 });
