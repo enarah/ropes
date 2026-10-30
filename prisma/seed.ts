@@ -23,7 +23,7 @@ const destructiveDemoSeedAllowed = ["1", "true", "enabled"].includes(
 
 let databaseName: string;
 try {
-  databaseName = new URL(connectionString).pathname.replace(/^\\/+/, "");
+  databaseName = new URL(connectionString).pathname.replace(/^\/+/, "");
 } catch {
   throw new Error("DATABASE_URL must be a valid PostgreSQL URL.");
 }
