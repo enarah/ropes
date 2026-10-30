@@ -1,6 +1,9 @@
 name: Pull request validation
 
 on:
+  push:
+    branches:
+      - sandbox/truenas
   pull_request:
     branches:
       - main
