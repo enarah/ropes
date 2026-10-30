@@ -46,6 +46,11 @@ services:
   seed:
     <<: *demo-app
     profiles: ["tools"]
+    environment:
+      NODE_ENV: development
+      ROPES_DEMO_MODE: "true"
+      ALLOW_DESTRUCTIVE_DEMO_SEED: "true"
+      DATABASE_URL: postgresql://ropes_demo_user:${ROPES_DEMO_DB_PASSWORD:?Set a disposable demo password in .env.demo}@postgres:5432/ropes_demo
     ports: []
     healthcheck:
       disable: true
