@@ -14,6 +14,31 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is required to seed the ROPES demo database.");
 }
 
+const explicitDemoMode = ["1", "true", "enabled"].includes(
+  process.env["ROPES_DEMO_MODE"]?.trim().toLowerCase() ?? "",
+);
+const destructiveDemoSeedAllowed = ["1", "true", "enabled"].includes(
+  process.env["ALLOW_DESTRUCTIVE_DEMO_SEED"]?.trim().toLowerCase() ?? "",
+);
+
+let databaseName: string;
+try {
+  databaseName = new URL(connectionString).pathname.replace(/^\\/+/, "");
+} catch {
+  throw new Error("DATABASE_URL must be a valid PostgreSQL URL.");
+}
+
+if (
+  process.env["NODE_ENV"] === "production" ||
+  !explicitDemoMode ||
+  !destructiveDemoSeedAllowed ||
+  databaseName !== "ropes_demo"
+) {
+  throw new Error(
+    "Refusing destructive demo seed. Require non-production mode, ROPES_DEMO_MODE=true, ALLOW_DESTRUCTIVE_DEMO_SEED=true, and database name ropes_demo.",
+  );
+}
+
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
