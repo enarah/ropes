@@ -215,6 +215,35 @@ enum AuditAction {
   PERMISSION_CHANGED
 }
 
+enum TrackingProvider {
+  SPOT
+}
+
+enum TrackingAssetStatus {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+enum TrackingMessageKind {
+  TRACKING
+  CHECK_IN
+  MOVEMENT
+  HELP
+  HELP_CANCEL
+  CUSTOM
+  POINT_OF_INTEREST
+  STOP
+  UNKNOWN
+}
+
+enum TripTrackingRole {
+  PRIMARY
+  SUPPORT
+  PERSON
+  OTHER
+}
+
 model Organisation {
   id                               String                                   @id @default(cuid())
   name                             String
@@ -248,6 +277,10 @@ model Organisation {
   appbManualFieldValues            AppbManualFieldValue[]
   appbMappingReviewDecisions       AppbMappingReviewDecisionRecord[]
   appbMappingReviewDecisionHistory AppbMappingReviewDecisionHistoryRecord[]
+  trackingIntegrations             TrackingIntegration[]
+  trackingAssets                   TrackingAsset[]
+  trackingMessages                 TrackingMessage[]
+  tripTrackingAssignments          TripTrackingAssignment[]
   auditLogs                        AuditLog[]
 }
 
@@ -357,33 +390,35 @@ model RangerProgram {
 }
 
 model Trip {
-  id                 String                  @id @default(cuid())
-  organisationId     String
-  projectId          String?
-  rangerProgramId    String?
-  leadUserId         String?
-  title              String
-  purpose            String
-  status             TripStatus              @default(DRAFT)
-  approvalStatus     TripApprovalState       @default(DRAFT)
-  destination        String
-  startsAt           DateTime
-  endsAt             DateTime
-  isDemo             Boolean                 @default(false)
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  organisation       Organisation            @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  project            Project?                @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  rangerProgram      RangerProgram?          @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
-  leadUser           User?                   @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
-  approvalNotes      TripApprovalNote[]
-  riskAssessment     TripRiskAssessment?
-  participants       TripParticipant[]
-  vehicleAllocations TripVehicleAllocation[]
-  itineraryItems     TripItineraryItem[]
-  vehicleBookings    VehicleBooking[]
-  fulcrumRecords     FulcrumRecord[]
+  id                  String                   @id @default(cuid())
+  organisationId      String
+  projectId           String?
+  rangerProgramId     String?
+  leadUserId          String?
+  title               String
+  purpose             String
+  status              TripStatus               @default(DRAFT)
+  approvalStatus      TripApprovalState        @default(DRAFT)
+  destination         String
+  startsAt            DateTime
+  endsAt              DateTime
+  isDemo              Boolean                  @default(false)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  organisation        Organisation             @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  project             Project?                 @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  rangerProgram       RangerProgram?           @relation(fields: [rangerProgramId], references: [id], onDelete: SetNull)
+  leadUser            User?                    @relation("TripLead", fields: [leadUserId], references: [id], onDelete: SetNull)
+  approvalNotes       TripApprovalNote[]
+  riskAssessment      TripRiskAssessment?
+  participants        TripParticipant[]
+  trackingAssignments TripTrackingAssignment[]
+  vehicleAllocations  TripVehicleAllocation[]
+  itineraryItems      TripItineraryItem[]
+  vehicleBookings     VehicleBooking[]
+  fulcrumRecords      FulcrumRecord[]
 
+  @@unique([organisationId, id])
   @@index([organisationId])
   @@index([projectId])
   @@index([rangerProgramId])
@@ -534,6 +569,8 @@ model Vehicle {
   createdAt              DateTime                   @default(now())
   updatedAt              DateTime                   @updatedAt
   organisation           Organisation               @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trackingAssets         TrackingAsset[]
+  trackingAssignments    TripTrackingAssignment[]
   tripVehicleAllocations TripVehicleAllocation[]
   vehicleBookings        VehicleBooking[]
   vehicleDefects         VehicleDefect[]
@@ -541,6 +578,7 @@ model Vehicle {
   preStartChecklists     VehiclePreStartChecklist[]
 
   @@unique([organisationId, registration])
+  @@unique([organisationId, id])
   @@index([organisationId])
 }
 
@@ -961,4 +999,104 @@ model AuditLog {
   @@index([organisationId])
   @@index([actorUserId])
   @@index([entityType, entityId])
+}
+
+model TrackingIntegration {
+  id                  String            @id @default(cuid())
+  organisationId      String
+  provider            TrackingProvider
+  name                String
+  credentialKey       String            @unique
+  enabled             Boolean           @default(false)
+  pollIntervalSeconds Int               @default(180)
+  lastPollAttemptAt   DateTime?
+  lastPollSuccessAt   DateTime?
+  lastErrorCode       String?
+  lastErrorAt         DateTime?
+  isDemo              Boolean           @default(false)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  organisation        Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  assets              TrackingAsset[]
+  messages            TrackingMessage[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, provider, name])
+  @@index([organisationId])
+}
+
+model TrackingAsset {
+  id                              String                   @id @default(cuid())
+  organisationId                  String
+  trackingIntegrationId           String
+  externalAssetId                 String
+  displayName                     String
+  providerDisplayName             String?
+  model                           String?
+  status                          TrackingAssetStatus      @default(ACTIVE)
+  defaultVehicleId                String?
+  expectedTrackingIntervalMinutes Int?
+  isDemo                          Boolean                  @default(false)
+  createdAt                       DateTime                 @default(now())
+  updatedAt                       DateTime                 @updatedAt
+  organisation                    Organisation             @relation(fields: [organisationId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  integration                     TrackingIntegration      @relation(fields: [organisationId, trackingIntegrationId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  defaultVehicle                  Vehicle?                 @relation(fields: [organisationId, defaultVehicleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  messages                        TrackingMessage[]
+  assignments                     TripTrackingAssignment[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, trackingIntegrationId, id])
+  @@unique([trackingIntegrationId, externalAssetId])
+  @@index([organisationId])
+  @@index([defaultVehicleId])
+}
+
+model TrackingMessage {
+  id                    String              @id @default(cuid())
+  organisationId        String
+  trackingIntegrationId String
+  trackingAssetId       String
+  externalMessageId     String
+  occurredAt            DateTime
+  receivedAt            DateTime            @default(now())
+  messageKind           TrackingMessageKind
+  providerMessageType   String
+  latitude              Float?
+  longitude             Float?
+  messageContent        String?
+  isDemo                Boolean             @default(false)
+  createdAt             DateTime            @default(now())
+  organisation          Organisation        @relation(fields: [organisationId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  integration           TrackingIntegration @relation(fields: [organisationId, trackingIntegrationId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  asset                 TrackingAsset       @relation(fields: [organisationId, trackingIntegrationId, trackingAssetId], references: [organisationId, trackingIntegrationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([trackingIntegrationId, externalMessageId])
+  @@index([organisationId, occurredAt])
+  @@index([trackingAssetId, occurredAt])
+  @@index([trackingAssetId, messageKind, occurredAt])
+}
+
+model TripTrackingAssignment {
+  id              String           @id @default(cuid())
+  organisationId  String
+  tripId          String
+  trackingAssetId String
+  vehicleId       String?
+  role            TripTrackingRole @default(PRIMARY)
+  assignedFrom    DateTime?
+  assignedUntil   DateTime?
+  notes           String?
+  isDemo          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organisation    Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  trip            Trip             @relation(fields: [organisationId, tripId], references: [organisationId, id], onDelete: Cascade, onUpdate: Restrict)
+  asset           TrackingAsset    @relation(fields: [organisationId, trackingAssetId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  vehicle         Vehicle?         @relation(fields: [organisationId, vehicleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tripId, trackingAssetId])
+  @@index([organisationId])
+  @@index([trackingAssetId])
+  @@index([vehicleId])
 }
