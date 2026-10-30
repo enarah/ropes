@@ -1,5 +1,9 @@
 # ROPES
 
+For the isolated **TrueNAS ROPES Demo / Integration Environment**, see
+[the demo deployment guide](docs/truenas-demo-deployment.md). It uses fake data
+and development mode; it is separate from the Argus controlled/live path.
+
 **Ranger Operations Platform for Enarah Services**
 
 ROPES is a multi-organisation operations platform for Enarah and partner ranger organisations. It is intended to bring together trips, vehicles, ranger operations, projects, reporting, compliance, people, and Fulcrum field data into one secure dashboard.

@@ -6,6 +6,7 @@ dist/
 coverage/
 *.tsbuildinfo
 .env
+.env.demo
 .env*.local
 .npm-cache/
 npm-debug.log*

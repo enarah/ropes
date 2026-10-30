@@ -1,0 +1,55 @@
+# ROPES Demo / Integration Environment only; not for production.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ropes_demo
+      POSTGRES_USER: ropes_demo_user
+      POSTGRES_PASSWORD: ${ROPES_DEMO_DB_PASSWORD:?Set a disposable demo password in .env.demo}
+    volumes:
+      - ropes-demo-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ropes_demo_user -d ropes_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ropes: &demo-app
+    build:
+      context: .
+      target: demo
+    environment:
+      NODE_ENV: development
+      ROPES_DEMO_MODE: "true"
+      DATABASE_URL: postgresql://ropes_demo_user:${ROPES_DEMO_DB_PASSWORD:?Set a disposable demo password in .env.demo}@postgres:5432/ropes_demo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${ROPES_DEMO_PORT:-13061}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  migrate:
+    <<: *demo-app
+    profiles: ["tools"]
+    ports: []
+    healthcheck:
+      disable: true
+    command: ["npm", "run", "db:deploy"]
+
+  # DESTRUCTIVE — DISPOSABLE DEMO DATABASE ONLY.
+  seed:
+    <<: *demo-app
+    profiles: ["tools"]
+    ports: []
+    healthcheck:
+      disable: true
+    command: ["npm", "run", "db:seed"]
+
+volumes:
+  ropes-demo-postgres:
