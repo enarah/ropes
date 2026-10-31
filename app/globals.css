@@ -28,3 +28,31 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Leaflet lives below the dashboard navigation and uses no default marker PNGs. */
+.tracking-marker,
+.tracking-legend {
+  background: #776449;
+  border: 2px solid #fffdf7;
+  border-radius: 50%;
+  box-shadow: 0 1px 5px #26231f55;
+}
+.tracking-marker {
+  color: #fffdf7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 800;
+}
+.tracking-marker-current { background: #46694b; }
+.tracking-marker-aging { background: #b67622; }
+.tracking-marker-stale { background: #655f55; }
+.tracking-marker-no_fix { background: #e6d7be; }
+.tracking-marker-help { background: #a33326; }
+.tracking-marker-selected { outline: 3px solid #26231f; outline-offset: 3px; }
+.tracking-marker:focus-visible { outline: 3px solid #26231f; outline-offset: 3px; }
+.tracking-legend { display: inline-block; width: 12px; height: 12px; }
+.tracking-popup { color: #26231f; font: 13px/1.5 ui-sans-serif, system-ui, sans-serif; }
+.tracking-popup > strong { display: block; font-size: 15px; margin-bottom: 8px; }
+.tracking-popup p { margin: 6px 0; }

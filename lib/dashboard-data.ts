@@ -100,6 +100,7 @@ type ScopedRecord = {
 };
 
 export type DashboardOrganisation = {
+  isDemo?: boolean;
   capabilityKeys?: OrganisationCapabilityKey[];
   id?: string;
   name: string;
