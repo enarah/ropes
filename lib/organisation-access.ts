@@ -1,4 +1,4 @@
-import type { OrganisationType } from "@prisma/client";
+import type { OrganisationType, PrismaClient } from "@prisma/client";
 import {
   getDashboardAuthContext,
   getTenantGuardSessionForRequest,
@@ -23,6 +23,7 @@ import {
 import {
   isTenantGuardError,
   requireOrganisationAccess,
+  type TenantGuardSession,
 } from "@/lib/tenant-guards";
 
 export type OrganisationPageAccess =
@@ -47,13 +48,18 @@ export type OrganisationPageAccess =
 export async function getOrganisationPageAccess(
   selectedOrganisationSlug?: string | null,
 ): Promise<OrganisationPageAccess> {
-  if (!isAuthenticatedDatabaseMode()) {
+  const authenticated = isAuthenticatedDatabaseMode();
+  if (!authenticated) {
     if (!isDemoFallbackMode()) {
       return deniedAccess({
         attemptedOrganisationSlug: selectedOrganisationSlug ?? undefined,
         message: unavailableAccessMessage(),
         title: unavailableAccessTitle(),
       });
+    }
+
+    if (isDatabaseConfigured()) {
+      return getConfiguredOrganisationPageAccess(selectedOrganisationSlug, "demo-fallback");
     }
 
     const organisation = getSelectedOrganisation(selectedOrganisationSlug);
@@ -68,81 +74,65 @@ export async function getOrganisationPageAccess(
     };
   }
 
+  return getConfiguredOrganisationPageAccess(selectedOrganisationSlug, "authenticated");
+}
+
+async function getConfiguredOrganisationPageAccess(
+  selectedOrganisationSlug: string | null | undefined,
+  mode: "authenticated" | "demo-fallback",
+): Promise<OrganisationPageAccess> {
   try {
     const prisma = getPrismaClient();
-    const authContext = await getDashboardAuthContext(prisma);
-    const fallbackOrganisationSlug = authContext.availableOrganisations[0]?.slug;
-    const requestedOrganisationSlug =
-      selectedOrganisationSlug ?? fallbackOrganisationSlug;
-
-    if (!requestedOrganisationSlug) {
-      return deniedAccess({
-        message:
-          "Sign in with an account that has an active ROPES organisation membership.",
-        title: "No active organisation membership",
-      });
+    const fallbackSlug = mode === "demo-fallback"
+      ? getSelectedOrganisation().slug
+      : (await getDashboardAuthContext(prisma)).availableOrganisations[0]?.slug;
+    const requestedSlug = selectedOrganisationSlug ?? fallbackSlug;
+    if (!requestedSlug) {
+      return deniedAccess({ message: "No accessible organisation is available.", title: "No active organisation membership" });
     }
-
-    const organisation = await prisma.organisation.findUnique({
-      select: {
-        capabilities: {
-          select: {
-            key: true,
-          },
-        },
-        id: true,
-        name: true,
-        slug: true,
-        type: true,
-      },
-      where: {
-        slug: requestedOrganisationSlug,
-      },
-    });
-
-    if (!organisation) {
-      return deniedAccess({
-        attemptedOrganisationSlug: requestedOrganisationSlug,
-        message:
-          "The requested organisation was not found in the configured database.",
-        title: "Organisation unavailable",
-      });
-    }
-
-    const session = await getTenantGuardSessionForRequest(prisma);
-    requireOrganisationAccess(session, organisation.id);
-
-    return {
-      mode: "authenticated",
-      organisation: {
-        id: organisation.id,
-        capabilityKeys: normaliseCapabilityKeys(
-          organisation.capabilities.map((capability) => capability.key),
-        ),
-        name: organisation.name,
-        region: formatOrganisationType(organisation.type),
-        slug: organisation.slug,
-        type: formatOrganisationType(organisation.type),
-      },
-      status: "allowed",
-    };
+    return await resolveDatabaseOrganisationPageAccess(
+      prisma, requestedSlug, await getTenantGuardSessionForRequest(prisma), mode,
+    );
   } catch (error) {
-    if (isTenantGuardError(error)) {
-      return deniedAccess({
-        attemptedOrganisationSlug: selectedOrganisationSlug ?? undefined,
-        message:
-          "Your signed-in account does not have an active membership for this organisation.",
-        title: "Organisation access denied",
-      });
-    }
-
     return deniedAccess({
       attemptedOrganisationSlug: selectedOrganisationSlug ?? undefined,
-      message:
-        "The configured database or authentication check could not confirm access, so ROPES did not load organisation data.",
-      title: "Organisation access unavailable",
+      message: isTenantGuardError(error)
+        ? "Your session does not have access to this organisation."
+        : "The database or session could not confirm organisation access.",
+      title: isTenantGuardError(error) ? "Organisation access denied" : "Organisation access unavailable",
     });
   }
+}
+
+// Shared by authenticated and configured demo paths. No static tenant fallback.
+export async function resolveDatabaseOrganisationPageAccess(
+  prisma: PrismaClient,
+  slug: string,
+  session: TenantGuardSession,
+  mode: "authenticated" | "demo-fallback",
+): Promise<OrganisationPageAccess> {
+  const organisation = await prisma.organisation.findUnique({
+    where: { slug },
+    select: { id: true, name: true, slug: true, type: true, isDemo: true,
+      capabilities: { select: { key: true } } },
+  });
+  if (!organisation) {
+    return deniedAccess({ attemptedOrganisationSlug: slug, message: "The requested organisation was not found.", title: "Organisation unavailable" });
+  }
+  requireOrganisationAccess(session, organisation.id);
+  // A demo session must never turn a non-demo database tenant into a demo page.
+  if (mode === "demo-fallback" && !organisation.isDemo) {
+    return deniedAccess({ attemptedOrganisationSlug: slug, message: "This organisation is not available in demo mode.", title: "Organisation access denied" });
+  }
+  return {
+    mode, status: "allowed",
+    organisation: {
+      id: organisation.id, isDemo: organisation.isDemo,
+      capabilityKeys: normaliseCapabilityKeys(organisation.capabilities.map((capability) => capability.key)),
+      name: organisation.name, slug: organisation.slug,
+      type: formatOrganisationType(organisation.type), region: formatOrganisationType(organisation.type),
+    },
+  };
 }
 
 function normaliseCapabilityKeys(keys: string[]) {

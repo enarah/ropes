@@ -1,3 +1,4 @@
+import { OperationsSection } from "@/components/tracking/operations-section";
 import {
   Activity,
   AlertTriangle,
@@ -129,6 +130,8 @@ export async function DashboardContent({
           organisationSlug={selectedOrganisation.slug}
         />
       )}
+
+      {isOverview ? <OperationsSection organisation={selectedOrganisation} /> : null}
 
       {moduleSlug === "reports" &&
       organisationHasCapability(capabilityKeys, "reporting.appb") ? (
