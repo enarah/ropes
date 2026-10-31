@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - main
+      - sandbox/truenas
     paths:
       - ".github/workflows/database-rehearsal.yml"
       - "app/api/health/route.ts"
