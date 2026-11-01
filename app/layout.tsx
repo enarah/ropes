@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { getDashboardAuthContext } from "@/lib/auth-session";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
