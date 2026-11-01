@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Map as LeafletMap, Marker } from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { syntheticSandboxBasemap } from "@/lib/tracking/basemap";
+import { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { reportTrackingMapFailure, trackingMapUnavailableMessage } from "@/lib/tracking/map-client";
 import { buildTrackingOperationsModel, freshnessLabels, trackingMessageLabel, trackingTimestamp } from "@/lib/tracking/presentation";
 import type { TrackingAssetOverviewDTO } from "@/lib/tracking/types";
 
@@ -13,31 +12,16 @@ function Timestamp({ value, snapshotAt }: { value: string | null; snapshotAt: st
   return <span><time dateTime={value}>{exact}</time><span className="block text-xs text-charcoal-600">{relative}</span></span>;
 }
 
-// Leaflet accepts DOM nodes. Use textContent for all names and other data rather
-// than building HTML from tracker/provider text.
-function popupContent(asset: TrackingAssetOverviewDTO, snapshotAt: string) {
-  const content = document.createElement("div");
-  content.className = "tracking-popup";
-  const heading = document.createElement("strong");
-  heading.textContent = asset.displayName;
-  content.append(heading);
-  const rows = [
-    ["Device", [asset.provider, asset.providerDisplayName, asset.model].filter(Boolean).join(" · ")],
-    ["Vehicle", asset.vehicle ? `${asset.vehicle.name} (${asset.vehicle.registration})` : "No vehicle assigned"],
-    ["Trip", asset.trip ? `${asset.trip.title} · ${asset.trip.role.toLowerCase()} · ${asset.trip.status.toLowerCase().replaceAll("_", " ")}` : "No current/planned trip"],
-    ["Position", asset.latestPositionAt ? Object.values(trackingTimestamp(asset.latestPositionAt, snapshotAt)).join(" · ") : "No valid position recorded"],
-    ["Message", trackingMessageLabel(asset.latestMessageKind)],
-    ["Message time", asset.latestMessageAt ? Object.values(trackingTimestamp(asset.latestMessageAt, snapshotAt)).join(" · ") : "No messages received"],
-    ["Freshness", freshnessLabels[asset.freshness]],
-  ];
-  for (const [label, value] of rows) {
-    const row = document.createElement("p");
-    const title = document.createElement("b");
-    title.textContent = `${label}: `;
-    row.append(title, document.createTextNode(value));
-    content.append(row);
-  }
-  return content;
+const LeafletOperationsMap = dynamic(
+  () => import("./leaflet-operations-map").then((module) => module.LeafletOperationsMap).catch((error: unknown) => {
+    reportTrackingMapFailure("component-load", error);
+    return MapUnavailable;
+  }),
+  { ssr: false, loading: () => <div role="status" className="flex h-[360px] items-center justify-center text-sm text-charcoal-600 sm:h-[480px]">Loading position map…</div> },
+);
+
+function MapUnavailable() {
+  return <div role="status" className="flex h-[360px] items-center justify-center p-8 text-center text-sm text-charcoal-700 sm:h-[480px]">{trackingMapUnavailableMessage}</div>;
 }
 
 export function OperationsMap({ assets, snapshotAt, allowSyntheticBasemap }: {
@@ -46,84 +30,13 @@ export function OperationsMap({ assets, snapshotAt, allowSyntheticBasemap }: {
   allowSyntheticBasemap: boolean;
 }) {
   const model = useMemo(() => buildTrackingOperationsModel(assets), [assets]);
-  const container = useRef<HTMLDivElement>(null);
-  const map = useRef<LeafletMap | null>(null);
-  const markers = useRef(new Map<string, Marker>());
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [basemapFailed, setBasemapFailed] = useState(false);
-  const [mapFailed, setMapFailed] = useState(false);
-  const [mapVersion, setMapVersion] = useState(0);
-
-  useEffect(() => {
-    const element = container.current;
-    if (!element || model.markers.length === 0) return;
-    let disposed = false;
-    let instance: LeafletMap | null = null;
-    let observer: ResizeObserver | undefined;
-    const assetMarkers = new Map<string, Marker>();
-    void import("leaflet").then((L) => {
-      if (disposed) return;
-      instance = L.map(element, { scrollWheelZoom: false, maxZoom: 18 });
-      map.current = instance;
-      if (allowSyntheticBasemap) {
-        L.tileLayer(syntheticSandboxBasemap.url, {
-          attribution: syntheticSandboxBasemap.attribution,
-          maxZoom: syntheticSandboxBasemap.maxZoom,
-          referrerPolicy: "strict-origin-when-cross-origin",
-        }).on("tileerror", () => { if (!disposed) setBasemapFailed(true); }).addTo(instance);
-      }
-      for (const asset of model.markers) {
-        const attention = asset.latestMessageKind === "HELP";
-        const marker = L.marker([asset.latitude!, asset.longitude!], {
-          icon: L.divIcon({
-            className: `tracking-marker tracking-marker-${attention ? "help" : asset.freshness.toLowerCase()}`,
-            html: `<span aria-hidden="true">${attention ? "!" : "●"}</span>`,
-            iconSize: [30, 30], iconAnchor: [15, 15],
-          }),
-          title: `Select ${asset.displayName}`,
-          alt: asset.displayName,
-          keyboard: true,
-        }).addTo(instance).bindPopup(popupContent(asset, snapshotAt), { maxWidth: 310 });
-        marker.getElement()?.setAttribute("aria-label", `Select ${asset.displayName}`);
-        marker.on("click", () => setSelectedId(asset.assetId));
-        assetMarkers.set(asset.assetId, marker);
-      }
-      markers.current = assetMarkers;
-      instance.fitBounds(L.latLngBounds(model.markers.map((asset) => [asset.latitude!, asset.longitude!])), {
-        padding: [35, 35], maxZoom: model.markers.length === 1 ? 9 : 10,
-      });
-      observer = new ResizeObserver(() => instance?.invalidateSize({ pan: false }));
-      observer.observe(element);
-      setMapVersion((version) => version + 1);
-    }).catch(() => { if (!disposed) setMapFailed(true); });
-    return () => {
-      disposed = true;
-      observer?.disconnect();
-      instance?.remove();
-      map.current = null;
-      markers.current.clear();
-    };
-  }, [model.markers, snapshotAt, allowSyntheticBasemap]);
-
-  useEffect(() => {
-    for (const [id, marker] of markers.current) marker.getElement()?.classList.toggle("tracking-marker-selected", id === selectedId);
-    const marker = selectedId ? markers.current.get(selectedId) : undefined;
-    if (marker) {
-      map.current?.panTo(marker.getLatLng(), { animate: false });
-      marker.openPopup();
-    } else {
-      map.current?.closePopup();
-    }
-  }, [selectedId, mapVersion]);
-
-  function selectAsset(assetId: string) {
+  const [focusRequest, setFocusRequest] = useState(0);
+  const selectAsset = useCallback((assetId: string) => {
     setSelectedId(assetId);
-    const marker = markers.current.get(assetId);
-    if (marker) {
-      map.current?.panTo(marker.getLatLng(), { animate: false });
-      marker.openPopup();
-    }
-  }
+    // Re-selecting the same item must reopen/focus its popup too.
+    setFocusRequest((request) => request + 1);
+  }, []);
 
   return (
     <section aria-labelledby="operations-map-heading" className="rounded-md border border-earth-200 bg-white shadow-sm">
@@ -151,18 +64,20 @@ export function OperationsMap({ assets, snapshotAt, allowSyntheticBasemap }: {
         <div className="grid lg:grid-cols-[2fr_1fr]">
           <div className="min-w-0 space-y-3 p-4">
             <div className="relative z-0 overflow-hidden rounded-md border border-earth-200 bg-earth-50">
-              <div ref={container} role="region" aria-label="Organisation tracker positions map. The Field Operations list provides the same details." className="h-[360px] w-full sm:h-[480px]" />
-              {model.markers.length === 0 || mapFailed ? (
-                <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-sm text-charcoal-700">
-                  {mapFailed ? "The map could not load. Tracker details remain available in Field Operations." : "No valid positions to show. All trackers are listed in Field Operations."}
+              {model.markers.length === 0 ? (
+                <div role="status" className="flex h-[360px] items-center justify-center p-8 text-center text-sm text-charcoal-700 sm:h-[480px]">
+                  No valid positions to show. All trackers are listed in Field Operations.
                 </div>
-              ) : null}
+              ) : (
+                <LeafletOperationsMap assets={model.markers} snapshotAt={snapshotAt}
+                  allowSyntheticBasemap={allowSyntheticBasemap} selectedId={selectedId}
+                  focusRequest={focusRequest} onSelectAsset={selectAsset} />
+              )}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-charcoal-700" aria-label="Map freshness legend">
               {Object.entries(freshnessLabels).map(([state, label]) => <span className="inline-flex items-center gap-1.5" key={state}><span aria-hidden="true" className={`tracking-legend tracking-marker-${state.toLowerCase()}`} />{label}</span>)}
               <span className="font-semibold text-red-800">! Assistance requested</span>
             </div>
-            {basemapFailed ? <p role="status" className="rounded-md bg-ochre-50 p-3 text-sm text-ochre-800">Basemap tiles are unavailable. Position markers and Field Operations remain usable.</p> : null}
             {!allowSyntheticBasemap ? <p className="text-xs text-charcoal-600">No basemap is configured for this environment. Position markers and Field Operations remain available.</p> : null}
             <p className="text-xs leading-5 text-charcoal-600">Snapshot: <time dateTime={snapshotAt}>{trackingTimestamp(snapshotAt, snapshotAt).exact}</time>. Freshness describes the last valid position; a later message may have no coordinates.</p>
           </div>
