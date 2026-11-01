@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { isExplicitDemoModeEnabled } from "../read-access-mode";
+import { isDisposableDemoDatabaseUrl } from "../disposable-demo-database";
 import { getModuleKeyForCapability } from "../capability-registry";
 import { normaliseSpotMessage } from "./domain";
 
@@ -13,13 +14,7 @@ export function assertSyntheticTrackingEnvironment(env: Record<string, string | 
   if (env.ALLOW_SYNTHETIC_TRACKING_FIXTURES !== "true") {
     throw new SyntheticTrackingGuardError("ALLOW_SYNTHETIC_TRACKING_FIXTURES=true is required.");
   }
-  let url: URL;
-  try { url = new URL(env.DATABASE_URL ?? ""); }
-  catch { throw new SyntheticTrackingGuardError("A valid disposable demo database URL is required."); }
-  // Reject connection-string overrides that could replace the database selected
-  // by the path. Do not print the URL, username, password, or host in errors.
-  if (!["postgres:", "postgresql:"].includes(url.protocol) || url.pathname !== "/ropes_demo" ||
-      [...url.searchParams.keys()].some((key) => !["schema", "sslmode", "connection_limit", "pool_timeout"].includes(key))) {
+  if (!isDisposableDemoDatabaseUrl(env.DATABASE_URL)) {
     throw new SyntheticTrackingGuardError("Synthetic tracking requires exactly the ropes_demo database without connection overrides.");
   }
 }

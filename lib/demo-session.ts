@@ -11,11 +11,12 @@ export async function getFakeTenantGuardSession(
   const [user, organisations] = await Promise.all([
     prisma.user.findUnique({
       select: { id: true },
-      where: { email: fakeCurrentSession.user.email },
+      where: { email: fakeCurrentSession.user.email, isDemo: true },
     }),
     prisma.organisation.findMany({
       select: { id: true, slug: true },
       where: {
+        isDemo: true,
         slug: {
           in: fakeCurrentSession.memberships.map(
             (membership) => membership.organisationSlug,
@@ -24,6 +25,8 @@ export async function getFakeTenantGuardSession(
       },
     }),
   ]);
+
+  if (!user) return { userId: null, memberships: [] };
 
   const organisationsBySlug = new Map(
     organisations.map((organisation) => [organisation.slug, organisation.id]),

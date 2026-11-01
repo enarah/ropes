@@ -1,83 +1,153 @@
-# ROPES Demo / Integration Environment
+# ROPES TrueNAS synthetic integration sandbox
 
-This isolated, non-production environment is for internal demonstrations, UX
-and feature testing, and staff/customer walkthroughs with clearly fake data only.
-It is separate from Argus controlled/live readiness. Never enter real Enarah,
-ranger-program, customer, staff or partner operational data. Do not configure
-OAuth credentials, AI providers or external integrations here.
+This environment is for internal demonstrations and integration acceptance with
+clearly synthetic data only. It is separate from Argus and normal authenticated
+production. Never enter real ranger, staff, partner or client operational data,
+configure live integrations, or expose this unauthenticated demo to the public
+internet. Keep it on the permitted LAN/VPN.
 
-The container intentionally runs Next's development server with
-`NODE_ENV=development` and explicit `ROPES_DEMO_MODE=true`. Demo fallback remains
-disabled in production. This setup is not a production deployment or a test of
-production authentication. Initially restrict access to a trusted LAN or VPN;
-never expose it publicly just because demo fallback needs no OAuth login.
+## Workstation, sandbox and controlled production
+
+- Developer workstation: `npm run dev` / `next dev` for local development.
+- TrueNAS integration sandbox: the `demo` Docker target compiles `next build`
+  into the image and runs `next start` with `NODE_ENV=production`.
+- Argus: its separate controlled release/deployment path is unchanged.
+
+`NODE_ENV` describes the Next.js execution mode, not whether data is synthetic.
+The compiled sandbox has no development HMR WebSocket or Fast Refresh transport.
+Runtime application flags are server-only; do not add `NEXT_PUBLIC_` variants.
+
+Production-mode demo fallback requires **all** of:
+
+1. `NODE_ENV=production`.
+2. `ROPES_RUNTIME_ENV=sandbox` (exact value).
+3. `ROPES_DEMO_MODE=true`, `1`, or `enabled`.
+4. A valid PostgreSQL `DATABASE_URL` with database exactly `ropes_demo`.
+
+The shared disposable-database validator rejects other protocols/databases,
+missing hosts, malformed URLs and connection overrides such as `dbname`,
+`database`, `host` or `options`. Only the existing schema/SSL/pool query parameters
+are permitted. Connection values never appear in gate errors. No sandbox flag,
+wrong database or missing configuration means no production demo fallback.
+Existing explicit non-production workstation demo behaviour is retained.
+
+If real authentication is configured, the authenticated database path still takes
+precedence. Fake sessions resolve only existing `isDemo` users and organisations;
+the organisation page tenant guard and tracking capability checks still apply.
+A runtime flag does not turn an ordinary organisation into a demo tenant.
+
+This read-access exception grants no maintenance permission. The destructive seed
+and tracking fixture loader still reject `NODE_ENV=production`, even if all
+sandbox/demo flags and explicit write-permission flags are present.
 
 ```text
-Browser → TrueNAS host port → ROPES demo container → PostgreSQL 16 demo container
+Browser → permitted TrueNAS host port → compiled ROPES sandbox → private PostgreSQL 16
 ```
 
-## First-time setup
+## Build once, run the reviewed image
 
-Run these commands from a checkout on a machine with Docker Compose and access
-to the TrueNAS demo host. The database is isolated in the Compose network and
-is not published to the host. The password in the example is fake and disposable:
-choose a different local demo-only password, using URL-safe letters, digits,
-hyphens or underscores so the constructed PostgreSQL URL remains valid. Never
-use a production password. Keep `.env.demo` private and uncommitted.
+Use a checkout of the reviewed revision. Keep `.env.demo` private and uncommitted;
+use a disposable URL-safe database password. Never use a production credential.
+The repository's `.dockerignore` excludes private environment files and local
+build/dependency directories.
 
 ```bash
 cp .env.demo.example .env.demo
-# Edit .env.demo and set a disposable demo-only password and optional host port.
-docker compose --env-file .env.demo -f docker-compose.demo.yml build
-docker compose --env-file .env.demo -f docker-compose.demo.yml run --rm migrate
-# DESTRUCTIVE — DISPOSABLE DEMO DATABASE ONLY
-docker compose --env-file .env.demo -f docker-compose.demo.yml run --rm seed
-docker compose --env-file .env.demo -f docker-compose.demo.yml up -d
+# Edit the private file: set a disposable demo password and exact reviewed image tag.
+# Example ROPES_DEMO_IMAGE=ropes-demo-local:reviewed-sha
+
+docker build --target demo --tag ropes-demo-local:reviewed-sha .
 ```
 
-The seed deletes existing data in the demo database before recreating fake demo
-records. Never run it against a persistent/live or production database. Normal
-`up -d` does not migrate or seed. The one-off services use a `tools` profile;
-explicitly naming them with `run` starts them when needed.
+The Docker build installs OpenSSL for Prisma tools and runs `npm ci`, Prisma generation
+and `npm run build` without a
+runtime database or authentication configuration. It preserves Prisma/maintenance
+tools in this sandbox-only image. It does not migrate, seed or load tracking data.
+The application runs as the unprivileged `node` user and starts only
+`npm run start -- --hostname 0.0.0.0 --port 3000`.
 
-The default host port is `13061`; change `ROPES_DEMO_PORT` in `.env.demo` if it
-conflicts with another service. Browse `http://<truenas-host>:13061` from the
-permitted LAN/VPN. An internal DNS name such as `ropes-demo.enarah.net.au` may
-be configured separately in future; this stack does not configure DNS or TLS.
-
-## Operations
+Use the proven manual/prebuilt-image path on TrueNAS: build the exact reviewed
+image separately, then select that local image tag in the app configuration.
+Do not rely on a long Custom App UI rebuild or mount development source/build
+directories over the compiled application. The Compose file names an image and
+retains an explicit build target for local/manual builds; startup should use
+`--no-build --pull never` with the already-built image.
 
 ```bash
-# Liveness only; /api/ready is not a demo-mode health check.
-curl http://<truenas-host>:13061/api/health
-docker compose --env-file .env.demo -f docker-compose.demo.yml ps
-docker compose --env-file .env.demo -f docker-compose.demo.yml logs -f ropes
-docker compose --env-file .env.demo -f docker-compose.demo.yml stop
-docker compose --env-file .env.demo -f docker-compose.demo.yml up -d
+# Existing sandbox upgrade, after the reviewed local image is available:
+docker compose --env-file .env.demo -f docker-compose.demo.yml up -d --no-build --pull never ropes
 ```
 
-After reviewing a new Git revision, rebuild with `build`, run `run --rm migrate`
-explicitly if migrations changed, then run `up -d` using the same Compose
-arguments above. Seed only when intentionally replacing demo data.
+Never seed an existing sandbox merely to upgrade the application. Existing data
+and tracking fixtures remain in PostgreSQL. Normal startup does not migrate,
+seed, reset, or reload fixtures. This runtime change adds no migration.
 
-To reset deliberately, first confirm the selected Compose project and volume
-belong only to this disposable demo. `docker compose --env-file .env.demo -f
-docker-compose.demo.yml down --volumes` deletes its named database volume and
-all demo data. Then repeat the first-time migration and seed steps. Do not use
-this command against any other stack. Keep snapshots/backups separate from live
-systems, protect them as potentially sensitive even if data should be fake, and
-test restores before relying on them.
+## First-time disposable database setup only
 
-The default PostgreSQL storage is the portable `ropes-demo-postgres` named
-volume. For explicit TrueNAS storage and snapshots, an operator may instead use
-a dedicated dataset such as `/mnt/<POOL>/ropes-demo/postgres` as a bind mount in
-a locally reviewed Compose override. Ensure the dataset permissions permit the
-PostgreSQL container to write, and snapshot or restore only the demo dataset.
-Do not hard-code a real pool name or repoint an existing live database.
+These commands are for an intentionally new disposable demo database. PostgreSQL
+is on the Compose network with no published database port. Choose and verify the
+correct project and volume before using maintenance commands.
 
-On TrueNAS SCALE, use its supported Custom App / Compose YAML workflow if
-available for the installed version. Supply the required demo password and port
-privately, make the build context available to the host, and perform the same
-explicit migration and destructive seed operations before normal startup. UI
-and Compose support vary by TrueNAS version; verify the exact steps on the
-target system. Container build and runtime have not been verified by this guide.
+```bash
+docker compose --env-file .env.demo -f docker-compose.demo.yml up -d postgres
+# Explicit migration tool service, separate from application startup:
+docker compose --env-file .env.demo -f docker-compose.demo.yml run --rm --no-deps migrate
+# DESTRUCTIVE — DISPOSABLE DEMO DATABASE ONLY; never run for a routine upgrade:
+docker compose --env-file .env.demo -f docker-compose.demo.yml run --rm --no-deps seed
+docker compose --env-file .env.demo -f docker-compose.demo.yml up -d --no-build --pull never ropes
+```
+
+Prisma 7 uses the explicit `migrations.seed` command in `prisma.config.ts`; this
+points to the existing guarded seed script and adds no automatic seeding. See the
+[Prisma 7 seed configuration](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/seeding).
+
+The seed deletes existing demo data. Its tool service explicitly uses
+`NODE_ENV=development`, demo mode and `ALLOW_DESTRUCTIVE_DEMO_SEED=true`; the
+normal production-style application has no write-permission flags. Synthetic
+tracking loading, if intentionally needed during maintenance, likewise requires
+a separate non-production one-off process and its existing explicit permission.
+It is not part of normal startup. See `spot-operations-map.md` for loader details.
+
+After future schema changes, run migrations only as a separately reviewed tool
+operation. The `tools` profile keeps migration and seed services out of ordinary
+application startup. No worker, scheduled update or automatic deployment is added.
+
+## Runtime environment and checks
+
+The application service supplies:
+
+```text
+NODE_ENV=production
+ROPES_RUNTIME_ENV=sandbox
+ROPES_DEMO_MODE=true
+DATABASE_URL=<private PostgreSQL URL selecting exactly ropes_demo>
+```
+
+The default host port is `13061`; change `ROPES_DEMO_PORT` in `.env.demo` if needed.
+Keep PostgreSQL private. Do not configure Argus, OAuth secrets or real tracking
+provider credentials in this stack.
+
+```bash
+# Liveness semantics are unchanged; /api/ready remains a controlled-auth check.
+curl http://<sandbox-host>:13061/api/health
+docker compose --env-file .env.demo -f docker-compose.demo.yml ps
+docker compose --env-file .env.demo -f docker-compose.demo.yml logs --tail 100 ropes
+```
+
+Acceptance should include the landing page, Trips, Vehicles and health; populated
+Field Operations, Leaflet markers and synthetic OSM tiles; both selection
+directions; and full reload. Check that required `_next` scripts/chunks return
+HTTP 200 and that the browser makes no development HMR WebSocket requests or
+Fast Refresh requests. Public OSM tiles remain approved only for synthetic data.
+
+## Storage and operational boundary
+
+The portable `ropes-demo-postgres` named volume is unchanged. A separately reviewed
+local TrueNAS override may bind a dedicated demo dataset, but must never reuse a
+live database dataset. Keep demo snapshots/backups separate and verify restores.
+Volume removal destroys demo data and is never part of normal upgrades.
+
+TrueNAS UI details depend on the installed version. Operators supply the private
+connection and exact prebuilt image through the existing supported app workflow;
+this repository change does not authorise or perform any deployment, TrueNAS
+access, Argus change, fixture reload or live SPOT request.

@@ -116,6 +116,7 @@ export async function getDashboardAuthContext(
         type: true,
       },
       where: {
+        isDemo: true,
         id: {
           in: [...organisationIds],
         },
