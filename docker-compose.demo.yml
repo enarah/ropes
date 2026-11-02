@@ -15,11 +15,13 @@ services:
       retries: 20
 
   ropes: &demo-app
+    image: ${ROPES_DEMO_IMAGE:-ropes-demo-local:sandbox}
     build:
       context: .
       target: demo
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
+      ROPES_RUNTIME_ENV: sandbox
       ROPES_DEMO_MODE: "true"
       DATABASE_URL: postgresql://ropes_demo_user:${ROPES_DEMO_DB_PASSWORD:?Set a disposable demo password in .env.demo}@postgres:5432/ropes_demo
     depends_on:

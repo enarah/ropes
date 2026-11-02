@@ -4,6 +4,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { PrismaPGlite } from "pglite-prisma-adapter";
 import { PrismaClient } from "@prisma/client";
+import { TenantGuardError } from "../lib/tenant-guards";
 import { assertSyntheticTrackingEnvironment, loadSyntheticTrackingData, syntheticTrackingOrganisationSlug, SyntheticTrackingGuardError } from "../lib/tracking/demo-loader";
 import { createTrackingDataLayer } from "../lib/tracking/data";
 import { authorizeTrackingOrganisation } from "../lib/tracking/access";
@@ -62,7 +63,7 @@ test("demo tracking loader, database demo tenant access, and dashboard use persi
     await prisma.organisation.update({ where: { id: "fixture-demo-a" }, data: { isDemo: false } });
     await assert.rejects(loadSyntheticTrackingData(prisma, allowedEnv, now), /must be marked as demo/);
     assert.equal(await prisma.trackingAsset.count(), 0);
-    assert.equal((await resolveDatabaseOrganisationPageAccess(prisma, syntheticTrackingOrganisationSlug, await getFakeTenantGuardSession(prisma), "demo-fallback")).status, "denied");
+    await assert.rejects(resolveDatabaseOrganisationPageAccess(prisma, syntheticTrackingOrganisationSlug, await getFakeTenantGuardSession(prisma), "demo-fallback"), TenantGuardError);
     await prisma.organisation.update({ where: { id: "fixture-demo-a" }, data: { isDemo: true } });
     await prisma.organisation.update({ where: { id: "fixture-demo-a" }, data: { slug: "synthetic-renamed" } });
     await assert.rejects(loadSyntheticTrackingData(prisma, allowedEnv, now), /must be marked as demo/);
