@@ -1,3 +1,5 @@
+import { TripTrackingSummary } from "@/components/tracking/trip-tracking-panel";
+import type { TripTrackingAssignmentDTO } from "@/lib/tracking/types";
 import Link from "next/link";
 import { AlertTriangle, ClipboardCheck, Radio, ShieldCheck } from "lucide-react";
 import { saveTripRiskAssessmentAction } from "@/app/trips/[tripId]/risk-assessment/actions";
@@ -22,6 +24,7 @@ type TripRiskAssessmentFormProps = {
   persistenceEnabled: boolean;
   saved?: string;
   trip: DemoTrip;
+  tracking?: TripTrackingAssignmentDTO[];
 };
 
 export function TripRiskAssessmentForm({
@@ -32,6 +35,7 @@ export function TripRiskAssessmentForm({
   persistenceEnabled,
   saved,
   trip,
+  tracking,
 }: TripRiskAssessmentFormProps) {
   const assessment = trip.riskAssessment;
   const tripTypeCode = assessment?.tripTypeCode ?? "1A";
@@ -68,6 +72,12 @@ export function TripRiskAssessmentForm({
           Trip detail
         </Link>
       </section>
+
+      {tracking ? <section className="rounded-md border border-earth-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-lg font-semibold">Tracking &amp; Communications</h2>
+        <TripTrackingSummary assignments={tracking} warnIfUnassigned={assessment?.finalRiskLevel === "HIGH"} />
+        <Link className="mt-3 inline-block text-sm font-semibold text-ochre-800" href={organisationHref(`/trips/${trip.id}/edit`, organisationSlug)}>Manage assigned trackers in Trip edit</Link>
+      </section> : null}
 
       {saved || error ? <StatusMessage error={error} saved={saved} /> : null}
 
@@ -180,7 +190,7 @@ export function TripRiskAssessmentForm({
             />
             <TextField
               defaultValue={assessment?.spotGarminDetails}
-              label="SPOT/GARMIN"
+              label={tracking ? "Other satellite / communications notes" : "SPOT/GARMIN"}
               maxLength={240}
               name="spotGarminDetails"
             />

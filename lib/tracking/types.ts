@@ -40,3 +40,36 @@ export type TrackingAssetOverviewDTO = {
   trip: TrackingTripDTO | null;
   freshness: TrackingFreshness;
 };
+
+export type TripTrackingInput = {
+  assetId: string;
+  role: TripTrackingRole;
+  vehicleId: string | null;
+  assignedFrom: string | null;
+  assignedUntil: string | null;
+  notes: string | null;
+};
+export type TripTrackingAssetOptionDTO = {
+  assetId: string;
+  displayName: string;
+  provider: TrackingProvider;
+  model: string | null;
+  status: TrackingAssetStatus;
+  expectedTrackingIntervalMinutes: number | null;
+};
+export type TripTrackingAssignmentDTO = TripTrackingInput & TripTrackingAssetOptionDTO & {
+  vehicle: TrackingVehicleDTO | null;
+  effectiveFrom: string;
+  effectiveUntil: string;
+  vehicleNotAllocated: boolean;
+  windowOutsideTrip: boolean;
+  latestMessageAt: string | null;
+  latestMessageKind: TrackingMessageKind | null;
+  latestPositionAt: string | null;
+  freshness: TrackingFreshness;
+};
+export type TripTrackingFormDTO = {
+  assets: TripTrackingAssetOptionDTO[];
+  vehicles: TrackingVehicleDTO[];
+  assignments: TripTrackingAssignmentDTO[];
+};

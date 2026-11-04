@@ -1,3 +1,4 @@
+import { getTripTrackingAssignments } from "@/lib/tracking/server";
 import { notFound } from "next/navigation";
 import { DisabledFeatureState } from "@/components/disabled-feature-state";
 import { TripRiskAssessmentForm } from "@/components/trips/trip-risk-assessment-form";
@@ -57,6 +58,10 @@ export default async function TripRiskAssessmentPage({
     notFound();
   }
 
+  const tracking = persistence.isDatabaseAvailable && persistence.organisationId && trip.organisationId === persistence.organisationId &&
+    organisationHasCapability(selectedOrganisation.capabilityKeys, "integrations.spotTracker")
+    ? await getTripTrackingAssignments(persistence.organisationId, trip.id) : undefined;
+
   return (
     <TripRiskAssessmentForm
       error={resolvedSearchParams?.error}
@@ -66,6 +71,7 @@ export default async function TripRiskAssessmentPage({
       persistenceEnabled={persistence.isDatabaseAvailable}
       saved={resolvedSearchParams?.saved}
       trip={trip}
+      tracking={tracking}
     />
   );
 }

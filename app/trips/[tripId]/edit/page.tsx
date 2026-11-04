@@ -1,3 +1,5 @@
+import { organisationHasCapability } from "@/lib/capability-registry";
+import { getTripTrackingForm } from "@/lib/tracking/server";
 import { notFound } from "next/navigation";
 import { saveTripAction } from "@/app/trips/actions";
 import { TripForm } from "@/components/trips/trip-form";
@@ -41,6 +43,10 @@ export default async function EditTripPage({
     notFound();
   }
 
+  const tracking = persistence.isDatabaseAvailable && persistence.organisationId && trip.organisationId === persistence.organisationId &&
+    organisationHasCapability(selectedOrganisation.capabilityKeys, "integrations.spotTracker")
+    ? await getTripTrackingForm(persistence.organisationId, trip.id) : undefined;
+
   return (
     <div className="space-y-6">
       <section className="border-b border-earth-200 pb-6">
@@ -57,7 +63,7 @@ export default async function EditTripPage({
         </p>
       </section>
       {resolvedSearchParams?.error ? (
-        <StatusMessage tone="error" />
+        <StatusMessage tone="error" trackingError={resolvedSearchParams.error === "tracking-validation"} />
       ) : resolvedSearchParams?.saved === "demo" ? (
         <StatusMessage tone="demo" />
       ) : null}
@@ -69,12 +75,13 @@ export default async function EditTripPage({
         organisationSlug={selectedOrganisation.slug}
         persistenceEnabled={persistence.isDatabaseAvailable}
         trip={trip}
+        tracking={tracking}
       />
     </div>
   );
 }
 
-function StatusMessage({ tone }: { tone: "demo" | "error" }) {
+function StatusMessage({ tone, trackingError }: { tone: "demo" | "error"; trackingError?: boolean }) {
   return (
     <div className="rounded-md border border-earth-200 bg-earth-50 p-4">
       <p className="text-sm font-semibold text-charcoal-950">
@@ -83,7 +90,7 @@ function StatusMessage({ tone }: { tone: "demo" | "error" }) {
       <p className="text-sm leading-6 text-charcoal-600">
         {tone === "demo"
           ? "No local database is configured, so the form kept the demo-only behaviour."
-          : "The tenant guard, database lookup or validation check rejected the write before anything was saved."}
+          : trackingError ? "Check tracker choices, duplicate trackers, assignment dates and notes (up to 500 characters). Assignment dates must be valid and ordered. No changes were saved." : "The tenant guard, database lookup or validation check rejected the write before anything was saved."}
       </p>
     </div>
   );

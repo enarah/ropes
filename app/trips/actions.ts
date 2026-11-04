@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTenantGuardSessionForRequest } from "@/lib/auth-session";
+import { persistTrip, type StructuredTripRows } from "@/lib/trip-save";
+import { assignmentDate, parseTripTrackingForm, TripTrackingValidationError } from "@/lib/tracking/trip-assignment-input";
 import { recordAuditLog } from "@/lib/audit-logs";
 import { getPrismaClient, isDatabaseConfigured } from "@/lib/db";
 import {
@@ -74,79 +76,8 @@ export async function saveTripAction(formData: FormData) {
       tripStartsAt: startsAt,
     });
 
-    const savedTrip = await prisma.$transaction(async (tx) => {
-      const persistedTrip = tripId
-        ? await tx.trip.update({
-            data: tripData,
-            where: { id: tripId },
-          })
-        : await tx.trip.create({
-            data: {
-              ...tripData,
-              isDemo: true,
-              leadUserId: context.actorUserId,
-              organisationId: context.organisationId,
-              approvalStatus: "DRAFT",
-              status: "DRAFT",
-            },
-          });
-
-      await Promise.all([
-        tx.tripParticipant.deleteMany({
-          where: {
-            organisationId: context.organisationId,
-            tripId: persistedTrip.id,
-          },
-        }),
-        tx.tripVehicleAllocation.deleteMany({
-          where: {
-            organisationId: context.organisationId,
-            tripId: persistedTrip.id,
-          },
-        }),
-        tx.tripItineraryItem.deleteMany({
-          where: {
-            organisationId: context.organisationId,
-            tripId: persistedTrip.id,
-          },
-        }),
-      ]);
-
-      if (structuredRows.participants.length) {
-        await tx.tripParticipant.createMany({
-          data: structuredRows.participants.map((participant) => ({
-            ...participant,
-            isDemo: false,
-            organisationId: context.organisationId,
-            tripId: persistedTrip.id,
-          })),
-        });
-      }
-
-      if (structuredRows.vehicleAllocations.length) {
-        await tx.tripVehicleAllocation.createMany({
-          data: structuredRows.vehicleAllocations.map((vehicle) => ({
-            ...vehicle,
-            isDemo: false,
-            organisationId: context.organisationId,
-            tripId: persistedTrip.id,
-          })),
-        });
-      }
-
-      if (structuredRows.itineraryItems.length) {
-        await tx.tripItineraryItem.createMany({
-          data: structuredRows.itineraryItems.map((item) => ({
-            ...item,
-            isDemo: false,
-            organisationId: context.organisationId,
-            tripId: persistedTrip.id,
-          })),
-        });
-      }
-
-      return persistedTrip;
-    });
+    const savedTrip = await persistTrip({ prisma, organisationId: context.organisationId, session,
+      tripId: tripId || undefined, tripData, structuredRows, trackingInputs: parseTripTrackingForm(formData) });
     const isUpdate = Boolean(tripId);
 
     await recordAuditLog(prisma, {
@@ -170,10 +101,13 @@ export async function saveTripAction(formData: FormData) {
 
     revalidatePath("/trips");
     revalidatePath(`/trips/${savedTrip.id}`);
+    revalidatePath(`/trips/${savedTrip.id}/edit`);
+    revalidatePath(`/trips/${savedTrip.id}/risk-assessment`);
+    revalidatePath("/");
     redirectTo = `/trips/${savedTrip.id}?org=${organisation.slug}&saved=trip`;
   } catch (error) {
     redirectTo = `${fallbackPath}&error=${
-      isTenantGuardError(error) ? "tenant" : "persistence"
+      isTenantGuardError(error) ? "tenant" : error instanceof TripTrackingValidationError ? "tracking-validation" : "persistence"
     }`;
   }
 
@@ -545,40 +479,14 @@ function getOptionalString(formData: FormData, key: string) {
 
 function getRequiredDate(formData: FormData, key: string) {
   const value = getRequiredString(formData, key);
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
+  // Form defaults are ISO values displayed without a suffix. Parse them as UTC
+  // consistently on workstations and containers, rather than server-local time.
+  try {
+    return assignmentDate(value)!;
+  } catch {
     throw new Error(`${key} must be a valid date.`);
   }
-
-  return date;
 }
-
-type StructuredTripRows = {
-  participants: Array<{
-    name: string;
-    role: string;
-    rowOrder: number;
-    status: string;
-    userId: null;
-  }>;
-  vehicleAllocations: Array<{
-    name: string;
-    registration: string;
-    rowOrder: number;
-    status: string;
-    vehicleId: string | null;
-  }>;
-  itineraryItems: Array<{
-    day: string;
-    description: string;
-    endsAt: Date | null;
-    location: string | null;
-    rowOrder: number;
-    startsAt: Date | null;
-    title: string;
-  }>;
-};
 
 async function getStructuredTripRows({
   formData,
