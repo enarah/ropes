@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { TrackingAssignmentForm } from "@/components/tracking/tracking-assignment-form";
+import type { TripTrackingFormDTO } from "@/lib/tracking/types";
 import type { DemoTrip } from "@/lib/trips-data";
 
 type TripFormProps = {
@@ -13,6 +15,7 @@ type TripFormProps = {
   organisationSlug: string;
   persistenceEnabled: boolean;
   trip: DemoTrip;
+  tracking?: TripTrackingFormDTO;
 };
 
 type ParticipantRow = DemoTrip["participants"][number] & { rowId: string };
@@ -36,8 +39,11 @@ export function TripForm({
   organisationSlug,
   persistenceEnabled,
   trip,
+  tracking,
 }: TripFormProps) {
   const [message, setMessage] = useState("");
+  const [startsAt, setStartsAt] = useState(toDateTimeLocal(trip.startsAt));
+  const [endsAt, setEndsAt] = useState(toDateTimeLocal(trip.endsAt));
   const [participants, setParticipants] = useState<ParticipantRow[]>(
     () => withRowIds(trip.participants, "participant"),
   );
@@ -103,13 +109,15 @@ export function TripForm({
           label="Start"
           name="startsAt"
           type="datetime-local"
-          defaultValue={toDateTimeLocal(trip.startsAt)}
+          value={startsAt}
+          onChange={setStartsAt}
         />
         <Field
           label="End"
           name="endsAt"
           type="datetime-local"
-          defaultValue={toDateTimeLocal(trip.endsAt)}
+          value={endsAt}
+          onChange={setEndsAt}
         />
       </div>
 
@@ -242,6 +250,10 @@ export function TripForm({
           </div>
         ))}
       </RepeatableSection>
+
+      {tracking && persistenceEnabled && organisationId ? (
+        <TrackingAssignmentForm data={tracking} allocatedRegistrations={vehicles.map((vehicle) => vehicle.registration)} tripStartsAt={startsAt} tripEndsAt={endsAt} />
+      ) : null}
 
       <RepeatableSection
         addLabel="Add itinerary item"

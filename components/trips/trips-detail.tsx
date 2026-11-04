@@ -1,3 +1,5 @@
+import { TripTrackingPanel, TripTrackingSummary } from "@/components/tracking/trip-tracking-panel";
+import type { TripTrackingAssignmentDTO } from "@/lib/tracking/types";
 import Link from "next/link";
 import {
   CalendarCheck,
@@ -27,6 +29,7 @@ type TripsDetailProps = {
   organisationName: string;
   organisationSlug: string;
   trip: DemoTrip;
+  tracking?: TripTrackingAssignmentDTO[];
 };
 
 export function TripsDetail({
@@ -35,6 +38,7 @@ export function TripsDetail({
   organisationName,
   organisationSlug,
   trip,
+  tracking,
 }: TripsDetailProps) {
   const riskAssessmentEnabled = organisationHasCapability(
     capabilityKeys,
@@ -131,6 +135,10 @@ export function TripsDetail({
         </Panel>
       </section>
 
+      {tracking && organisationHasCapability(capabilityKeys, "integrations.spotTracker") ? (
+        <TripTrackingPanel assignments={tracking} organisationSlug={organisationSlug} />
+      ) : null}
+
       <Panel icon={<MapPinned aria-hidden="true" size={18} />} title="Itinerary">
         <div className="grid gap-3 md:grid-cols-3">
           {trip.itinerary.map((item) => (
@@ -157,6 +165,9 @@ export function TripsDetail({
           icon={<ShieldCheck aria-hidden="true" size={18} />}
           title="TMP/JMP risk assessment"
         >
+          {tracking && organisationHasCapability(capabilityKeys, "integrations.spotTracker") ? (
+            <TripTrackingSummary assignments={tracking} warnIfUnassigned={trip.riskAssessment?.finalRiskLevel === "HIGH"} />
+          ) : null}
           <RiskAssessmentSummary
             organisationSlug={organisationSlug}
             trip={trip}

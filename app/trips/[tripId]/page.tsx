@@ -1,3 +1,5 @@
+import { organisationHasCapability } from "@/lib/capability-registry";
+import { getTripTrackingAssignments } from "@/lib/tracking/server";
 import { notFound } from "next/navigation";
 import { TripsDetail } from "@/components/trips/trips-detail";
 import { UnauthorisedState } from "@/components/unauthorised-state";
@@ -36,6 +38,9 @@ export default async function TripDetailPage({
     notFound();
   }
 
+  const tracking = trip.organisationId && organisationHasCapability(selectedOrganisation.capabilityKeys, "integrations.spotTracker")
+    ? await getTripTrackingAssignments(trip.organisationId, trip.id) : undefined;
+
   return (
     <TripsDetail
       organisationName={selectedOrganisation.name}
@@ -43,6 +48,7 @@ export default async function TripDetailPage({
       approvalResult={resolvedSearchParams?.approval}
       capabilityKeys={selectedOrganisation.capabilityKeys}
       trip={trip}
+      tracking={tracking}
     />
   );
 }
