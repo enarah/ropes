@@ -56,3 +56,22 @@ a {
 .tracking-popup { color: #26231f; font: 13px/1.5 ui-sans-serif, system-ui, sans-serif; }
 .tracking-popup > strong { display: block; font-size: 15px; margin-bottom: 8px; }
 .tracking-popup p { margin: 6px 0; }
+
+/* Keep Leaflet's measured content width and autopan in charge of placement.
+   Chrome matches trackingPopupLayout; scrolling is inside the popup, so its
+   close control remains outside the scroll area and the marker stays visible. */
+.tracking-map-popup .leaflet-popup-content { margin: 36px 16px 12px; }
+.tracking-map-popup .tracking-popup { overflow-wrap: anywhere; }
+.leaflet-container .tracking-map-popup a.leaflet-popup-close-button {
+  top: 4px;
+  right: 4px;
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  line-height: 32px;
+  border-radius: 4px;
+}
+.leaflet-container .tracking-map-popup a.leaflet-popup-close-button:focus-visible {
+  outline: 2px solid #26231f;
+  outline-offset: -2px;
+}

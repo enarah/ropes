@@ -4,7 +4,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { OperationsMap } from "../components/tracking/operations-map";
-import { focusTrackingMarker, observeTrackingMapResize, reportTrackingMapFailure } from "../lib/tracking/map-client";
+import { focusTrackingMarker, trackingPopupLayout, observeTrackingMapResize, reportTrackingMapFailure } from "../lib/tracking/map-client";
 import { buildTrackingOperationsModel, trackingMessageLabel } from "../lib/tracking/presentation";
 import type { TrackingAssetOverviewDTO } from "../lib/tracking/types";
 
@@ -60,12 +60,13 @@ test("selection focuses and opens the exact marker ID, including repeated select
   const marker = (id: string) => ({
     getLatLng: () => id,
     openPopup: () => { calls.push(["popup", id]); },
+    setZIndexOffset: (offset: number) => { calls.push(["zIndex", id, offset]); },
     getElement: () => ({ classList: { toggle: (name: string, selected: boolean) => { calls.push([id, name, selected]); } } }),
   });
   const markers = new Map([["a", marker("a")], ["b", marker("b")]]);
   const map = { panTo: (position: string) => { calls.push(["pan", position]); }, closePopup: () => { calls.push("close"); } };
   focusTrackingMarker(map, markers, "b");
-  assert.deepEqual(calls, [["a", "tracking-marker-selected", false], ["b", "tracking-marker-selected", true], ["pan", "b"], ["popup", "b"]]);
+  assert.deepEqual(calls, [["a", "tracking-marker-selected", false], ["zIndex", "a", 0], ["b", "tracking-marker-selected", true], ["zIndex", "b", 1000], ["pan", "b"], ["popup", "b"]]);
   calls.length = 0;
   focusTrackingMarker(map, markers, "b");
   assert.deepEqual(calls.slice(-2), [["pan", "b"], ["popup", "b"]]);
@@ -118,4 +119,20 @@ test("component, constructor and tile failures emit distinct safe diagnostics wi
   const tileHandling = renderer.slice(renderer.indexOf("    if (allowSyntheticBasemap)"), renderer.indexOf("    try {\n      stopObserving"));
   assert.match(tileHandling, /failTiles\(\)/);
   assert.doesNotMatch(tileHandling, /failMap|setMapFailed/);
+});
+
+test("popup layout fits the actual map with space for chrome, close control and marker", () => {
+  for (const width of [322, 252, 180, 614]) {
+    const layout = trackingPopupLayout({ x: width, y: 360 });
+    assert.ok(layout.maxWidth + 1 + 34 + 24 <= width);
+    assert.ok(layout.minWidth <= layout.maxWidth);
+    assert.ok(layout.maxHeight + 116 + layout.autoPanPaddingTopLeft[1] <= 360);
+  }
+  assert.equal(trackingPopupLayout({ x: 1000, y: 480 }).maxWidth, 310);
+  assert.ok(trackingPopupLayout({ x: 1000, y: 480 }).maxHeight > trackingPopupLayout({ x: 322, y: 360 }).maxHeight);
+  assert.equal(trackingPopupLayout({ x: 0, y: 0 }).minWidth, 1);
+  const renderer = readFileSync(new URL("../components/tracking/leaflet-operations-map.tsx", import.meta.url), "utf8");
+  assert.match(renderer, /instance.on\("resize", resizePopups\)/);
+  assert.match(renderer, /instance.off\("resize", resizePopups\)/);
+  assert.match(renderer, /popup.isOpen\(\).*popup.update\(\)/);
 });

@@ -5,7 +5,7 @@
 import * as L from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import { syntheticSandboxBasemap } from "@/lib/tracking/basemap";
-import { focusTrackingMarker, observeTrackingMapResize, reportTrackingMapFailure, trackingMapUnavailableMessage } from "@/lib/tracking/map-client";
+import { focusTrackingMarker, trackingPopupLayout, observeTrackingMapResize, reportTrackingMapFailure, trackingMapUnavailableMessage } from "@/lib/tracking/map-client";
 import { freshnessLabels, trackingMessageLabel, trackingTimestamp } from "@/lib/tracking/presentation";
 import type { TrackingAssetOverviewDTO } from "@/lib/tracking/types";
 // Leaflet accepts DOM nodes. Use textContent for all names and other data rather
@@ -70,9 +70,19 @@ export function LeafletOperationsMap({ assets, snapshotAt, allowSyntheticBasemap
     map.current = instance;
     const assetMarkers = new Map<string, L.Marker>();
     markers.current = assetMarkers;
+    const resizePopups = () => {
+      for (const marker of assetMarkers.values()) {
+        const popup = marker.getPopup();
+        if (!popup) continue;
+        Object.assign(popup.options, trackingPopupLayout(instance.getSize()));
+        if (popup.isOpen()) popup.update();
+      }
+    };
+    instance.on("resize", resizePopups);
     const cleanup = () => {
       disposed = true;
       stopObserving();
+      instance.off("resize", resizePopups);
       instance.remove();
       if (map.current === instance) map.current = null;
       assetMarkers.clear();
@@ -84,10 +94,13 @@ export function LeafletOperationsMap({ assets, snapshotAt, allowSyntheticBasemap
           icon: L.divIcon({
             className: `tracking-marker tracking-marker-${attention ? "help" : asset.freshness.toLowerCase()}`,
             html: `<span aria-hidden="true">${attention ? "!" : "●"}</span>`,
-            iconSize: [30, 30], iconAnchor: [15, 15],
+            iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15],
           }),
           title: `Select ${asset.displayName}`, alt: asset.displayName, keyboard: true,
-        }).addTo(instance).bindPopup(popupContent(asset, snapshotAt), { maxWidth: 310 });
+        }).addTo(instance).bindPopup(popupContent(asset, snapshotAt), {
+          ...trackingPopupLayout(instance.getSize()), className: "tracking-map-popup",
+          offset: [0, 0],
+        });
         marker.getElement()?.setAttribute("aria-label", `Select ${asset.displayName}`);
         marker.on("click", () => onSelectAsset(asset.assetId));
         assetMarkers.set(asset.assetId, marker);

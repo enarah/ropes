@@ -31,16 +31,37 @@ export function observeTrackingMapResize(
   return () => observer.disconnect();
 }
 
+// Leaflet's maxWidth is the content width, excluding our scoped popup CSS:
+// 16px margins on each side + 1px wrapper padding per side + Leaflet's 1px
+// rounding allowance. Reserve map-edge padding, header/tip and a visible marker.
+export function trackingPopupLayout(size: { x: number; y: number }) {
+  const maxWidth = Math.max(1, Math.min(310, Math.floor(size.x) - 24 - 34 - 1));
+  // Narrow popups span the zoom controls' column. Keep their top below those
+  // controls, while preserving more vertical reading space in wide maps.
+  const top = (size.x - (maxWidth + 35)) / 2 < 48 ? 80 : 12;
+  return {
+    maxWidth, minWidth: Math.min(160, maxWidth),
+    maxHeight: Math.max(1, Math.floor(size.y) - 116 - top),
+    autoPanPaddingTopLeft: [12, top] as [number, number],
+    autoPanPaddingBottomRight: [12, 12] as [number, number],
+  };
+}
+
 export function focusTrackingMarker<Position>(
   map: { panTo(position: Position, options: { animate: boolean }): unknown; closePopup(): unknown },
   markers: ReadonlyMap<string, {
     getLatLng(): Position;
     openPopup(): unknown;
+    setZIndexOffset(offset: number): unknown;
     getElement(): { classList: { toggle(name: string, force: boolean): unknown } } | undefined;
   }>,
   selectedId: string | null,
 ) {
-  for (const [id, marker] of markers) marker.getElement()?.classList.toggle("tracking-marker-selected", id === selectedId);
+  for (const [id, marker] of markers) {
+    marker.getElement()?.classList.toggle("tracking-marker-selected", id === selectedId);
+    // The selected marker stays pointer-accessible when tracker fixes overlap.
+    marker.setZIndexOffset(id === selectedId ? 1000 : 0);
+  }
   const marker = selectedId ? markers.get(selectedId) : undefined;
   if (!marker) {
     map.closePopup();

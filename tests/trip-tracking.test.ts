@@ -152,15 +152,27 @@ test("Trip save and tracking read models on isolated PostgreSQL", async (t) => {
     assert.equal(await prisma.trip.count(), count);
   });
   await t.test("new inactive/retired trackers rejected; existing retired assignment can be retained or removed", async () => {
-    await prisma.trackingAsset.update({ where: { id: "synthetic-tracker-stale" }, data: { status: "RETIRED" } });
-    await assert.rejects(writes([row({ assetId: "synthetic-tracker-stale" })]), /active trackers/);
-    await prisma.trackingAsset.update({ where: { id: "synthetic-tracker-stale" }, data: { status: "INACTIVE" } });
-    await assert.rejects(writes([row({ assetId: "synthetic-tracker-stale" })]), /active trackers/);
+    const unchanged = async () => ({
+      trips: await prisma.trip.findMany({ orderBy: { id: "asc" } }),
+      assignments: await prisma.tripTrackingAssignment.findMany({ orderBy: { id: "asc" } }),
+      participants: await prisma.tripParticipant.findMany({ orderBy: { id: "asc" } }),
+    });
+    for (const status of ["RETIRED", "INACTIVE"] as const) {
+      await prisma.trackingAsset.update({ where: { id: "synthetic-tracker-stale" }, data: { status } });
+      const before = await unchanged();
+      await assert.rejects(writes([row({ assetId: "synthetic-tracker-stale" })], {
+        tripData: { ...tripData, title: "Rejected status must roll back" },
+      }), /active trackers/);
+      assert.deepEqual(await unchanged(), before, `${status} rejection must not change any Trip/assignment`);
+    }
     await prisma.trackingAsset.update({ where: { id: tracker }, data: { status: "RETIRED" } });
     await writes([row()]);
     assert.equal((await reads.getTripTrackingForm(orgA, tripId)).assets.find((asset) => asset.assetId === tracker)?.status, "RETIRED");
     await writes([]);
+    assert.equal(await prisma.tripTrackingAssignment.count({ where: { tripId, trackingAssetId: tracker } }), 0);
+    const beforeReassignment = await unchanged();
     await assert.rejects(writes([row()]), /active trackers/);
+    assert.deepEqual(await unchanged(), beforeReassignment);
     await prisma.trackingAsset.update({ where: { id: tracker }, data: { status: "ACTIVE" } });
     await writes([row()]);
   });
