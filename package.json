@@ -9,7 +9,7 @@
     "build": "next build --webpack",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "lint": "eslint .",
-    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\" && npm run test:tracking-server",
     "appb:inspect": "tsx scripts/inspect-appb-workbooks.ts",
     "smoke:appb": "tsx scripts/smoke-appb-seed.ts",
     "provision:user": "tsx scripts/provision-user.ts",
@@ -19,7 +19,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "tracking:demo:load": "tsx scripts/load-synthetic-tracking.ts"
+    "tracking:demo:load": "tsx scripts/load-synthetic-tracking.ts",
+    "tracking:spot:sync-once": "node --conditions=react-server --import tsx scripts/sync-spot-once.ts",
+    "test:tracking-server": "node --conditions=react-server --import tsx --test \"tests/tracking-server/*.test-server.ts\""
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -49,6 +51,7 @@
     "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "saxes": "^6.0.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
