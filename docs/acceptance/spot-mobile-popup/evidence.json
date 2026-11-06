@@ -1,0 +1,366 @@
+[
+  {
+    "case": "390x844 overlapping selection",
+    "close": {
+      "bottom": 358,
+      "height": 32,
+      "right": 340,
+      "width": 32,
+      "x": 308,
+      "y": 326
+    },
+    "closeHits": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "content": {
+      "height": 164,
+      "scrollHeight": 287,
+      "scrollWidth": 264,
+      "width": 264
+    },
+    "map": {
+      "bottom": 602,
+      "height": 360,
+      "right": 356,
+      "width": 322,
+      "x": 34,
+      "y": 242
+    },
+    "marker": {
+      "bottom": 586,
+      "height": 30,
+      "right": 210,
+      "width": 30,
+      "x": 180,
+      "y": 556
+    },
+    "markerHit": true,
+    "markerInsideMap": true,
+    "popup": {
+      "bottom": 536,
+      "height": 214,
+      "right": 344,
+      "width": 298,
+      "x": 46,
+      "y": 322
+    },
+    "popupInsideMap": true,
+    "popupOverMarker": false,
+    "selected": null,
+    "viewport": {
+      "height": 844,
+      "width": 390
+    },
+    "zIndices": [
+      {
+        "name": null,
+        "z": "1180"
+      },
+      {
+        "name": null,
+        "z": "180"
+      }
+    ]
+  },
+  {
+    "case": "390px pointer close",
+    "popupCount": 0,
+    "pointer": {
+      "x": 324,
+      "y": 342
+    },
+    "observation": "Close count observed after actual coordinate click."
+  },
+  {
+    "case": "390px reselection reopens",
+    "popupCount": 1
+  },
+  {
+    "case": "320x844",
+    "close": {
+      "bottom": 358,
+      "height": 32,
+      "right": 270,
+      "width": 32,
+      "x": 238,
+      "y": 326
+    },
+    "closeHits": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "content": {
+      "height": 164,
+      "scrollHeight": 365,
+      "scrollWidth": 194,
+      "width": 194
+    },
+    "map": {
+      "bottom": 602,
+      "height": 360,
+      "right": 286,
+      "width": 252,
+      "x": 34,
+      "y": 242
+    },
+    "marker": {
+      "bottom": 586,
+      "height": 30,
+      "right": 175,
+      "width": 30,
+      "x": 145,
+      "y": 556
+    },
+    "markerHit": true,
+    "markerInsideMap": true,
+    "popup": {
+      "bottom": 536,
+      "height": 214,
+      "right": 274,
+      "width": 228,
+      "x": 46,
+      "y": 322
+    },
+    "popupInsideMap": true,
+    "popupOverMarker": false,
+    "selected": null,
+    "viewport": {
+      "height": 844,
+      "width": 320
+    },
+    "zIndices": [
+      {
+        "name": null,
+        "z": "1180"
+      },
+      {
+        "name": null,
+        "z": "180"
+      }
+    ]
+  },
+  {
+    "case": "320px pointer close",
+    "popupCount": 0
+  },
+  {
+    "case": "320px list reselection reopened",
+    "popupCount": 1
+  },
+  {
+    "case": "1280x900",
+    "close": {
+      "bottom": 258.5,
+      "height": 32,
+      "right": 793,
+      "width": 32,
+      "x": 761,
+      "y": 226.5
+    },
+    "closeHits": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "content": {
+      "height": 262,
+      "scrollHeight": 262,
+      "scrollWidth": 311,
+      "width": 311
+    },
+    "map": {
+      "bottom": 690,
+      "height": 480,
+      "right": 918.6640625,
+      "width": 588.6640625,
+      "x": 330,
+      "y": 210
+    },
+    "marker": {
+      "bottom": 584,
+      "height": 30,
+      "right": 640,
+      "width": 30,
+      "x": 610,
+      "y": 554
+    },
+    "markerHit": true,
+    "markerInsideMap": true,
+    "popup": {
+      "bottom": 534,
+      "height": 311.5,
+      "right": 797,
+      "width": 345,
+      "x": 452,
+      "y": 222.5
+    },
+    "popupInsideMap": true,
+    "popupOverMarker": false,
+    "selected": null,
+    "viewport": {
+      "height": 900,
+      "width": 1280
+    },
+    "zIndices": [
+      {
+        "name": null,
+        "z": "1180"
+      },
+      {
+        "name": null,
+        "z": "180"
+      }
+    ]
+  },
+  {
+    "case": "desktop pointer close",
+    "popupCount": 0
+  },
+  {
+    "case": "exact overlapping markers",
+    "markers": [
+      {
+        "selected": false,
+        "title": "Select Synthetic field tracker",
+        "x": 610,
+        "y": 554,
+        "z": "180"
+      },
+      {
+        "selected": true,
+        "title": "Select Synthetic stale tracker",
+        "x": 610,
+        "y": 554,
+        "z": "1180"
+      }
+    ],
+    "popup": "Synthetic stale tracker",
+    "pressed": [
+      "Synthetic stale trackerSelectedCurrent"
+    ]
+  },
+  {
+    "case": "full reload",
+    "maps": 1,
+    "popups": 1,
+    "markers": 2
+  },
+  {
+    "case": "Trip mobile add/remove",
+    "remainingRows": 1
+  },
+  {
+    "case": "route remount",
+    "maps": 1,
+    "popups": 1
+  },
+  {
+    "case": "normal tile loads",
+    "loaded": 6,
+    "tiles": 6
+  },
+  {
+    "case": "390x844 blocked tiles",
+    "close": {
+      "bottom": 358,
+      "height": 32,
+      "right": 340,
+      "width": 32,
+      "x": 308,
+      "y": 326
+    },
+    "closeHits": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "content": {
+      "height": 164,
+      "scrollHeight": 287,
+      "scrollWidth": 264,
+      "width": 264
+    },
+    "map": {
+      "bottom": 602,
+      "height": 360,
+      "right": 356,
+      "width": 322,
+      "x": 34,
+      "y": 242
+    },
+    "marker": {
+      "bottom": 586,
+      "height": 30,
+      "right": 210,
+      "width": 30,
+      "x": 180,
+      "y": 556
+    },
+    "markerHit": true,
+    "markerInsideMap": true,
+    "popup": {
+      "bottom": 536,
+      "height": 214,
+      "right": 344,
+      "width": 298,
+      "x": 46,
+      "y": 322
+    },
+    "popupInsideMap": true,
+    "popupOverMarker": false,
+    "selected": null,
+    "viewport": {
+      "height": 844,
+      "width": 390
+    },
+    "zIndices": [
+      {
+        "name": null,
+        "z": "1180"
+      },
+      {
+        "name": null,
+        "z": "180"
+      }
+    ]
+  },
+  {
+    "case": "tiles unavailable map drag",
+    "settledOffsetEquals35px": false,
+    "mouseUpMarkerBefore": {
+      "x": 180,
+      "y": 556
+    },
+    "mouseUpMarkerAfter": {
+      "x": 215,
+      "y": 556
+    },
+    "movementObserved": true,
+    "note": "Coordinate drag moved the marker 35px at mouse-up. Leaflet inertia continues after release, so the later exact-offset sample is not a pass/fail assertion."
+  },
+  {
+    "case": "blocked tiles content scroll",
+    "height": 164,
+    "scrollHeight": 287,
+    "scrollTop": 123
+  },
+  {
+    "case": "blocked tiles pointer close",
+    "popupCount": 0
+  },
+  {
+    "case": "blocked tiles pointer marker reopen",
+    "popupCount": 1
+  }
+]
