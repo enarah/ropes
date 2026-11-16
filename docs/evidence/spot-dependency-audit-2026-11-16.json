@@ -1,0 +1,736 @@
+{
+  "reviewDate": "2026-11-16",
+  "baselineCommit": "be8e7ea79a615e88349da78f1fd230fd3f071623",
+  "packageLockSha256": "60df6b62e87054c3b6de158e5496572004854b85f8c8f0c28b331dd22cb9ebfe",
+  "allDependencies": {
+    "info": 0,
+    "low": 0,
+    "moderate": 11,
+    "high": 10,
+    "critical": 1,
+    "total": 22
+  },
+  "omitDev": {
+    "info": 0,
+    "low": 0,
+    "moderate": 1,
+    "high": 6,
+    "critical": 1,
+    "total": 8
+  },
+  "packages": [
+    {
+      "name": "@prisma/config",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/@prisma/config",
+          "version": "7.9.1"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "deepmerge-ts"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "@typescript-eslint/eslint-plugin",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/eslint-plugin",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "@typescript-eslint/type-utils",
+        "@typescript-eslint/utils"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "@typescript-eslint/parser",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/parser",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "@typescript-eslint/type-utils",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/type-utils",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "@typescript-eslint/typescript-estree",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/typescript-estree",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "minimatch"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "@typescript-eslint/utils",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/utils",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "brace-expansion",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
+          "version": "5.0.6"
+        },
+        {
+          "path": "node_modules/brace-expansion",
+          "version": "1.1.15"
+        },
+        {
+          "path": "node_modules/readdir-glob/node_modules/brace-expansion",
+          "version": "2.1.1"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "GHSA-3jxr-9vmj-r5cp",
+        "GHSA-mh99-v99m-4gvg",
+        "GHSA-rgw5-rvv9-x895",
+        "GHSA-q2hr-2g5m-vwhr",
+        "GHSA-qhr7-859c-m2p7",
+        "GHSA-6j4f-fj2g-mc7p"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "browserslist",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/browserslist",
+          "version": "4.28.2"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "GHSA-c83g-rgw3-j3cx",
+        "GHSA-73wf-gq98-2v4g"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "deepmerge-ts",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/deepmerge-ts",
+          "version": "7.1.5"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "GHSA-ggr8-5vv4-36mx"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "exceljs",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/exceljs",
+          "version": "4.4.0"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "uuid"
+      ],
+      "npmFixAvailable": {
+        "name": "exceljs",
+        "version": "3.4.0",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "fast-uri",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/fast-uri",
+          "version": "3.1.7"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "GHSA-hrr3-gc8f-f4qj",
+        "GHSA-w74x-v6f9-j3xg",
+        "GHSA-xhq7-xmqj-769h",
+        "GHSA-wjr9-j795-jxcr",
+        "GHSA-333x-w4r6-6crp"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "js-yaml",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/js-yaml",
+          "version": "4.2.0"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "GHSA-52cp-r559-cp3m",
+        "GHSA-5p4m-2wfm-xmqj",
+        "GHSA-2883-xcg3-v3hh"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "minimatch",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/typescript-estree/node_modules/minimatch",
+          "version": "10.2.5"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "GHSA-g3hv-75wg-m249"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "mysql2",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/mysql2",
+          "version": "3.15.3"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "GHSA-3f6p-5ww8-9rcr",
+        "GHSA-rgwj-5xj2-c3m3"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "next",
+      "severity": "critical",
+      "installed": [
+        {
+          "path": "node_modules/next",
+          "version": "16.3.4"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "GHSA-vcvr-r3jv-pc5j",
+        "GHSA-3w37-wq28-93x7",
+        "GHSA-4jqv-mc3x-m676",
+        "GHSA-39w2-rjm5-chcv",
+        "GHSA-f87g-xv8r-7p7x",
+        "GHSA-mcj8-r9mp-w47p",
+        "GHSA-cjq9-62q9-8jv4",
+        "GHSA-2464-fhr4-w9xw",
+        "GHSA-p3m5-59mp-jv5r",
+        "GHSA-h694-7cp9-m8p3",
+        "GHSA-673q-mjm6-r5xr"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "postcss-selector-parser",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/postcss-selector-parser",
+          "version": "6.1.4"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "GHSA-rj75-hqrm-r3gf"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "prisma",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/prisma",
+          "version": "7.9.1"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "@prisma/config",
+        "mysql2"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "sharp",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/sharp",
+          "version": "0.35.4"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "GHSA-wq5f-xc86-pv6w"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "source-map-js",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/source-map-js",
+          "version": "1.2.1"
+        }
+      ],
+      "presentInOmitDevAudit": true,
+      "via": [
+        "GHSA-68fv-2mgg-jv7q"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "typescript-eslint",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/typescript-eslint",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils"
+      ],
+      "npmFixAvailable": true
+    },
+    {
+      "name": "uuid",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/uuid",
+          "version": "8.3.2"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "GHSA-w5hq-g745-h8pq"
+      ],
+      "npmFixAvailable": {
+        "name": "exceljs",
+        "version": "3.4.0",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "zod",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/zod",
+          "version": "4.4.3"
+        }
+      ],
+      "presentInOmitDevAudit": false,
+      "via": [
+        "GHSA-mrhx-c7xc-m3w5"
+      ],
+      "npmFixAvailable": true
+    }
+  ],
+  "advisories": {
+    "GHSA-3jxr-9vmj-r5cp": {
+      "package": "brace-expansion",
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+      "affectedRanges": [
+        ">=2.0.0 <2.1.2",
+        "<1.1.16",
+        ">=3.0.0 <5.0.7"
+      ]
+    },
+    "GHSA-mh99-v99m-4gvg": {
+      "package": "brace-expansion",
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+      "affectedRanges": [
+        "<1.1.17",
+        ">=2.0.0 <2.1.3",
+        ">=4.0.0 <5.0.8"
+      ]
+    },
+    "GHSA-rgw5-rvv9-x895": {
+      "package": "brace-expansion",
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+      "affectedRanges": [
+        ">=4.0.0 <5.0.9",
+        ">=2.0.0 <2.1.4",
+        "<1.1.18"
+      ]
+    },
+    "GHSA-q2hr-2g5m-vwhr": {
+      "package": "brace-expansion",
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+      "affectedRanges": [
+        "<1.1.21",
+        ">=2.0.0 <2.1.7",
+        ">=4.0.0 <5.0.12"
+      ]
+    },
+    "GHSA-qhr7-859c-m2p7": {
+      "package": "brace-expansion",
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+      "affectedRanges": [
+        "<1.1.20",
+        ">=2.0.0 <2.1.6",
+        ">=4.0.0 <5.0.11"
+      ]
+    },
+    "GHSA-6j4f-fj2g-mc7p": {
+      "package": "brace-expansion",
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+      "affectedRanges": [
+        "<1.1.19",
+        ">=2.0.0 <2.1.5",
+        ">=4.0.0 <5.0.10"
+      ]
+    },
+    "GHSA-c83g-rgw3-j3cx": {
+      "package": "browserslist",
+      "title": "Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+      "affectedRanges": [
+        "<=4.28.6"
+      ]
+    },
+    "GHSA-73wf-gq98-2v4g": {
+      "package": "browserslist",
+      "title": "Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-73wf-gq98-2v4g",
+      "affectedRanges": [
+        "<=4.28.6"
+      ]
+    },
+    "GHSA-ggr8-5vv4-36mx": {
+      "package": "deepmerge-ts",
+      "title": "DeepmergeTS has stack exhaustion when merging recursive object graphs",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-ggr8-5vv4-36mx",
+      "affectedRanges": [
+        "<8.0.0"
+      ]
+    },
+    "GHSA-hrr3-gc8f-f4qj": {
+      "package": "fast-uri",
+      "title": "fast-uri vulnerable to inconsistent host case normalization via percent-encoded octets",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-hrr3-gc8f-f4qj",
+      "affectedRanges": [
+        ">=3.0.0 <3.1.8"
+      ]
+    },
+    "GHSA-w74x-v6f9-j3xg": {
+      "package": "fast-uri",
+      "title": "fast-uri vulnerable to URI scheme spoofing via percent-encoded scheme decoding",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-w74x-v6f9-j3xg",
+      "affectedRanges": [
+        ">=3.0.0 <3.1.9"
+      ]
+    },
+    "GHSA-xhq7-xmqj-769h": {
+      "package": "fast-uri",
+      "title": "fast-uri vulnerable to improper path equivalence in relative reference normalization",
+      "severity": "low",
+      "url": "https://github.com/advisories/GHSA-xhq7-xmqj-769h",
+      "affectedRanges": [
+        ">=3.0.0 <3.1.9"
+      ]
+    },
+    "GHSA-wjr9-j795-jxcr": {
+      "package": "fast-uri",
+      "title": "fast-uri vulnerable to host confusion via unchecked WHATWG host canonicalization",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-wjr9-j795-jxcr",
+      "affectedRanges": [
+        ">=3.1.3 <3.1.9"
+      ]
+    },
+    "GHSA-333x-w4r6-6crp": {
+      "package": "fast-uri",
+      "title": "fast-uri vulnerable to scheme injection via an unescaped first-segment colon in suffix references",
+      "severity": "low",
+      "url": "https://github.com/advisories/GHSA-333x-w4r6-6crp",
+      "affectedRanges": [
+        ">=3.0.0 <3.1.9"
+      ]
+    },
+    "GHSA-52cp-r559-cp3m": {
+      "package": "js-yaml",
+      "title": "js-yaml: YAML merge-key chains can force quadratic CPU consumption",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-52cp-r559-cp3m",
+      "affectedRanges": [
+        ">=4.0.0 <4.3.0"
+      ]
+    },
+    "GHSA-5p4m-2wfm-xmqj": {
+      "package": "js-yaml",
+      "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) \u2014 CVE-2026-59870 fix not backported",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+      "affectedRanges": [
+        ">=4.0.0 <4.3.1"
+      ]
+    },
+    "GHSA-2883-xcg3-v3hh": {
+      "package": "js-yaml",
+      "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+      "affectedRanges": [
+        ">=4.0.0 <4.3.2"
+      ]
+    },
+    "GHSA-g3hv-75wg-m249": {
+      "package": "minimatch",
+      "title": "minimatch has potential denial of service via globparts amplification",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+      "affectedRanges": [
+        ">=7.0.0 <11.0.1"
+      ]
+    },
+    "GHSA-3f6p-5ww8-9rcr": {
+      "package": "mysql2",
+      "title": "MySQL2: Auth Plugin Downgrade to mysql_clear_password Leaks Plaintext Credentials",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-3f6p-5ww8-9rcr",
+      "affectedRanges": [
+        "<3.22.0"
+      ]
+    },
+    "GHSA-rgwj-5xj2-c3m3": {
+      "package": "mysql2",
+      "title": "MySQL2: Unbounded zlib inflate in compressed MySQL protocol handler allows decompression-bomb DoS",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-rgwj-5xj2-c3m3",
+      "affectedRanges": [
+        "<=3.23.0"
+      ]
+    },
+    "GHSA-vcvr-r3jv-pc5j": {
+      "package": "next",
+      "title": "Next.js: Remote Code Execution in next/og ImageResponse",
+      "severity": "critical",
+      "url": "https://github.com/advisories/GHSA-vcvr-r3jv-pc5j",
+      "affectedRanges": [
+        ">=16.2.0 <16.3.6"
+      ]
+    },
+    "GHSA-3w37-wq28-93x7": {
+      "package": "next",
+      "title": "Next.js: Pending `use cache` fill can leak Draft Mode content into regular responses and persisted pages",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-3w37-wq28-93x7",
+      "affectedRanges": [
+        ">=16.3.0 <16.3.8"
+      ]
+    },
+    "GHSA-4jqv-mc3x-m676": {
+      "package": "next",
+      "title": "Next.js has cache poisoning of SSG and ISR pages in self-hosted applications",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-4jqv-mc3x-m676",
+      "affectedRanges": [
+        ">=16.0.0 <16.3.8"
+      ]
+    },
+    "GHSA-39w2-rjm5-chcv": {
+      "package": "next",
+      "title": "Next.js has information disclosure in development server's Model Context Protocol endpoint",
+      "severity": "low",
+      "url": "https://github.com/advisories/GHSA-39w2-rjm5-chcv",
+      "affectedRanges": [
+        ">=16.0.0 <16.3.8"
+      ]
+    },
+    "GHSA-f87g-xv8r-7p7x": {
+      "package": "next",
+      "title": "Next.js has information disclosure in App Router metadata image routes via dynamicParams bypass",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-f87g-xv8r-7p7x",
+      "affectedRanges": [
+        ">=16.0.0 <16.3.8"
+      ]
+    },
+    "GHSA-mcj8-r9mp-w47p": {
+      "package": "next",
+      "title": "Next.js has cache poisoning in SSG/ISR rendering that leads to cross-user content substitution and persistent denial of service",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-mcj8-r9mp-w47p",
+      "affectedRanges": [
+        ">=16.0.0 <16.3.8"
+      ]
+    },
+    "GHSA-cjq9-62q9-8jv4": {
+      "package": "next",
+      "title": "Next.js has Server-Side Request Forgery in Image Optimization",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-cjq9-62q9-8jv4",
+      "affectedRanges": [
+        ">=16.0.0 <16.3.8"
+      ]
+    },
+    "GHSA-2464-fhr4-w9xw": {
+      "package": "next",
+      "title": "Next.js: Unauthenticated Remote Code Execution in Image Optimization API when SVG files are used",
+      "severity": "critical",
+      "url": "https://github.com/advisories/GHSA-2464-fhr4-w9xw",
+      "affectedRanges": [
+        ">=16.0.0 <=16.4.0"
+      ]
+    },
+    "GHSA-p3m5-59mp-jv5r": {
+      "package": "next",
+      "title": "Next.js: Denial of Service in App Router using Server Actions",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-p3m5-59mp-jv5r",
+      "affectedRanges": [
+        ">=16.0.0 <=16.4.0"
+      ]
+    },
+    "GHSA-h694-7cp9-m8p3": {
+      "package": "next",
+      "title": "next.js cache leak across root param values in nested 'use cache' functions",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-h694-7cp9-m8p3",
+      "affectedRanges": [
+        ">=16.3.0 <16.3.8"
+      ]
+    },
+    "GHSA-673q-mjm6-r5xr": {
+      "package": "next",
+      "title": "Next.js: Unauthenticated Remote Code Execution in `use cache` functions returning typed arrays",
+      "severity": "critical",
+      "url": "https://github.com/advisories/GHSA-673q-mjm6-r5xr",
+      "affectedRanges": [
+        ">=16.0.0 <=16.4.0"
+      ]
+    },
+    "GHSA-rj75-hqrm-r3gf": {
+      "package": "postcss-selector-parser",
+      "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf",
+      "affectedRanges": [
+        "<6.1.5"
+      ]
+    },
+    "GHSA-wq5f-xc86-pv6w": {
+      "package": "sharp",
+      "title": "sharp : Vulnerability in librsvg dependency CVE-2026-96889",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-wq5f-xc86-pv6w",
+      "affectedRanges": [
+        "<0.35.5"
+      ]
+    },
+    "GHSA-68fv-2mgg-jv7q": {
+      "package": "source-map-js",
+      "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q",
+      "affectedRanges": [
+        ">=1.0.0 <1.2.2"
+      ]
+    },
+    "GHSA-w5hq-g745-h8pq": {
+      "package": "uuid",
+      "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+      "severity": "moderate",
+      "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+      "affectedRanges": [
+        "<11.1.1"
+      ]
+    },
+    "GHSA-mrhx-c7xc-m3w5": {
+      "package": "zod",
+      "title": "Zod can exhaust memory while validating oversized constrained collections",
+      "severity": "high",
+      "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+      "affectedRanges": [
+        "<4.6.6"
+      ]
+    }
+  }
+}

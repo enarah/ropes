@@ -1,0 +1,59 @@
+name: SPOT CLI PostgreSQL concurrency rehearsal
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [sandbox/truenas]
+    paths:
+      - ".github/workflows/spot-cli-rehearsal.yml"
+      - "lib/tracking/**"
+      - "lib/db.ts"
+      - "scripts/sync-spot-once.ts"
+      - "tests/tracking-postgres/**"
+      - "tests/tracking-server/spot-fixtures.ts"
+      - "prisma/**"
+      - "package*.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spot-cli-rehearsal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ropes_rehearsal
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ropes_rehearsal -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - name: Exercise real CLI processes and real cooldown expiry
+        env:
+          ROPES_SPOT_REHEARSAL_ADMIN_URL: postgresql://ropes_rehearsal@127.0.0.1:5432/postgres
+        run: |
+          set -o pipefail
+          npm run test:tracking-postgres 2>&1 | tee spot-cli-rehearsal.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spot-cli-postgres-evidence
+          path: spot-cli-rehearsal.log

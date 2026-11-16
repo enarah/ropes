@@ -21,7 +21,8 @@
     "db:studio": "prisma studio",
     "tracking:demo:load": "tsx scripts/load-synthetic-tracking.ts",
     "tracking:spot:sync-once": "node --conditions=react-server --import tsx scripts/sync-spot-once.ts",
-    "test:tracking-server": "node --conditions=react-server --import tsx --test \"tests/tracking-server/*.test-server.ts\""
+    "test:tracking-server": "node --conditions=react-server --import tsx --test \"tests/tracking-server/*.test-server.ts\"",
+    "test:tracking-postgres": "node --import tsx --test tests/tracking-postgres/spot-cli.test-postgres.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
