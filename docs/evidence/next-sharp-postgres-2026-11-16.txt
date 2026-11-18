@@ -1,0 +1,26 @@
+
+> ropes@1.0.0 test:tracking-postgres
+> node --import tsx --test tests/tracking-postgres/spot-cli.test-postgres.ts
+
+▶ PostgreSQL 16: independent real CLI processes, loopback HTTP and durable coordination
+  ✔ held PostgreSQL advisory lock returns BUSY without HTTP or an attempt write (250.943125ms)
+  ✔ simultaneous independent CLI processes retrieve once; a fresh process sees durable cooldown (554.641542ms)
+  ✔ real elapsed success cooldown permits retry and identical messages are skipped (150029.620084ms)
+  ✔ failed provider attempt persists safely, blocks retry and succeeds after real elapsed cooldown (150586.062625ms)
+  ✔ conflicting duplicate rolls back earlier asset/message writes and retains history (468.080792ms)
+  ✔ cross-organisation commands fail before HTTP; identical provider IDs remain independently scoped (801.601792ms)
+  ✔ newer durable attempt fences an in-flight CLI from overwriting messages or status (239.069625ms)
+  ✔ captured process output and persisted diagnostics contain no credentials (0.314625ms)
+✔ PostgreSQL 16: independent real CLI processes, loopback HTTP and durable coordination (303194.680833ms)
+ℹ PostgreSQL 160016; Node v26.0.0; two independent OS processes; cooldown 150 seconds
+ℹ Actual cooldown wait 149777ms; persisted attempt timestamp left unchanged
+ℹ Actual cooldown wait 149850ms; persisted attempt timestamp left unchanged
+ℹ Mock HTTP requests: 7; no live endpoint; all CLI stdout/stderr checked; fresh database dropped on completion
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 303288.341333

@@ -1,0 +1,278 @@
+{
+  "reviewDate": "2026-11-16",
+  "baseMergeCommit": "e37820640b020c051f2e04f7ddb07db0a0ece99a",
+  "packageLockSha256": "f8393626d5016c8d35fadeba51d2ffad68e63a1d301bb1b86d79ef1df1982b7f",
+  "targetedVersions": {
+    "next": "16.4.6",
+    "sharp": "0.35.5",
+    "eslint-config-next": "16.4.6"
+  },
+  "before": {
+    "allDependencies": {
+      "info": 0,
+      "low": 0,
+      "moderate": 11,
+      "high": 10,
+      "critical": 1,
+      "total": 22
+    },
+    "omitDev": {
+      "info": 0,
+      "low": 0,
+      "moderate": 1,
+      "high": 6,
+      "critical": 1,
+      "total": 8
+    }
+  },
+  "after": {
+    "allDependencies": {
+      "info": 0,
+      "low": 0,
+      "moderate": 11,
+      "high": 9,
+      "critical": 0,
+      "total": 20
+    },
+    "omitDev": {
+      "info": 0,
+      "low": 0,
+      "moderate": 1,
+      "high": 5,
+      "critical": 0,
+      "total": 6
+    }
+  },
+  "targetPackagesAbsentFromAudit": true,
+  "remainingPackages": [
+    {
+      "name": "@prisma/config",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/@prisma/config",
+          "version": "7.9.1"
+        }
+      ],
+      "presentInOmitDevAudit": true
+    },
+    {
+      "name": "@typescript-eslint/eslint-plugin",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/eslint-plugin",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "@typescript-eslint/parser",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/parser",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "@typescript-eslint/type-utils",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/type-utils",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "@typescript-eslint/typescript-estree",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/typescript-estree",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "@typescript-eslint/utils",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/utils",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "brace-expansion",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
+          "version": "5.0.6"
+        },
+        {
+          "path": "node_modules/brace-expansion",
+          "version": "1.1.15"
+        },
+        {
+          "path": "node_modules/readdir-glob/node_modules/brace-expansion",
+          "version": "2.1.1"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "browserslist",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/browserslist",
+          "version": "4.28.2"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "deepmerge-ts",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/deepmerge-ts",
+          "version": "7.1.5"
+        }
+      ],
+      "presentInOmitDevAudit": true
+    },
+    {
+      "name": "exceljs",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/exceljs",
+          "version": "4.4.0"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "fast-uri",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/fast-uri",
+          "version": "3.1.7"
+        }
+      ],
+      "presentInOmitDevAudit": true
+    },
+    {
+      "name": "js-yaml",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/js-yaml",
+          "version": "4.2.0"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "minimatch",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/@typescript-eslint/typescript-estree/node_modules/minimatch",
+          "version": "10.2.5"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "mysql2",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/mysql2",
+          "version": "3.15.3"
+        }
+      ],
+      "presentInOmitDevAudit": true
+    },
+    {
+      "name": "postcss-selector-parser",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/postcss-selector-parser",
+          "version": "6.1.4"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "prisma",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/prisma",
+          "version": "7.9.1"
+        }
+      ],
+      "presentInOmitDevAudit": true
+    },
+    {
+      "name": "source-map-js",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/source-map-js",
+          "version": "1.2.1"
+        }
+      ],
+      "presentInOmitDevAudit": true
+    },
+    {
+      "name": "typescript-eslint",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/typescript-eslint",
+          "version": "8.61.1"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "uuid",
+      "severity": "moderate",
+      "installed": [
+        {
+          "path": "node_modules/uuid",
+          "version": "8.3.2"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    },
+    {
+      "name": "zod",
+      "severity": "high",
+      "installed": [
+        {
+          "path": "node_modules/zod",
+          "version": "4.4.3"
+        }
+      ],
+      "presentInOmitDevAudit": false
+    }
+  ],
+  "advisoryDetails": "See spot-dependency-audit-2026-11-16.json for remaining advisory URLs/ranges; no other dependency family upgraded."
+}
